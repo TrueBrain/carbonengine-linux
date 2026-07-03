@@ -45,8 +45,8 @@ PATCHES=$(find "${PORT_DIR}" -maxdepth 1 -name '*.patch' -printf '%f\n' | sort)
 
 # Rewrite the marked block in portfile.cmake with the current patch list.
 awk -v begin="${PATCHES_BEGIN}" -v end="${PATCHES_END}" -v patches="${PATCHES}" '
-  $0 ~ begin { print; if (patches != "") print patches; skip=1; next }
-  $0 ~ end   { skip=0 }
+  index($0, begin) { print; if (patches != "") print patches; skip=1; next }
+  index($0, end)   { skip=0 }
   !skip { print }
 ' "${PORTFILE}" > "${PORTFILE}.tmp"
 mv "${PORTFILE}.tmp" "${PORTFILE}"
