@@ -24,9 +24,9 @@ git clone https://github.com/TrueBrain/carbonengine-linux
 git clone https://github.com/carbonengine/core
 cd core
 
-cmake . -B cmake-build-host -DCMAKE_TOOLCHAIN_FILE=../microsoft-vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_OVERLAY_TRIPLETS=../carbonengine-linux/triplets -DVCPKG_OVERLAY_PORTS=../carbonengine-linux/ports
-cmake --build cmake-build-host
-ctest --test-dir cmake-build-host
+cmake . -B cmake-build-linux -DCMAKE_TOOLCHAIN_FILE=$(pwd)/../microsoft-vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_OVERLAY_TRIPLETS=$(pwd)/../carbonengine-linux/triplets -DVCPKG_OVERLAY_PORTS=$(pwd)/../carbonengine-linux/ports
+cmake --build cmake-build-linux
+ctest --test-dir cmake-build-linux
 ```
 
 ## License
