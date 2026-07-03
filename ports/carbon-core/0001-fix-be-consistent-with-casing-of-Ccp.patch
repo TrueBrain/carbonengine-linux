@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Wed, 24 Jun 2026 21:09:09 +0200
-Subject: [PATCH 1/7] fix: be consistent with casing of Ccp
+Subject: [PATCH 1/8] fix: be consistent with casing of Ccp
 
 ---
  CMakeLists.txt                                | 28 +++++++++----------

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Mon, 29 Jun 2026 20:55:07 +0200
-Subject: [PATCH 3/7] build: update vcpkg registry to HTTPS
+Subject: [PATCH 3/8] build: update vcpkg registry to HTTPS
 
 For vcpkg, it is much more common to use HTTPS for public registries.
 Accessing them via SSH isn't always possible, as it requires a key pre-installed.

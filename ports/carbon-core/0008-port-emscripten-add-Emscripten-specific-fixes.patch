@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Mon, 29 Jun 2026 20:56:16 +0200
+Subject: [PATCH 8/8] port(emscripten): add Emscripten specific fixes
+
+---
+ CcpCallstack.cpp | 2 +-
+ CcpFileUtils.cpp | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/CcpCallstack.cpp b/CcpCallstack.cpp
+index 2d8c726..f1ad9e7 100644
+--- a/CcpCallstack.cpp
++++ b/CcpCallstack.cpp
+@@ -279,7 +279,7 @@ void CCPCallstack::Enumerate( void ( *callback )( size_t codePointer, void* cont
+ 	DbgHelp::Done();
+ }
+ 
+-#elif defined(__ANDROID__)
++#elif defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+ 
+ void CCPCallstack::LoadSymbols()
+ {
+diff --git a/CcpFileUtils.cpp b/CcpFileUtils.cpp
+index 1b1d4bf..d1789c5 100644
+--- a/CcpFileUtils.cpp
++++ b/CcpFileUtils.cpp
+@@ -754,6 +754,8 @@ std::wstring CcpExecutablePath()
+     }
+     dest[count] = '\0';
+     return std::wstring( CA2W( dest ) );
++#elif defined(__EMSCRIPTEN__)
++    return L"";
+ #else
+     static_assert( false, "CcpExecutablePath is not implemented" );
+ #endif

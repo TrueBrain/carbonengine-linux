@@ -4,6 +4,7 @@ vcpkg_from_git(
   REF 250df5221bdbb981a46669ac7a7e72ed33e099e0
   HEAD_REF main
   PATCHES
+    # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
     0001-fix-be-consistent-with-casing-of-Ccp.patch
     0002-fix-detect-std-atomic-correctly-for-GCC-5.patch
     0003-build-update-vcpkg-registry-to-HTTPS.patch
@@ -12,6 +13,7 @@ vcpkg_from_git(
     0006-chore-fix-compiling-telemetry-module-when-disabled.patch
     0007-port-linux-add-support-for-Linux.patch
     0008-port-emscripten-add-Emscripten-specific-fixes.patch
+    # END EXPORTED PATCHES
 )
 
 vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
