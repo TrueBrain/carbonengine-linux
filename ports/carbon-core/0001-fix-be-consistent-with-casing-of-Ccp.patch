@@ -1,0 +1,518 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Wed, 24 Jun 2026 21:09:09 +0200
+Subject: [PATCH 1/7] fix: be consistent with casing of Ccp
+
+---
+ CMakeLists.txt                                | 28 +++++++++----------
+ CCPAssert.cpp => CcpAssert.cpp                |  2 +-
+ CCPCallstack.cpp => CcpCallstack.cpp          |  2 +-
+ CCPHash.cpp => CcpHash.cpp                    |  2 +-
+ CCPLog.cpp => CcpLog.cpp                      |  2 +-
+ CCPMemory.cpp => CcpMemory.cpp                |  6 ++--
+ CCPMemoryTracker.cpp => CcpMemoryTracker.cpp  |  8 +++---
+ CcpSemaphore.cpp                              |  2 +-
+ CcpTelemetry.cpp                              |  2 +-
+ CcpThread.cpp                                 |  6 ++--
+ CcpTime.cpp                                   |  2 +-
+ StdAfx.h                                      |  2 +-
+ StringConversions.cpp                         |  2 +-
+ include/CachedAllocator.h                     |  4 +--
+ include/{CCPAssert.h => CcpAssert.h}          |  0
+ include/{CCPCallstack.h => CcpCallstack.h}    |  0
+ include/CcpCore.h                             |  8 +++---
+ include/CcpCrash.h                            |  2 +-
+ include/{CCPHash.h => CcpHash.h}              |  0
+ include/{CCPLog.h => CcpLog.h}                |  0
+ include/{CCPMemory.h => CcpMemory.h}          |  0
+ ...{CCPMemoryTracker.h => CcpMemoryTracker.h} |  0
+ include/CcpThread.h                           |  2 +-
+ include/TrackableContainer.h                  |  2 +-
+ tests/CMakeLists.txt                          |  8 +++---
+ tests/{CCPCallstack.cpp => CcpCallstack.cpp}  |  2 +-
+ tests/{CCPHash.cpp => CcpHash.cpp}            |  2 +-
+ tests/{CCPLog.cpp => CcpLog.cpp}              |  2 +-
+ ...MemoryTracker.cpp => CcpMemoryTracker.cpp} |  0
+ tests/CcpSemaphore.cpp                        |  2 +-
+ 30 files changed, 50 insertions(+), 50 deletions(-)
+ rename CCPAssert.cpp => CcpAssert.cpp (99%)
+ rename CCPCallstack.cpp => CcpCallstack.cpp (99%)
+ rename CCPHash.cpp => CcpHash.cpp (95%)
+ rename CCPLog.cpp => CcpLog.cpp (99%)
+ rename CCPMemory.cpp => CcpMemory.cpp (99%)
+ rename CCPMemoryTracker.cpp => CcpMemoryTracker.cpp (99%)
+ rename include/{CCPAssert.h => CcpAssert.h} (100%)
+ rename include/{CCPCallstack.h => CcpCallstack.h} (100%)
+ rename include/{CCPHash.h => CcpHash.h} (100%)
+ rename include/{CCPLog.h => CcpLog.h} (100%)
+ rename include/{CCPMemory.h => CcpMemory.h} (100%)
+ rename include/{CCPMemoryTracker.h => CcpMemoryTracker.h} (100%)
+ rename tests/{CCPCallstack.cpp => CcpCallstack.cpp} (99%)
+ rename tests/{CCPHash.cpp => CcpHash.cpp} (96%)
+ rename tests/{CCPLog.cpp => CcpLog.cpp} (99%)
+ rename tests/{CCPMemoryTracker.cpp => CcpMemoryTracker.cpp} (100%)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4279b02..5a32bc7 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,14 +18,14 @@ option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
+ 
+ set(SRC_FILES
+         CcpCore.cpp
+-        CCPAssert.cpp
+-        CCPCallstack.cpp
+-        CCPDefines.cpp
++        CcpAssert.cpp
++        CcpCallstack.cpp
++        CcpDefines.cpp
+         CcpFileUtils.cpp
+-        CCPHash.cpp
+-        CCPMemory.cpp
+-        CCPMemoryTracker.cpp
+-        CCPMemoryTrackerMutex.h
++        CcpHash.cpp
++        CcpMemory.cpp
++        CcpMemoryTracker.cpp
++        CcpMemoryTrackerMutex.h
+         CcpProcess.cpp
+         CcpSecureCrt.cpp
+         CcpSemaphore.cpp
+@@ -35,7 +35,7 @@ set(SRC_FILES
+         CcpThreadClass.cpp
+         CcpTime.cpp
+         StringConversions.cpp
+-        CCPLog.cpp
++        CcpLog.cpp
+ )
+ 
+ add_library(CcpCore SHARED ${SRC_FILES})
+@@ -57,17 +57,17 @@ generate_export_header(CcpCore
+ 
+ set(PUBLIC_HEADER_FILES
+         include/CachedAllocator.h
+-        include/CCPAssert.h
++        include/CcpAssert.h
+         include/CcpAtomic.h
+-        include/CCPCallstack.h
++        include/CcpCallstack.h
+         include/CcpCore.h
+         include/CcpCrash.h
+         include/CcpDefines.h
+         include/CcpFileUtils.h
+-        include/CCPHash.h
++        include/CcpHash.h
+         include/CcpMacros.h
+-        include/CCPMemory.h
+-        include/CCPMemoryTracker.h
++        include/CcpMemory.h
++        include/CcpMemoryTracker.h
+         include/CcpMutex.h
+         include/CcpPairingHeap.h
+         include/CcpProcess.h
+@@ -83,7 +83,7 @@ set(PUBLIC_HEADER_FILES
+         include/ICrashReporter.h
+         include/StringConversions.h
+         include/TrackableContainer.h
+-        include/CCPLog.h
++        include/CcpLog.h
+         ${CMAKE_CURRENT_BINARY_DIR}/carbon_core_export.h
+ )
+ target_sources(CcpCore PRIVATE ${PUBLIC_HEADER_FILES})
+diff --git a/CCPAssert.cpp b/CcpAssert.cpp
+similarity index 99%
+rename from CCPAssert.cpp
+rename to CcpAssert.cpp
+index 20f9d71..5edcf3e 100644
+--- a/CCPAssert.cpp
++++ b/CcpAssert.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2025 CCP ehf.
+ 
+-#include "include/CCPAssert.h"
++#include "include/CcpAssert.h"
+ #include "include/CcpSecureCrt.h"
+ 
+ #ifdef _WIN32
+diff --git a/CCPCallstack.cpp b/CcpCallstack.cpp
+similarity index 99%
+rename from CCPCallstack.cpp
+rename to CcpCallstack.cpp
+index c5c1f1f..2d8c726 100644
+--- a/CCPCallstack.cpp
++++ b/CcpCallstack.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2025 CCP ehf.
+ 
+-#include "include/CCPCallstack.h"
++#include "include/CcpCallstack.h"
+ 
+ namespace
+ {
+diff --git a/CCPHash.cpp b/CcpHash.cpp
+similarity index 95%
+rename from CCPHash.cpp
+rename to CcpHash.cpp
+index d85b0c5..7bfdc25 100644
+--- a/CCPHash.cpp
++++ b/CcpHash.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2025 CCP ehf.
+ 
+-#include "include/CCPHash.h"
++#include "include/CcpHash.h"
+ 
+ /// See http://www.isthe.com/chongo/tech/comp/fnv/ for a description of the FNV1 hash algorithm
+ /// and the specific values used here.
+diff --git a/CCPLog.cpp b/CcpLog.cpp
+similarity index 99%
+rename from CCPLog.cpp
+rename to CcpLog.cpp
+index 9de4096..04c372c 100644
+--- a/CCPLog.cpp
++++ b/CcpLog.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2008 CCP ehf.
+ 
+-#include "CCPLog.h"
++#include "CcpLog.h"
+ 
+ #include <cassert>
+ #include <thread>
+diff --git a/CCPMemory.cpp b/CcpMemory.cpp
+similarity index 99%
+rename from CCPMemory.cpp
+rename to CcpMemory.cpp
+index ab7ec90..5f8a0ac 100644
+--- a/CCPMemory.cpp
++++ b/CcpMemory.cpp
+@@ -1,8 +1,8 @@
+ // Copyright © 2025 CCP ehf.
+ 
+-#include "include/CCPMemory.h"
+-#include "include/CCPMemoryTracker.h"
+-#include "include/CCPAssert.h"
++#include "include/CcpMemory.h"
++#include "include/CcpMemoryTracker.h"
++#include "include/CcpAssert.h"
+ #include "include/CcpTelemetry.h"
+ #include "CcpMemoryTrackerMutex.h"
+ 
+diff --git a/CCPMemoryTracker.cpp b/CcpMemoryTracker.cpp
+similarity index 99%
+rename from CCPMemoryTracker.cpp
+rename to CcpMemoryTracker.cpp
+index c9578f9..fdb386b 100644
+--- a/CCPMemoryTracker.cpp
++++ b/CcpMemoryTracker.cpp
+@@ -2,7 +2,7 @@
+ 
+ // See http://core/wiki/Memory_Tracking
+ 
+-#include "include/CCPMemoryTracker.h"
++#include "include/CcpMemoryTracker.h"
+ #include "include/CcpMutex.h"
+ 
+ #include <map>
+@@ -10,9 +10,9 @@
+ // #define CCP_UNIT_TEST 1
+ 
+ #include "include/CcpMacros.h"
+-#include "include/CCPAssert.h"
+-#include "include/CCPHash.h"
+-#include "include/CCPCallstack.h"
++#include "include/CcpAssert.h"
++#include "include/CcpHash.h"
++#include "include/CcpCallstack.h"
+ #include "include/CcpSecureCrt.h"
+ 
+ #ifdef _WIN32
+diff --git a/CcpSemaphore.cpp b/CcpSemaphore.cpp
+index bf1d6f0..599015c 100644
+--- a/CcpSemaphore.cpp
++++ b/CcpSemaphore.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2013 CCP ehf.
+ 
+ #include "include/CcpSemaphore.h"
+-#include "include/CCPAssert.h"
++#include "include/CcpAssert.h"
+ 
+ #ifdef _WIN32
+ 
+diff --git a/CcpTelemetry.cpp b/CcpTelemetry.cpp
+index 86a0d01..a5b141d 100644
+--- a/CcpTelemetry.cpp
++++ b/CcpTelemetry.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include <queue>
+ 
+-#include "include/CCPAssert.h"
++#include "include/CcpAssert.h"
+ #include "include/CcpTelemetry.h"
+ #include "include/CcpTime.h"
+ 
+diff --git a/CcpThread.cpp b/CcpThread.cpp
+index 3e5ba4f..8a97d72 100644
+--- a/CcpThread.cpp
++++ b/CcpThread.cpp
+@@ -1,9 +1,9 @@
+ // Copyright © 2013 CCP ehf.
+ 
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ #include "include/CcpThread.h"
+-#include "include/CCPMemory.h"
++#include "include/CcpMemory.h"
+ 
+ namespace
+ {
+@@ -113,7 +113,7 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
+ #elif __APPLE__
+ 
+ #include <sys/time.h>
+-#include "include/CCPAssert.h"
++#include "include/CcpAssert.h"
+ #include <mach/thread_act.h>
+ 
+ namespace
+diff --git a/CcpTime.cpp b/CcpTime.cpp
+index b9dd159..ce581c4 100644
+--- a/CcpTime.cpp
++++ b/CcpTime.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2013 CCP ehf.
+ 
+ #include "include/CcpTime.h"
+-#include "include/CCPAssert.h"
++#include "include/CcpAssert.h"
+ #include <cfloat>
+ #include <cmath>
+ 
+diff --git a/StdAfx.h b/StdAfx.h
+index 21722ce..d0be527 100644
+--- a/StdAfx.h
++++ b/StdAfx.h
+@@ -16,4 +16,4 @@
+ #include <vector>
+ #include <algorithm>
+ 
+-#include <CCPLog.h>
++#include <CcpLog.h>
+diff --git a/StringConversions.cpp b/StringConversions.cpp
+index d8f3b7f..2d0183a 100644
+--- a/StringConversions.cpp
++++ b/StringConversions.cpp
+@@ -29,7 +29,7 @@ std::string WideToUTF8( const wchar_t* wideString )
+ 
+ #include <wchar.h>
+ #include <string.h>
+-#include "CCPMemory.h"
++#include "CcpMemory.h"
+ 
+ 
+ BlueConvertWideToAscii::BlueConvertWideToAscii( const wchar_t* src ) : m_converted( nullptr )
+diff --git a/include/CachedAllocator.h b/include/CachedAllocator.h
+index 74e3643..9575385 100644
+--- a/include/CachedAllocator.h
++++ b/include/CachedAllocator.h
+@@ -4,7 +4,7 @@
+ #ifndef CachedAllocator_h
+ #define CachedAllocator_h
+ 
+-#include "CCPMemory.h"
++#include "CcpMemory.h"
+ 
+ // CachedAllocator is a template class that provides cached allocations for its template argument.
+ //
+@@ -37,7 +37,7 @@
+ // Once those 1024 are used up (and whenever there are no instances available to be reused), memory for 256
+ // further instances is allocated.
+ 
+-#include "CCPAssert.h"
++#include "CcpAssert.h"
+ 
+ template <class T>
+ class CachedAllocator
+diff --git a/include/CCPAssert.h b/include/CcpAssert.h
+similarity index 100%
+rename from include/CCPAssert.h
+rename to include/CcpAssert.h
+diff --git a/include/CCPCallstack.h b/include/CcpCallstack.h
+similarity index 100%
+rename from include/CCPCallstack.h
+rename to include/CcpCallstack.h
+diff --git a/include/CcpCore.h b/include/CcpCore.h
+index c78a6cd..e77ca6d 100644
+--- a/include/CcpCore.h
++++ b/include/CcpCore.h
+@@ -9,14 +9,14 @@
+ 
+ #include "CcpTypes.h"
+ #include "CcpMacros.h"
+-#include "CCPMemory.h"
+-#include "CCPMemoryTracker.h"
+-#include "CCPAssert.h"
++#include "CcpMemory.h"
++#include "CcpMemoryTracker.h"
++#include "CcpAssert.h"
+ #include "CcpMutex.h"
+ #include "CcpSemaphore.h"
+ #include "CcpTelemetry.h"
+ #include "CachedAllocator.h"
+-#include "CCPHash.h"
++#include "CcpHash.h"
+ #include "TrackableContainer.h"
+ #include "ICrashReporter.h"
+ #include "CcpSecureCrt.h"
+diff --git a/include/CcpCrash.h b/include/CcpCrash.h
+index 61f9e7a..4844677 100644
+--- a/include/CcpCrash.h
++++ b/include/CcpCrash.h
+@@ -3,7 +3,7 @@
+ #ifndef _CCPCRASH_H
+ #define _CCPCRASH_H
+ 
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ #if _MSC_VER
+ #define NOINLINE __declspec(noinline)
+diff --git a/include/CCPHash.h b/include/CcpHash.h
+similarity index 100%
+rename from include/CCPHash.h
+rename to include/CcpHash.h
+diff --git a/include/CCPLog.h b/include/CcpLog.h
+similarity index 100%
+rename from include/CCPLog.h
+rename to include/CcpLog.h
+diff --git a/include/CCPMemory.h b/include/CcpMemory.h
+similarity index 100%
+rename from include/CCPMemory.h
+rename to include/CcpMemory.h
+diff --git a/include/CCPMemoryTracker.h b/include/CcpMemoryTracker.h
+similarity index 100%
+rename from include/CCPMemoryTracker.h
+rename to include/CcpMemoryTracker.h
+diff --git a/include/CcpThread.h b/include/CcpThread.h
+index 07018cc..4419977 100644
+--- a/include/CcpThread.h
++++ b/include/CcpThread.h
+@@ -9,7 +9,7 @@
+ #include <type_traits>
+ #include <exception>
+ #include <algorithm>
+-#include "CCPMemory.h"
++#include "CcpMemory.h"
+ 
+ #if _WIN32
+ 	#include <windows.h>
+diff --git a/include/TrackableContainer.h b/include/TrackableContainer.h
+index 131ef92..7b28ae4 100644
+--- a/include/TrackableContainer.h
++++ b/include/TrackableContainer.h
+@@ -5,7 +5,7 @@
+ #ifndef TRACKABLECONTAINER_H
+ #define TRACKABLECONTAINER_H
+ 
+-#include "CCPMemory.h"
++#include "CcpMemory.h"
+ #include "CcpSecureCrt.h"
+ #ifdef _MSC_VER
+ 	#include <xmemory>
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 17f117f..bd6d6a4 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -6,12 +6,12 @@ find_package(GTest CONFIG REQUIRED)
+ find_package(lz4 CONFIG REQUIRED)
+ add_executable(CcpCoreTest
+     CcpAtomic.cpp
+-    CCPCallstack.cpp
++    CcpCallstack.cpp
+     CcpCoreTest.cpp
+-    CCPHash.cpp
++    CcpHash.cpp
+     CcpFileUtils.cpp
+     CcpMemory.cpp
+-    CCPMemoryTracker.cpp
++    CcpMemoryTracker.cpp
+     CcpSecureCrt.cpp
+     CcpStatistics.cpp
+     CcpTelemetry.cpp
+@@ -19,7 +19,7 @@ add_executable(CcpCoreTest
+     CcpTime.cpp
+     StringConversions.cpp
+     TempFile.cpp
+-    CCPLog.cpp
++    CcpLog.cpp
+     TracyTestClient.cpp
+ )
+ target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4)
+diff --git a/tests/CCPCallstack.cpp b/tests/CcpCallstack.cpp
+similarity index 99%
+rename from tests/CCPCallstack.cpp
+rename to tests/CcpCallstack.cpp
+index ff22a63..fbc51ce 100644
+--- a/tests/CCPCallstack.cpp
++++ b/tests/CcpCallstack.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2025 CCP ehf.
+ 
+ #include "gtest/gtest.h"
+-#include "CCPCallstack.h"
++#include "CcpCallstack.h"
+ #include <memory>
+ 
+ #include "TempFile.h"
+diff --git a/tests/CCPHash.cpp b/tests/CcpHash.cpp
+similarity index 96%
+rename from tests/CCPHash.cpp
+rename to tests/CcpHash.cpp
+index 8d6a196..2588fa9 100644
+--- a/tests/CCPHash.cpp
++++ b/tests/CcpHash.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2025 CCP ehf.
+ 
+ #include "gtest/gtest.h"
+-#include "CCPHash.h"
++#include "CcpHash.h"
+ 
+ TEST ( CCPHash, TestHashEmptyString )
+ {
+diff --git a/tests/CCPLog.cpp b/tests/CcpLog.cpp
+similarity index 99%
+rename from tests/CCPLog.cpp
+rename to tests/CcpLog.cpp
+index 4fbfd67..c22b8de 100644
+--- a/tests/CCPLog.cpp
++++ b/tests/CcpLog.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include <stack>
+ #include <gtest/gtest.h>
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ 
+ struct LogEntry
+diff --git a/tests/CCPMemoryTracker.cpp b/tests/CcpMemoryTracker.cpp
+similarity index 100%
+rename from tests/CCPMemoryTracker.cpp
+rename to tests/CcpMemoryTracker.cpp
+diff --git a/tests/CcpSemaphore.cpp b/tests/CcpSemaphore.cpp
+index 6d4ed21..bceff40 100644
+--- a/tests/CcpSemaphore.cpp
++++ b/tests/CcpSemaphore.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2025 CCP ehf.
+ 
+ #include "gtest/gtest.h"
+-#include "CcpCore/include/CCPCore.h"
++#include "CcpCore/include/CcpCore.h"
+ 
+ namespace
+ {

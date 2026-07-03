@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Mon, 29 Jun 2026 20:55:07 +0200
+Subject: [PATCH 4/7] build: integrate vcpkg manifest features
+
+This ensures that CMake options propagate through via vcpkg.
+Meaning no more installing Python3 if you are not building docs.
+---
+ CMakeLists.txt | 54 ++++++++++++++++++++++++++---------------
+ vcpkg.json     | 65 +++++++++++++++++++++++++++++++++-----------------
+ 2 files changed, 78 insertions(+), 41 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5a32bc7..dd73942 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2,6 +2,39 @@
+ 
+ cmake_minimum_required(VERSION 3.19)
+ 
++option(WITH_TELEMETRY "Enable profiler integration" ON)
++option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
++
++if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
++    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
++
++    # Determine if/when to generate/build documentation. The rules are as follows:
++    # - If running locally - Build documentation is OFF by default
++    # - If running on a build agent (TeamCity) - Build documentation is ON by default
++    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
++    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
++    if(DEFINED ENV{TEAMCITY_VERSION})
++        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
++    endif()
++    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
++else()
++    set(BUILD_TESTING OFF)
++    set(BUILD_DOCUMENTATION OFF)
++endif()
++
++if(WITH_TELEMETRY)
++    list(APPEND VCPKG_MANIFEST_FEATURES "telemetry")
++endif()
++if(WITH_MEMORY_TRACKING)
++    list(APPEND VCPKG_MANIFEST_FEATURES "memory-tracking")
++endif()
++if(BUILD_TESTING)
++    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
++endif()
++if(BUILD_DOCUMENTATION)
++    list(APPEND VCPKG_MANIFEST_FEATURES "docs")
++endif()
++
+ project(CcpCore)
+ 
+ set(CCP_TOOLSET ${CMAKE_GENERATOR_TOOLSET})
+@@ -13,9 +46,6 @@ include(cmake/CcpDocsGenerator.cmake)
+ include(cmake/CcpPackageConfigHelpers.cmake)
+ include(cmake/CcpBuildConfigurations.cmake)
+ 
+-option(WITH_TELEMETRY "Enable profiler integration" ON)
+-option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
+-
+ set(SRC_FILES
+         CcpCore.cpp
+         CcpAssert.cpp
+@@ -124,12 +154,9 @@ else()
+     target_compile_definitions(CcpCore PUBLIC CCP_MEMORY_DEBUG=0)
+ endif()
+ 
+-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+-    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
++if(BUILD_TESTING)
+     include(CTest)
+-    if(BUILD_TESTING)
+-        add_subdirectory(tests)
+-    endif()
++    add_subdirectory(tests)
+ endif()
+ 
+ target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
+@@ -146,17 +173,6 @@ target_include_directories(CcpCore
+ 
+ # Provide an install target iff this is the top level project only
+ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+-    # Determine if/when to generate/build documentation. The rules are as follows:
+-    # - If running locally - Build documentation is OFF by default
+-    # - If running on a build agent (TeamCity) - Build documentation is ON by default
+-    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
+-    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
+-    if(DEFINED ENV{TEAMCITY_VERSION})
+-        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
+-    endif()
+-    message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
+-    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
+-
+     if(BUILD_DOCUMENTATION)
+         find_package(Python3 COMPONENTS Interpreter REQUIRED)
+         include(cmake/CcpDocsGenerator.cmake)
+diff --git a/vcpkg.json b/vcpkg.json
+index b128da3..1b60c80 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -1,29 +1,50 @@
+ {
+-  "dependencies": [
+-    {
+-      "name": "tracy",
+-      "version>=": "0.13.1#1",
+-      "features": [
+-        "fibers",
+-        "on-demand",
+-        "no-callstack",
+-        "manual-lifetime",
+-        "delayed-init",
+-        "no-crash-handler"
++  "dependencies": [],
++  "features": {
++    "docs": {
++      "description": "Dependencies for building documentation",
++      "dependencies": [
++        {
++          "name": "python3",
++          "version>=": "3.12.9#1",
++          "host": true
++        }
+       ]
+     },
+-    {
+-      "name": "gtest",
+-      "version>=": "1.16.0"
++    "tests": {
++      "description": "Dependencies for building tests",
++      "dependencies": [
++        {
++          "name": "gtest",
++          "version>=": "1.16.0"
++        }
++      ]
+     },
+-    {
+-      "name": "lz4",
+-      "version>=": "1.9.4"
++    "telemetry": {
++      "description": "Enable telemetry",
++      "dependencies": [
++        {
++          "name": "tracy",
++          "version>=": "0.13.1#1",
++          "features": [
++            "fibers",
++            "on-demand",
++            "no-callstack",
++            "manual-lifetime",
++            "delayed-init",
++            "no-crash-handler"
++          ]
++        }
++      ]
+     },
+-    {
+-      "name": "python3",
+-      "version>=": "3.12.9#1",
+-      "host": true
++    "memory-tracking": {
++      "description": "Enable memory tracking",
++      "dependencies": [
++        {
++          "name": "lz4",
++          "version>=": "1.9.4"
++        }
++      ]
+     }
+-  ]
++  }
+ }

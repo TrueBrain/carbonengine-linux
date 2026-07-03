@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Wed, 24 Jun 2026 21:17:34 +0200
+Subject: [PATCH 2/7] fix: detect std::atomic correctly for GCC 5+
+
+---
+ include/CcpAtomic.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/CcpAtomic.h b/include/CcpAtomic.h
+index 1f50e94..c98fce2 100644
+--- a/include/CcpAtomic.h
++++ b/include/CcpAtomic.h
+@@ -1,7 +1,7 @@
+ // Copyright © 2013 CCP ehf.
+ //
+ // Wrapper for std::atomic. Since at the time of writing not all platforms we'd
+-// like to support provide std::atomic we 
++// like to support provide std::atomic we
+ 
+ #pragma once
+ #ifndef CcpAtomic_h
+@@ -14,7 +14,7 @@
+ #endif
+ 
+ #ifdef __GNUG__
+-	#if __GNUC__ == 4 && __GNUC_MINOR__ >= 7
++	#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
+ 		#define CCP_HAS_ATOMIC 1
+ 	#endif
+ #endif

@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Mon, 29 Jun 2026 20:55:23 +0200
+Subject: [PATCH 5/7] chore: include all required system headers
+
+Linux compilers tend to be more strict in what headers
+they need, where other compilers tend to auto-include
+some.
+
+JJ :chore: telemetry and log header updates for cross-platform support
+---
+ CcpStatistics.cpp      | 2 ++
+ CcpTime.cpp            | 2 ++
+ include/CcpLog.h       | 1 +
+ include/CcpTelemetry.h | 3 +++
+ 4 files changed, 8 insertions(+)
+
+diff --git a/CcpStatistics.cpp b/CcpStatistics.cpp
+index 9dfd539..981762d 100644
+--- a/CcpStatistics.cpp
++++ b/CcpStatistics.cpp
+@@ -4,6 +4,8 @@
+ 
+ #include "CcpTelemetry.h"
+ 
++#include <cmath>
++
+ static double SCALING_FACTOR_FOR_TIME = 1000000.0;
+ 
+ CcpStatistics::EntryArray& CcpStatistics::GetEntryArray()
+diff --git a/CcpTime.cpp b/CcpTime.cpp
+index ce581c4..e638444 100644
+--- a/CcpTime.cpp
++++ b/CcpTime.cpp
+@@ -4,6 +4,8 @@
+ #include "include/CcpAssert.h"
+ #include <cfloat>
+ #include <cmath>
++#include <sys/time.h>
++#include <climits>
+ 
+ #ifdef _WIN32
+ 
+diff --git a/include/CcpLog.h b/include/CcpLog.h
+index 0727cee..17ce472 100644
+--- a/include/CcpLog.h
++++ b/include/CcpLog.h
+@@ -6,6 +6,7 @@
+ 
+ #include <cstdarg>
+ #include <stdexcept>
++#include <cstdint>
+ #include "carbon_core_export.h"
+ 
+ #if !defined( CCP_LOG_ENABLED )
+diff --git a/include/CcpTelemetry.h b/include/CcpTelemetry.h
+index 670bfcf..ea0f39d 100644
+--- a/include/CcpTelemetry.h
++++ b/include/CcpTelemetry.h
+@@ -5,6 +5,9 @@
+ #define CcpTelemetry_h
+ 
+ #include <optional>
++#include <set>
++#include <string>
++#include <chrono>
+ 
+ #include "CcpThread.h"
+ #include "carbon_core_export.h"

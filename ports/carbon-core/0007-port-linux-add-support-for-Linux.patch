@@ -1,0 +1,355 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Mon, 29 Jun 2026 20:55:57 +0200
+Subject: [PATCH 7/7] port(linux): add support for Linux
+
+---
+ CcpAssert.cpp         | 32 ++++++++++++++++++++++++++++++++
+ CcpFileUtils.cpp      | 24 ++++++++++++++++++++----
+ CcpMemory.cpp         |  1 +
+ CcpThread.cpp         | 39 +++++++++++++++++++++++++++++++++++----
+ StringConversions.cpp | 34 +++++++++++++++++++++++++++++++++-
+ include/CcpMacros.h   |  2 +-
+ include/CcpThread.h   | 10 +++++++---
+ tests/CcpMemory.cpp   |  4 +++-
+ 8 files changed, 132 insertions(+), 14 deletions(-)
+
+diff --git a/CcpAssert.cpp b/CcpAssert.cpp
+index 5edcf3e..1904029 100644
+--- a/CcpAssert.cpp
++++ b/CcpAssert.cpp
+@@ -200,5 +200,37 @@ bool CcpIsDebuggerPresent()
+     return IsDebuggerPresent() != 0;
+ }
+ 
++#else
++
++#include <sys/types.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <string.h>
++#include <stdlib.h>
++
++bool CcpIsDebuggerPresent()
++{
++    int fd = open("/proc/self/status", O_RDONLY);
++    if (fd == -1)
++        return false;
++
++    char buf[1024];
++    ssize_t num_read = read(fd, buf, sizeof(buf) - 1);
++    close(fd);
++
++    if (num_read <= 0)
++        return false;
++
++    buf[num_read] = '\0';
++    const char* tracerPidString = strstr(buf, "TracerPid:");
++    if (tracerPidString)
++    {
++        int tracerPid = atoi(tracerPidString + 10);
++        return tracerPid != 0;
++    }
++
++    return false;
++}
++
+ #endif
+ 
+diff --git a/CcpFileUtils.cpp b/CcpFileUtils.cpp
+index ed59d96..1b1d4bf 100644
+--- a/CcpFileUtils.cpp
++++ b/CcpFileUtils.cpp
+@@ -6,6 +6,14 @@
+ #include "include/CcpSecureCrt.h"
+ 
+ #include <stdlib.h>
++#include <limits.h>
++
++#ifndef O_EXLOCK
++#define O_EXLOCK 0
++#endif
++#ifndef O_SHLOCK
++#define O_SHLOCK 0
++#endif
+ 
+ #ifdef _WIN32
+ 
+@@ -501,7 +509,7 @@ void BreakPathIntoComponents( const std::string& path, std::vector<std::string>&
+ 
+ 		components.push_back( comp );
+ 		startPos = endPos;
+-	} 
++	}
+ }
+ 
+ // Removes any '.' entries, and collapses '..' entries with the entry preceding it.
+@@ -510,7 +518,7 @@ void CollapseRelativePaths( std::vector<std::string>& components )
+ {
+ 	for( auto it = components.begin(); it != components.end(); )
+ 	{
+-		if( *it == "." ) 
++		if( *it == "." )
+ 		{
+ 			it = components.erase( it );
+ 		}
+@@ -594,7 +602,7 @@ bool FindCasingCorrectedPath( const std::string& path, const std::vector<std::st
+ 				return true;
+ 			}
+ 		}
+-		else		
++		else
+ 		{
+ 			bool isMore = FindCasingCorrectedPath( candidate, components, compIx + 1, result );
+ 			if( !isMore )
+@@ -734,10 +742,18 @@ std::wstring CcpExecutablePath()
+         tmp.resize( size );
+         _NSGetExecutablePath( &tmp[0], &size );
+     }
+-    
++
+     char actualpath [PATH_MAX];
+     char* path = realpath(&tmp[0], actualpath);
+     return std::wstring( CA2W( actualpath ) );
++#elif defined(__linux__)
++    char dest[PATH_MAX];
++    ssize_t count = readlink("/proc/self/exe", dest, PATH_MAX);
++    if (count < 0) {
++        return L"";
++    }
++    dest[count] = '\0';
++    return std::wstring( CA2W( dest ) );
+ #else
+     static_assert( false, "CcpExecutablePath is not implemented" );
+ #endif
+diff --git a/CcpMemory.cpp b/CcpMemory.cpp
+index 5f8a0ac..a7c83c1 100644
+--- a/CcpMemory.cpp
++++ b/CcpMemory.cpp
+@@ -4,6 +4,7 @@
+ #include "include/CcpMemoryTracker.h"
+ #include "include/CcpAssert.h"
+ #include "include/CcpTelemetry.h"
++#include "include/CcpSecureCrt.h"
+ #include "CcpMemoryTrackerMutex.h"
+ 
+ #ifdef __APPLE__
+diff --git a/CcpThread.cpp b/CcpThread.cpp
+index 8a97d72..2401d59 100644
+--- a/CcpThread.cpp
++++ b/CcpThread.cpp
+@@ -110,11 +110,15 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
+     return GetThreadTimes( GetCurrentThread(), &dummy, &dummy, (LPFILETIME)&kernelTime, (LPFILETIME)&userTime ) != 0;
+ }
+ 
+-#elif __APPLE__
++#elif defined(__APPLE__) || defined(__linux__)
+ 
+ #include <sys/time.h>
+ #include "include/CcpAssert.h"
+-#include <mach/thread_act.h>
++#ifdef __APPLE__
++#      include <mach/thread_act.h>
++#else
++#      include <sys/resource.h>
++#endif
+ 
+ namespace
+ {
+@@ -131,7 +135,11 @@ namespace
+ 
+ CcpThreadId_t CcpGetCurrentThreadId()
+ {
+-	return pthread_mach_thread_np(pthread_self());
++#ifdef __APPLE__
++    return pthread_mach_thread_np(pthread_self());
++#else
++    return pthread_self();
++#endif
+ }
+ 
+ CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, CcpThreadPriority_t priority )
+@@ -139,7 +147,11 @@ CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, Cc
+ 	pthread_attr_t attr;
+ 	if( pthread_attr_init( &attr ) != 0 )
+ 	{
++#ifdef __APPLE__
+ 		return nullptr;
++#else
++		return 0;
++#endif
+ 	}
+ 
+ 	CreateThreadData* data = CCP_NEW( "CcpCreateThread/data" ) CreateThreadData;
+@@ -161,7 +173,11 @@ CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, Cc
+ 	}
+ 	else
+ 	{
++#ifdef __APPLE__
+ 		return nullptr;
++#else
++		return 0;
++#endif
+ 	}
+ }
+ 
+@@ -243,7 +259,11 @@ int CcpJoinThreadWithTimeout( CcpThreadHandle_t threadHandle, uint32_t timeoutIn
+ 
+ CcpThreadId_t CcpGetThreadId( CcpThreadHandle_t handle )
+ {
+-    return pthread_mach_thread_np(handle);
++#ifdef __APPLE__
++     return pthread_mach_thread_np(handle);
++#else
++    return handle;
++#endif
+ }
+ 
+ bool CcpSetThreadPriority( CcpThreadHandle_t thread, CcpThreadPriority_t priority )
+@@ -303,6 +323,7 @@ void CcpSetThreadPriority( CcpThread& thread, CcpThreadPriority_t priority )
+ 
+ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
+ {
++#ifdef __APPLE__
+     mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+     thread_basic_info_data_t info;
+ 	mach_port_t port = pthread_mach_thread_np( pthread_self() );
+@@ -318,6 +339,16 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
+     userTime = int64_t( info.user_time.seconds ) * 10000000 + int64_t( info.user_time.microseconds ) * 10;
+     kernelTime = int64_t( info.system_time.seconds ) * 10000000 + int64_t( info.system_time.microseconds ) * 10;
+     return true;
++#else
++    struct rusage usage;
++    if( getrusage( RUSAGE_THREAD, &usage ) != 0 )
++    {
++        return false;
++    }
++    userTime = int64_t( usage.ru_utime.tv_sec ) * 10000000 + int64_t( usage.ru_utime.tv_usec ) * 10;
++    kernelTime = int64_t( usage.ru_stime.tv_sec ) * 10000000 + int64_t( usage.ru_stime.tv_usec ) * 10;
++    return true;
++#endif
+ }
+ 
+ #endif
+diff --git a/StringConversions.cpp b/StringConversions.cpp
+index 2d0183a..2573df8 100644
+--- a/StringConversions.cpp
++++ b/StringConversions.cpp
+@@ -31,7 +31,6 @@ std::string WideToUTF8( const wchar_t* wideString )
+ #include <string.h>
+ #include "CcpMemory.h"
+ 
+-
+ BlueConvertWideToAscii::BlueConvertWideToAscii( const wchar_t* src ) : m_converted( nullptr )
+ {
+ 	Init( src );
+@@ -103,4 +102,37 @@ void BlueConvertAsciiToWide::Init( const char* src )
+ 	m_converted[sizeNeeded] = 0;
+ }
+ 
++#ifndef __APPLE__
++
++#include <codecvt>
++#include <locale>
++
++std::wstring UTF8ToWide( const char* utf8String )
++{
++	try
++	{
++		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
++		return converter.from_bytes( utf8String );
++	}
++	catch( ... )
++	{
++		return L"";
++	}
++}
++
++std::string WideToUTF8( const wchar_t* wideString )
++{
++	try
++	{
++		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
++		return converter.to_bytes( wideString );
++	}
++	catch( ... )
++	{
++		return "";
++	}
++}
++
++#endif
++
+ #endif
+diff --git a/include/CcpMacros.h b/include/CcpMacros.h
+index e6229df..230f811 100644
+--- a/include/CcpMacros.h
++++ b/include/CcpMacros.h
+@@ -15,7 +15,7 @@
+ 			#define BLUEIMPORT __declspec(dllimport)
+ 		#endif
+ 	#endif
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+ #ifdef BLUEBUILD_STATIC
+ #define BLUEIMPORT
+ #else
+diff --git a/include/CcpThread.h b/include/CcpThread.h
+index 4419977..2021221 100644
+--- a/include/CcpThread.h
++++ b/include/CcpThread.h
+@@ -20,10 +20,14 @@
+ 	{
+ 		_mm_pause();
+ 	}
+-#elif __APPLE__
++#elif __APPLE__ || defined(__linux__)
+ 	#include <pthread.h>
+ 	#include <sched.h>
+-    typedef mach_port_t CcpThreadId_t;
++	#ifdef __APPLE__
++		typedef mach_port_t CcpThreadId_t;
++	#else
++		typedef pthread_t CcpThreadId_t;
++	#endif
+ 	typedef pthread_t CcpThreadHandle_t;
+ 
+ 	inline void CcpThreadYield()
+@@ -128,7 +132,7 @@ private:
+ 	DWORD m_id;
+ };
+ 
+-#else 
++#else
+ 
+ #include <thread>
+ typedef std::thread CcpThread;
+diff --git a/tests/CcpMemory.cpp b/tests/CcpMemory.cpp
+index 183e43b..eacc83c 100644
+--- a/tests/CcpMemory.cpp
++++ b/tests/CcpMemory.cpp
+@@ -99,7 +99,7 @@ public:
+ void SilencedFreeWithGuard( void* memory )
+ {
+ #ifdef _WIN32
+-	__try 
++	__try
+     {
+ #endif
+ 		CCPFreeWithGuard( memory );
+@@ -223,6 +223,7 @@ TEST( CcpMemory, CallocWithGuardSilentlyFailsWhenOutOfMemory )
+ 	EXPECT_EQ( nullptr, memory );
+ }
+ 
++#if defined(__WIN32__) || defined(__APPLE__)
+ TEST( CcpMemory, CanDetectInvalidMemoryAccessPastMemoryBlock )
+ {
+ 
+@@ -261,6 +262,7 @@ TEST( CcpMemory, CanDetectInvalidMemoryAccessBeforeMemoryBlock )
+         EXPECT_TRUE( logHelper.HasMessage( CCP::LOGTYPE_ERR, "in front of block at" ) );
+     }
+ }
++#endif
+ 
+ TEST( CcpMemory, CanDuplicateString )
+ {
