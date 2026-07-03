@@ -12,7 +12,7 @@ set -euo pipefail
 VCPKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(pwd)"
 PORT_NAME="carbon-$(basename "${REPO_ROOT}")"
-PORT_DIR="${VCPKG_ROOT}/carbonengine-linux/ports/${PORT_NAME}"
+PORT_DIR="${VCPKG_ROOT}/ports/${PORT_NAME}"
 PORTFILE="${PORT_DIR}/portfile.cmake"
 PATCHES_BEGIN="# BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)"
 PATCHES_END="# END EXPORTED PATCHES"
