@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 23:31:26 +0200
+Subject: [PATCH 1/4] build: update vcpkg registry to HTTPS
+
+For vcpkg, it is much more common to use HTTPS for public registries.
+Accessing them via SSH isn't always possible, as it requires a key pre-installed.
+---
+ vcpkg-configuration.json | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/vcpkg-configuration.json b/vcpkg-configuration.json
+index 7902a32..d585327 100644
+--- a/vcpkg-configuration.json
++++ b/vcpkg-configuration.json
+@@ -7,9 +7,12 @@
+   "registries": [
+     {
+       "kind": "git",
+-      "repository": "git@github.com:carbonengine/vcpkg-registry.git",
++      "repository": "https://github.com/carbonengine/vcpkg-registry.git",
+       "baseline": "303eacceb8ce9a0aa9a061f00ab2c11e8725ab2d",
+-      "packages": ["ccp-debug-info", "zlib"]
++      "packages": [
++        "ccp-debug-info",
++        "zlib"
++      ]
+     }
+   ]
+-}
++}
+\ No newline at end of file

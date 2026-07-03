@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 23:32:23 +0200
+Subject: [PATCH 3/4] fix: missing namespace before isfinite
+
+---
+ tests/CcpFloat.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/CcpFloat.h b/tests/CcpFloat.h
+index 8b22963..ae5ba8f 100644
+--- a/tests/CcpFloat.h
++++ b/tests/CcpFloat.h
+@@ -21,7 +21,7 @@ inline bool CcpIsFinite( float x )
+ #ifdef _MSC_VER
+     return _finite( x ) != 0;
+ #else
+-    return isfinite( x );
++    return std::isfinite( x );
+ #endif
+ }
+ 

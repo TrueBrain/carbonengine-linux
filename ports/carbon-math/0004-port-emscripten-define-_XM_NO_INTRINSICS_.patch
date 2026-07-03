@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Thu, 25 Jun 2026 19:51:37 +0200
+Subject: [PATCH 4/4] port(emscripten): define _XM_NO_INTRINSICS_
+
+---
+ include/Requirements.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/include/Requirements.h b/include/Requirements.h
+index 75ddf12..9a419e4 100644
+--- a/include/Requirements.h
++++ b/include/Requirements.h
+@@ -16,6 +16,12 @@
+ #include <utility>
+ #include <cmath>
+ 
++#ifdef __EMSCRIPTEN__
++#ifndef _XM_NO_INTRINSICS_
++#define _XM_NO_INTRINSICS_
++#endif
++#endif
++
+ #include "DirectXMath.h"
+ #include "DirectXPackedVector.h"
+ 
