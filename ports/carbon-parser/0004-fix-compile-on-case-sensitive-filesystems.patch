@@ -1,0 +1,14 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 23:47:49 +0200
+Subject: [PATCH 4/6] fix: compile on case sensitive filesystems
+
+---
+ tests/{CMakelists.txt => CMakeLists.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename tests/{CMakelists.txt => CMakeLists.txt} (100%)
+
+diff --git a/tests/CMakelists.txt b/tests/CMakeLists.txt
+similarity index 100%
+rename from tests/CMakelists.txt
+rename to tests/CMakeLists.txt

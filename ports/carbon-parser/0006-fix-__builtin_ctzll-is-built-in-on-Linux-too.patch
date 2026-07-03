@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 23:42:08 +0200
+Subject: [PATCH 6/6] fix: __builtin_ctzll is built-in on Linux too
+
+More correct would be to check for clang/gcc, but
+that requires a larger change
+---
+ src/codebuilder.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/codebuilder.cpp b/src/codebuilder.cpp
+index f70c1d4..4e1d78d 100644
+--- a/src/codebuilder.cpp
++++ b/src/codebuilder.cpp
+@@ -60,7 +60,7 @@ uint32_t BitScan( uint64_t mask )
+ 	unsigned long idx = 0;
+ 	_BitScanForward64( &idx, mask );
+ 	return uint32_t( idx );
+-#elif __APPLE__
++#elif defined(__APPLE__) || defined(__linux__)
+ 	return uint32_t( __builtin_ctzll( mask ) );
+ #endif
+ }
