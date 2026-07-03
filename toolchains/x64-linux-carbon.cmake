@@ -35,10 +35,4 @@ if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
 
     # Manually add debug symbols to builds
     add_compile_options(-g)
-
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "13")
-        set(MATH_OPTIMIZE_FLAG -ffast-math -fhonor-infinities -fhonor-nans)
-    else()
-        set(MATH_OPTIMIZE_FLAG -ffast-math -ffp-model=fast -fhonor-infinities -fhonor-nans)
-    endif()
 endif ()
