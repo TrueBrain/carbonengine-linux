@@ -1,25 +1,16 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Fri, 3 Jul 2026 20:46:06 +0200
-Subject: [PATCH 04/13] port(linux): enable Linux support in CMake
+Subject: [PATCH 3/3] port(linux): enable Linux support in CMake
 
 ---
- CMakeLists.txt | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ CMakeLists.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 56a597f..5ced501 100644
+index 0cd6293..619a86c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -69,7 +69,7 @@ target_link_libraries(Scheduler
-         PUBLIC
-         CcpCore
-         PRIVATE
--        Python3::Python
-+        $<IF:$<BOOL:${LINUX}>,Python3::Module,Python3::Python>
- )
- 
- get_target_property(GREENLET_INCLUDE_DIR Greenlet INTERFACE_INCLUDE_DIRECTORIES)
 @@ -106,7 +106,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
      # Store python path in environment for subsequent build steps
      if(WIN32)
