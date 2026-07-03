@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 21:16:25 +0200
+Subject: [PATCH 07/13] fix(tests): export dynamic symbols from
+ SchedulerCapiTest on Linux
+
+Scheduler is linked against Python3::Module on Linux, which does not embed
+libpython symbols; the extension expects Python C-API symbols to be resolved.
+SchedulerCapiTest embeds the interpreter but was not built with -rdynamic.
+---
+ tests/capiTest/CMakeLists.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tests/capiTest/CMakeLists.txt b/tests/capiTest/CMakeLists.txt
+index a5cfc13..55c422c 100644
+--- a/tests/capiTest/CMakeLists.txt
++++ b/tests/capiTest/CMakeLists.txt
+@@ -31,6 +31,10 @@ target_precompile_headers(SchedulerCapiTest PRIVATE StdAfx.h)
+ 
+ target_link_libraries(SchedulerCapiTest PRIVATE GTest::gtest GTest::gtest_main Python3::Python CcpCore)
+ 
++if (LINUX)
++    set_target_properties(SchedulerCapiTest PROPERTIES ENABLE_EXPORTS ON)
++endif ()
++
+ # Generate paths Include for each config
+ set(SCHEDULER_CEXTENSION_MODULE_PATH $<TARGET_FILE_DIR:Scheduler>)
+ set(SCHEDULER_PACKAGE_PATH "${CMAKE_SOURCE_DIR}/python")

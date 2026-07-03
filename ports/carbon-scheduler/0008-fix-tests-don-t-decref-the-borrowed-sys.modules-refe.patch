@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 21:33:32 +0200
+Subject: [PATCH 08/13] fix(tests): don't decref the borrowed sys.modules
+ reference
+
+InterpreterWithSchedulerModule::SetUp used PyImport_GetModuleDict(), which
+returns a borrowed reference to sys.modules, but then called Py_DecRef on it
+as if it owned that reference.
+---
+ tests/capiTest/InterpreterWithSchedulerModule.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/capiTest/InterpreterWithSchedulerModule.cpp b/tests/capiTest/InterpreterWithSchedulerModule.cpp
+index f1e5d47..b3d163a 100644
+--- a/tests/capiTest/InterpreterWithSchedulerModule.cpp
++++ b/tests/capiTest/InterpreterWithSchedulerModule.cpp
+@@ -316,13 +316,13 @@ void InterpreterWithSchedulerModule::SetUp()
+ 		exit( -1 );
+ 	}
+ 
++	// PyImport_GetModuleDict returns a borrowed reference, so it must not be decref'd.
+ 	auto* sys_modules = PyImport_GetModuleDict();
+ 	if ( PyDict_SetItemString(sys_modules, "_scheduler", m_schedulerModule) == -1 ) {
+ 		PyErr_Print();
+ 		PySys_WriteStdout( "Failed inserting _scheduler into sys.modules" );
+ 		exit( -1 );
+ 	}
+-	Py_DecRef(sys_modules);
+ 
+     // Import capsule
+ 	m_api = SchedulerAPI();

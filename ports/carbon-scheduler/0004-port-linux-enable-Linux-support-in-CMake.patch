@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 20:46:06 +0200
+Subject: [PATCH 04/13] port(linux): enable Linux support in CMake
+
+---
+ CMakeLists.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 56a597f..5ced501 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -69,7 +69,7 @@ target_link_libraries(Scheduler
+         PUBLIC
+         CcpCore
+         PRIVATE
+-        Python3::Python
++        $<IF:$<BOOL:${LINUX}>,Python3::Module,Python3::Python>
+ )
+ 
+ get_target_property(GREENLET_INCLUDE_DIR Greenlet INTERFACE_INCLUDE_DIRECTORIES)
+@@ -106,7 +106,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+     # Store python path in environment for subsequent build steps
+     if(WIN32)
+         SET(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/python\;$<TARGET_FILE_DIR:Scheduler>\;${GREENLET_PYTHON_MODULE_DIR}\;${GREENLET_IMPORTED_LOCATION_DIR}\;${Python3_STDLIB}")
+-    elseif(APPLE)
++    else()
+         SET(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/python:$<TARGET_FILE_DIR:Scheduler>:${GREENLET_PYTHON_MODULE_DIR}:${GREENLET_IMPORTED_LOCATION_DIR}:${Python3_STDLIB}")
+     endif()
+ 
+@@ -177,7 +177,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+                 TARGETS Scheduler
+                 EXPORT SchedulerTargets
+                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
+-                LIBRARY DESTINATION $<IF:$<PLATFORM_ID:Darwin>,lib,bin>/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
++                LIBRARY DESTINATION $<IF:$<BOOL:${WIN32}>,bin,lib>/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
+         )
+         # Install rule for available public headers
+         install(FILES ${PUBLIC_HEADER_FILES} DESTINATION include)
+@@ -198,7 +198,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+                 TARGETS Scheduler
+                 EXPORT SchedulerTargets
+                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
+-                LIBRARY DESTINATION $<IF:$<PLATFORM_ID:Darwin>,lib,bin>
++                LIBRARY DESTINATION $<IF:$<BOOL:${WIN32}>,bin,lib>
+         )
+         # Install rule to ensure that our runtime and linker files are in the expected, platform-specific folders
+         install(DIRECTORY include DESTINATION . FILES_MATCHING PATTERN "*.h")

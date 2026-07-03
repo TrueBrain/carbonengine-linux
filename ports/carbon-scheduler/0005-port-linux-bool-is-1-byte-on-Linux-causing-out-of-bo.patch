@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 20:47:28 +0200
+Subject: [PATCH 05/13] port(linux): bool is 1-byte on Linux, causing
+ out-of-bound writes
+
+Python's "p" assumes 4 bytes to write.
+---
+ src/PyTasklet.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/PyTasklet.cpp b/src/PyTasklet.cpp
+index f535192..409936d 100644
+--- a/src/PyTasklet.cpp
++++ b/src/PyTasklet.cpp
+@@ -57,7 +57,7 @@ static int
+ 
+     PyObject* callable = nullptr;
+ 
+-	bool isMain = false;
++	int isMain = 0;
+ 
+ 	if( !PyArg_ParseTuple( args, "|Op", &callable, &isMain ) )
+ 	{
+@@ -993,7 +993,7 @@ static PyObject*
+     PyObject* exception = Py_None;
+ 	PyObject* value = Py_None;
+ 	PyObject* tb = Py_None; // TODO not yet used but the test passes which isn't great? 
+-	bool pending = false;
++	int pending = 0;
+ 
+     if( !PyArg_ParseTupleAndKeywords( args, kwds, "|OOOp", (char**)kwlist, &exception, &value, &tb, &pending ) )
+ 	{
+@@ -1067,7 +1067,7 @@ static PyObject*
+ 
+ 	const char* kwlist[] = { "pending", NULL };
+ 
+-	bool pending = false;
++	int pending = 0;
+ 
+ 	if( !PyArg_ParseTupleAndKeywords( args, kwds, "|p", (char**)kwlist, &pending ) )
+ 	{

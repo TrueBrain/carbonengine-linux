@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 21:41:30 +0200
+Subject: [PATCH 13/13] fix: PyChannel_SendException over-decrefs
+ caller-supplied value
+
+When value was passed in, args was set to the borrowed 'value' pointer
+without an incref. But the function unconditionally Py_DecRef's args
+before returning. This over-decremented the caller's object
+---
+ src/SchedulerModule.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/SchedulerModule.cpp b/src/SchedulerModule.cpp
+index ca1d499..975b4fa 100644
+--- a/src/SchedulerModule.cpp
++++ b/src/SchedulerModule.cpp
+@@ -651,6 +651,7 @@ extern "C"
+ 		
+         if (value)
+         {
++			Py_IncRef( value );
+ 			args = value;
+         }
+         else
