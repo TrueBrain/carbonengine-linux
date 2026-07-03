@@ -1,0 +1,865 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Fri, 3 Jul 2026 20:19:31 +0200
+Subject: [PATCH 3/4] fix: compile on case sensitive filesystems
+
+---
+ BluePyWrap.cpp         | 114 ++++++++++++++++++++---------------------
+ Copier.cpp             |  22 ++++----
+ PythonKlass.cpp        |  52 +++++++++----------
+ include/BlueSmartPtr.h |  24 ++++-----
+ 4 files changed, 106 insertions(+), 106 deletions(-)
+
+diff --git a/BluePyWrap.cpp b/BluePyWrap.cpp
+index 173145e..2e76ce9 100644
+--- a/BluePyWrap.cpp
++++ b/BluePyWrap.cpp
+@@ -15,7 +15,7 @@
+ #include "include/IPythonMethods.h"
+ #include "include/BlueScriptCallback.h"
+ #include "include/BlueSharedString.h"
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ #include "BlueClasses.h"
+ #include "BlueVariable.h"
+@@ -26,7 +26,7 @@
+ 
+ #define CHECKOBJPTR \
+ 	do {if (!CheckObjPtr()) return nullptr;} while (0)
+- 
++
+ 
+ BLUEIMPORT BluePythonObject* BlueWrapObjectForPython( IRoot* obj )
+ {
+@@ -141,7 +141,7 @@ BlueWrapper* BlueWrapper::Create(IRoot* object)
+ 	// It didn't have a lock data, or didn't have a wrapper.  Got to try to insert in set.
+ 	BlueWrapper tmpWrap(object);
+ 	std::pair<WrapIt, bool> inserted = sWrappers.insert(&tmpWrap);
+-	
++
+ 	BlueWrapper *wrap;
+ 	if (inserted.second)
+ 	{
+@@ -182,7 +182,7 @@ BlueWrapper* BlueWrapper::Create(IRoot* object)
+ 		CCP_ASSERT(!ld); //we would have found it at the top of the function
+ 		Py_INCREF(wrap);
+ 	}
+-	
++
+ 	return wrap;
+ }
+ 
+@@ -289,7 +289,7 @@ void BlueWrapper::Shutdown()
+ // Sets up the bare minimum needed to compare objects.  Full construction
+ // is in Prepare()
+ //--------------------------------------------------------------------
+-BlueWrapper::BlueWrapper(IRoot* obj) : 
++BlueWrapper::BlueWrapper(IRoot* obj) :
+ 	mWeakrefList( nullptr )
+ #ifndef NDEBUG
+ 	, mTracebacks( "BlueWrapper/mTracebacks" )
+@@ -370,7 +370,7 @@ bool BlueWrapper::mEnableTrace = false;
+ 
+ void BlueWrapper::PyPrepare()
+ {
+-	mWeakrefList = NULL;	
++	mWeakrefList = NULL;
+ }
+ 
+ 
+@@ -541,7 +541,7 @@ void BlueWrapper::PyDestroy()
+ 	sWrappers.erase(this);
+ 	DecType();
+ 	Unlock();
+-	ReturnWrapper(this); //return wrapper to the wrapper cache	
++	ReturnWrapper(this); //return wrapper to the wrapper cache
+ }
+ 
+ // This is called when the Blue object is about to die. This shouldn't
+@@ -573,7 +573,7 @@ PyObject* BlueWrapper::PyGetAttr(const char* name)
+ 		name += 8;
+ 		parent = true;
+ 	}
+-	
++
+ 	//In the general case we always try a deco first
+ 	BlueLockData *ld = LD();
+ 	if (!parent && ld && ld->mPythonKlass) {
+@@ -581,8 +581,8 @@ PyObject* BlueWrapper::PyGetAttr(const char* name)
+ 		PyObject* retval = ld->mPythonKlass->GetAttr(name, &handled, this);
+ 		if (handled)
+ 			return retval;
+-	} 
+-		
++	}
++
+ 	IPythonMethods *methods = GetPyMethods();
+ 	if (methods)
+ 	{
+@@ -677,7 +677,7 @@ PyObject* BlueWrapper::PyGetAttr(const char* name)
+ 			for (unsigned i = 0; i < mTracebacks.size(); i++)
+ 			{
+ 				PyTraceBack_Print(mTracebacks[i], file);
+-				PyFile_WriteString("\n\n", file);			
++				PyFile_WriteString("\n\n", file);
+ 			}
+ 
+ 			Py_INCREF(Py_None);
+@@ -707,7 +707,7 @@ PyObject* BlueWrapper::PyGetAttr(const char* name)
+ 			}
+ 			BluePropertyGetterFunction f = val->mPyProperty->mGetProperty;
+ 			return (*f)( this );
+-		}	
++		}
+ 	}
+ 
+ 	// is it a python method?
+@@ -739,7 +739,7 @@ PyObject* BlueWrapper::PyGetAttr(const char* name)
+ 		return result;
+ 	}
+ 
+-	PyErr_SetString(PyExc_AttributeError, name);			
++	PyErr_SetString(PyExc_AttributeError, name);
+ 	return NULL;
+ }
+ 
+@@ -769,7 +769,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 	6.	If the attribute exists on the blue object, the value is set, or an error
+ 		raised in case of delattr or read-only attribute. Notify on the blue object
+ 		is sent, if appropriate.
+-	
++
+ 	7.  If the attribute was set successfully, and the object has a deco, we send it the
+ 	    OnSetAttr event, if present.
+ 	*/
+@@ -790,7 +790,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 	}
+ 
+ 	bool handled = false;
+- 
++
+ 	// CASE 1
+ 	IPythonMethods *methods = GetPyMethods();
+ 	if (methods)
+@@ -801,13 +801,13 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 	}
+ 
+ 	// CASE 2
+-	
++
+ 	// CASE 3
+ 	if (!handled && strcmp(name,"__klass__") == 0)
+ 	{
+ 		BlueLockData *ld = LD();
+ 		if (ld)
+-		{	
++		{
+ 			PythonKlass *oldKlass = ld->mPythonKlass;
+ 			if (v) {
+ 				//Attach the instance of the Python metaclass Blue2PyWrapper
+@@ -839,7 +839,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 			if (v) {
+ 
+ 			PyErr_SetString(
+-				PyExc_AttributeError, 
++				PyExc_AttributeError,
+ 				"Can't set attribute __klass__ on a automatic blue object"
+ 				);
+ 			return -1;
+@@ -847,7 +847,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 		}
+ 	}
+ 
+-		
++
+ 	// CASE 4
+ 	PythonKlass* klass = NULL;
+ 	BlueLockData *ld = LD();
+@@ -857,7 +857,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 		if (result)
+ 			return result; //error case
+ 	}
+-		
++
+ 	if (!handled) {
+ 		const BlueRttiValue* rttiValue = BeClasses->GetRtti( Type() )->FindAttribute( name );
+ 
+@@ -906,7 +906,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 				}
+ 			}
+ 		}
+-	
++
+ 		// CASE 6
+ 		if (!handled) {
+ 			if (!rttiValue)
+@@ -938,7 +938,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 				if (var->mEditFlags & Be::NOTIFY)
+ 				{
+ 					// Null out the pointer before we call this function. It may yield, which might
+-					// invalidate the map that this came from. 
++					// invalidate the map that this came from.
+ 					rttiValue = nullptr;
+ 
+ 					INotifyPtr notify = BlueCastPtr( Object() );
+@@ -949,7 +949,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 						PyErr_SetString(PyExc_AttributeError, name);
+ 						// CCP_FREE( err );
+ 						return -1;
+-					}		
++					}
+ 				}
+ 			}
+ 			else
+@@ -964,7 +964,7 @@ int BlueWrapper::PySetAttr(const char* name, PyObject* v)
+ 				}
+ 
+ 				// Null out the pointer before we call this function. It may yield, which might
+-				// invalidate the map that this came from. 
++				// invalidate the map that this came from.
+ 				rttiValue = nullptr;
+ 
+ 				PyObject *r = (*f)(this, v);
+@@ -1004,7 +1004,7 @@ PyObject* BlueWrapper::PyCompare(PyObject* other, int op)
+ 		return nullptr;
+ 	}
+ }
+-		
++
+ 
+ PyObject* BlueWrapper::PyRepr()
+ {
+@@ -1013,22 +1013,22 @@ PyObject* BlueWrapper::PyRepr()
+ 	//first, try to invoke a __repr__ dude, could be on the deco.
+ 	if (PyObject_HasAttrString(this, "__repr__"))
+ 		return PyObject_CallMethod(this, const_cast<char*>("__repr__"), const_cast<char*>("") );
+-		
++
+ 	IPythonMethods *methods = GetPyMethods();
+ 	if (methods) {
+ 		bool handled = false;
+-		BluePy app(methods->Repr(&handled), false);		
++		BluePy app(methods->Repr(&handled), false);
+ 		if (handled && !app)
+ 			return 0;
+ 		if (app)
+ 			return app.Detach();
+ 	}
+-	
++
+ 	BluePyStr result = BluePyStr::Format("<BlueWrapper: %s.%s (%p)",
+ 		Type()->mClassId->GetModule(), Type()->mClassId->GetName(), mObj);
+ 	if (!result)
+ 		return 0;
+-	
++
+ 	BlueLockData *ld = LD();
+ 	if (ld && ld->mPythonKlass){
+ 		// Get the representation of the deco object
+@@ -1060,7 +1060,7 @@ PyObject* BlueWrapper::PyStr()
+ 
+ 
+ BLUEIMPORT PyObject* BlueConvertValueToPython(
+-	const Be::VarEntry* entry, 
++	const Be::VarEntry* entry,
+ 	const Be::Var* value
+ 	)
+ {
+@@ -1072,8 +1072,8 @@ BLUEIMPORT PyObject* BlueConvertValueToPython(
+ }
+ 
+ BLUEIMPORT bool BlueConvertValueFromPython(
+-	const Be::VarEntry* var, 
+-	Be::Var* value, 
++	const Be::VarEntry* var,
++	Be::Var* value,
+ 	PyObject* v
+ 	)
+ {
+@@ -1097,8 +1097,8 @@ PyTypeObject* BlueWrapper::InitPyType()
+ 	{
+ 		return BePyTypePtr;
+ 	}
+-	
+-	static PyTypeObject sPyType = 
++
++	static PyTypeObject sPyType =
+ 		{
+ 			PyVarObject_HEAD_INIT(&PyType_Type, 0)
+ 			0,					/*					tp_name*/
+@@ -1178,7 +1178,7 @@ PyTypeObject* BlueWrapper::InitPyType()
+ Py_ssize_t BlueWrapper::PyseqLength_(PyObject* self)
+ {
+ 	GETLIST(-1);
+-	
++
+ 	return list->GetSize();
+ }
+ 
+@@ -1204,7 +1204,7 @@ PyObject* BlueWrapper::PyseqConcat_(PyObject* self, PyObject* listb)
+ 	GETLIST(NULL);
+ 
+ 	IList* list2 = ( static_cast<_Class*>( listb ) )->GetSequence();
+-	
++
+ 	if (!list2)
+ 	{
+ 		( static_cast<_Class*>( self ) )->NotSequence();
+@@ -1224,7 +1224,7 @@ PyObject* BlueWrapper::PyseqConcat_(PyObject* self, PyObject* listb)
+ 	for (int i = 0; i < size; i++)
+ 	{
+ 		IRoot* obj = list->GetAt(i);
+-		
++
+ 		if (!obj)
+ 			return NULL;
+ 
+@@ -1232,13 +1232,13 @@ PyObject* BlueWrapper::PyseqConcat_(PyObject* self, PyObject* listb)
+ 			return NULL;
+ 	}
+ 
+-	
++
+ 	size = list2->GetSize();
+ 
+ 	for (int i = 0; i < size; i++)
+ 	{
+ 		IRoot* obj = list2->GetAt(i);
+-		
++
+ 		if (!obj)
+ 			return NULL;
+ 
+@@ -1255,7 +1255,7 @@ PyObject* BlueWrapper::PyseqRepeat_(PyObject* self, Py_ssize_t n)
+ 
+ 	if (n < 0)
+ 		n = 0;
+-	
++
+ 	ssize_t size = list->GetSize();
+ 
+ 	// create a copy of this list
+@@ -1270,7 +1270,7 @@ PyObject* BlueWrapper::PyseqRepeat_(PyObject* self, Py_ssize_t n)
+ 		for (ssize_t j = 0; j < size; j++)
+ 		{
+ 			IRoot* obj = list->GetAt(i);
+-			
++
+ 			if (!obj)
+ 				return NULL;
+ 
+@@ -1296,7 +1296,7 @@ PyObject* BlueWrapper::PyseqGetItem_(PyObject* self, Py_ssize_t index)
+ 
+ 	if (index < 0 || index >= list->GetSize())
+ 	{
+-		PyErr_Format(PyExc_IndexError, 
++		PyErr_Format(PyExc_IndexError,
+ 			"list index %zi out of range, size is %zi", origIndex, list->GetSize());
+ 		return NULL;
+ 	}
+@@ -1304,7 +1304,7 @@ PyObject* BlueWrapper::PyseqGetItem_(PyObject* self, Py_ssize_t index)
+ 	IRoot* obj = list->GetAt(index);
+ 	if (obj)
+ 		return Create(obj);
+-	
++
+ 	return nullptr;
+ }
+ 
+@@ -1326,7 +1326,7 @@ PyObject* BlueWrapper::PyseqSlice_(PyObject* self, Py_ssize_t low, Py_ssize_t hi
+ 	for (Py_ssize_t i = low; i < high; i++)
+ 	{
+ 		IRoot* obj = list->GetAt(i);
+-		
++
+ 		if (!obj)
+ 			return NULL;
+ 
+@@ -1397,7 +1397,7 @@ PyObject* BlueWrapper::PySeqSubscript_( PyObject* self, PyObject* key )
+ int BlueWrapper::PyseqAssignItem_(PyObject* self, Py_ssize_t key, PyObject* value)
+ {
+ 	GETLIST(-1);
+-	
++
+ 	ListInfo info;
+ 	list->GetInfo(&info);
+ 
+@@ -1410,7 +1410,7 @@ int BlueWrapper::PyseqAssignItem_(PyObject* self, Py_ssize_t key, PyObject* valu
+ 	if (value)
+ 	{
+ 		IRoot* obj = BlueUnwrapObjectFromPython(value);
+-		
++
+ 		if (!obj)
+ 		{
+ 			PyErr_SetString(PyExc_TypeError, "value ain't IRoot guy");
+@@ -1439,7 +1439,7 @@ int BlueWrapper::PyseqAssignSlice_(PyObject* self, Py_ssize_t low, Py_ssize_t hi
+ 	Py_ssize_t srcLen = object?PySequence_Size(object):0;
+ 	if (srcLen<0)
+ 		return -1;
+-	
++
+ 
+ 	ListInfo info;
+ 	list->GetInfo(&info);
+@@ -1456,12 +1456,12 @@ int BlueWrapper::PyseqAssignSlice_(PyObject* self, Py_ssize_t low, Py_ssize_t hi
+ 		low = 0;
+ 	else if (low > size)
+ 		low = size;
+-	
++
+ 	if (high < low)
+ 		high = low;
+ 	else if (high > size)
+ 		high = size;
+-	
++
+ 	// start removing
+ 	Py_ssize_t i;
+ 
+@@ -1493,7 +1493,7 @@ int BlueWrapper::PyseqAssignSlice_(PyObject* self, Py_ssize_t low, Py_ssize_t hi
+ 			PyErr_SetString(PyExc_TypeError, "value ain't IRoot guy");
+ 			Py_DECREF(item);
+ 			return -1;
+-		}	
++		}
+ 		if (!list->Insert(low + i, iroot)) {
+ 			Py_DECREF(item);
+ 			return -1;
+@@ -1510,7 +1510,7 @@ int BlueWrapper::PyseqContains_(PyObject* self, PyObject* item)
+ 	GETLIST(-1);
+ 
+ 	IRoot* obj = BlueUnwrapObjectFromPython(item);
+-	
++
+ 	if (!obj)
+ 	{
+ 		// It's not a BlueWrapper instance, so it can't be in the list.
+@@ -1681,7 +1681,7 @@ int BlueWrapper::PyDictAssignSubscript( PyObject* key, PyObject* value )
+ 		PyErr_SetString( PyExc_RuntimeError, "failed to assign to dict" );
+ 		return -1;
+ 	}
+-	
++
+ 	return 0;
+ }
+ 
+@@ -1731,7 +1731,7 @@ PyObject* BlueWrapper::PyStructureListGetItem( Py_ssize_t index )
+ 
+ 	if( index < 0 || index >= (Py_ssize_t)structureList->GetSize() )
+ 	{
+-		PyErr_Format(PyExc_IndexError, 
++		PyErr_Format(PyExc_IndexError,
+ 			"list index %zd out of range, size is %zu", index, structureList->GetSize());
+ 		return nullptr;
+ 	}
+@@ -1759,7 +1759,7 @@ int BlueWrapper::PyStructureListAssignItem(Py_ssize_t index, PyObject* value)
+ 
+ 	if( index < 0 || index >= (Py_ssize_t)structureList->GetSize() )
+ 	{
+-		PyErr_Format(PyExc_IndexError, 
++		PyErr_Format(PyExc_IndexError,
+ 			"list index %zi out of range, size is %zu", index, structureList->GetSize());
+ 		return -1;
+ 	}
+@@ -1957,9 +1957,9 @@ static PyObject* PyGetID( PyObject* module, PyObject* args )
+ 	return PyLong_FromSize_t( ptrVal );
+ }
+ 
+-MAP_FUNCTION( 
+-	"GetID", 
+-	PyGetID, 
++MAP_FUNCTION(
++	"GetID",
++	PyGetID,
+ 	"GetID( o )\nGet's a unique ID (like the python id() function for Blue objects. The ID is the pointer address of the underlying IRoot instance.\n"
+ 	":param obj: IRoot\n"
+ 	":rtype: int" );
+diff --git a/Copier.cpp b/Copier.cpp
+index df575c5..cc9b621 100644
+--- a/Copier.cpp
++++ b/Copier.cpp
+@@ -9,7 +9,7 @@
+ #include "include/PythonKlass.h"
+ #endif
+ #include "BlueVariable.h"
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ Copier::Copier()
+ :	m_override( nullptr ),
+@@ -68,7 +68,7 @@ bool Copier::CopyTo(IRoot* source, IRoot** _dest)
+ 
+ 		//Get the final iroot, necessary for comparisons
+ 		source = BlueFinalIRoot(source);
+-			
++
+ 		if (mPointers.get()) {
+ 			tMapIter it = mPointers.get()->find(source);
+ 			if (it != mPointers.get()->end()) {
+@@ -88,7 +88,7 @@ bool Copier::CopyTo(IRoot* source, IRoot** _dest)
+ 
+ 		// Good.  If we created it, put it into the pointer array.
+ 		// must do this now, before recursing.
+-		if (!mPointers.get()) 
++		if (!mPointers.get())
+ 			//lazy generation of map
+ 			mPointers = std::unique_ptr<tMap>(CCP_NEW( "Copier/mPointers" ) tMap);
+ 		mPointers->insert( tPair(source, dest));
+@@ -111,14 +111,14 @@ bool Copier::CopyTo(IRoot* source, IRoot** _dest)
+ 			return false;
+ 		}
+ 	}
+-	
++
+ 	// We now have a destination to copy to.
+ 	mLevel++;
+ 	bool result = CopyToInternal(source, dest);
+ 	mLevel--;
+ 	if (!result)
+ 		return false;
+-	
++
+ 	if (!*_dest)
+ 		*_dest = dest.Detach();
+ 
+@@ -135,7 +135,7 @@ bool Copier::CopyTo(IRoot* source, IRoot** _dest)
+ 
+ 
+ // Actually handles the copying of data.  dest must exist
+-bool Copier::CopyToInternal(IRoot* source, IRoot* dest) 
++bool Copier::CopyToInternal(IRoot* source, IRoot* dest)
+ {
+ 	INotifyPtr notify( BlueCastPtr( dest ) );	//for notifications of change to the dest
+ 	IInitializePtr init( BlueCastPtr( dest ) );
+@@ -147,7 +147,7 @@ bool Copier::CopyToInternal(IRoot* source, IRoot* dest)
+ 
+ 	char *sourceFinal = (char*)BlueFinalIRoot(source);
+ 	char *destFinal   = (char*)BlueFinalIRoot(dest);
+-	
++
+ 	//Iterate over chained types in class
+ 	const Be::ClassInfo* type;
+ 	ssize_t offset = 0;
+@@ -164,10 +164,10 @@ bool Copier::CopyToInternal(IRoot* source, IRoot* dest)
+ 		for(memTable = type->mMemberTable; memTable->mType!=Be::INVALID; memTable++) {
+ 			if (!(memTable->mEditFlags & Be::PERSIST))
+ 				continue;
+-			
++
+ 			Be::Var * const src = (Be::Var*)(srcBase  + memTable->mOffset);
+ 			Be::Var * const dst = (Be::Var*)(destBase + memTable->mOffset);
+-			
++
+ 			//This compare ensures that the on-modify callback is only made when we really
+ 			//change things.
+ 			if (memTable->mType != Be::CHARARRAY) {
+@@ -179,14 +179,14 @@ bool Copier::CopyToInternal(IRoot* source, IRoot* dest)
+ 				if (!strncmp((const char *)src, (const char *)dst, memTable->mSize))
+ 					continue;
+ 			}
+-			
++
+ 			BlueVariable* bv = GetBlueVariableFromVarType(memTable->mType);
+ 			bool ok = bv->Copy(memTable, dst, src, this);
+ 			if (!ok)
+ 			{
+ 				return false;
+ 			}
+-			
++
+ 			if (notify && !notify->OnModified(dst))
+ 				return false;
+ 		}
+diff --git a/PythonKlass.cpp b/PythonKlass.cpp
+index e86b0e8..db85b2f 100644
+--- a/PythonKlass.cpp
++++ b/PythonKlass.cpp
+@@ -3,7 +3,7 @@
+ #if BLUE_WITH_PYTHON
+ #include "include/PythonKlass.h"
+ #include "include/BluePythonObject.h"
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ #include <map>
+ 
+ static CcpLogChannel_t s_ch = CCP_LOG_DEFINE_CHANNEL( "PythonKlass" );
+@@ -20,7 +20,7 @@ PythonKlass::PythonKlass(PyObject *klass) :
+ 	mVars(1)
+ {
+ 	CCP_ASSERT(klass);
+-	
++
+ 	//These lists contain variable names.  Init the mVars dict with them.
+ 	//They are set to PyNone to begin with.
+ 	const char* names[] = {"__persistvars__", "__nonpersistvars__"};
+@@ -51,7 +51,7 @@ PythonKlass::~PythonKlass()
+ 	PyObject* key;
+ 	PyObject* value;
+ 
+-	
++
+ 	TRACE("Cleaning up mVars\n");
+ 
+ 	pos = 0;
+@@ -88,9 +88,9 @@ bool PythonKlass::GetGuid(PyObject** guid) const
+ 
+ //Return a dict with all persistvars
+ PyObject *PythonKlass::Persist() const
+-{	
++{
+ 	BluePyDict dict(1);
+-	
++
+ 	// This won't fail, it's already been checked in the constructor.
+ 	BluePySeq pv = BluePy(PyObject_GetAttrString(mKlass, "__persistvars__"), false);
+ 	if (!pv) {
+@@ -100,7 +100,7 @@ PyObject *PythonKlass::Persist() const
+ 	}
+ 	if (!pv.Check())
+ 		return nullptr;
+-	
++
+ 	Py_ssize_t size = pv.Size();
+ 	for (Py_ssize_t i = 0; i < size; i++)
+ 		dict.Set(pv.Get(i), mVars.Get(pv.Get(i)));
+@@ -138,7 +138,7 @@ bool PythonKlass::IsCopied(PyObject **guid) const
+ 	    result = PyObject_IsTrue(t) ? true : false;
+ 	    Py_DECREF(t);
+ 	}
+-	
++
+ 	if (result && guid) {
+ 		if (!GetGuid(guid)) {
+ 			CCP_LOGERR("__guid__ not set for copying deco class" );
+@@ -169,8 +169,8 @@ PyObject* PythonKlass::GetPythonAttributes()
+ 
+ //Gets an attribute on the deco.  This is either a variable,
+ //Or an function object bound to the Blue instance.
+-PyObject* PythonKlass::GetAttr( 
+-		const char* name, 
++PyObject* PythonKlass::GetAttr(
++		const char* name,
+ 		bool* handled,
+ 		PyObject *self	// the self, to with to bind methods
+ 		)
+@@ -213,9 +213,9 @@ PyObject* PythonKlass::GetAttr(
+ 				r = PyMethod_New(attr, self);
+ 			Py_DECREF(attr);
+ 			return r;
+-		} 
++		}
+ 		return attr;//It's just a regular attribute
+-	} 
++	}
+ 	PyErr_Clear();
+ 	*handled = false;
+ 	return NULL;
+@@ -225,9 +225,9 @@ PyObject* PythonKlass::GetAttr(
+ //Gets an attribute on the deco.  This is either a variable,
+ //Or an function object bound to the Blue instance.
+ //This is the final try, may use __getattr__ if present
+-PyObject* PythonKlass::GetAttrFinal( 
++PyObject* PythonKlass::GetAttrFinal(
+ 		PyObject *self,	// the self, to with to bind methods
+-		const char* name, 
++		const char* name,
+ 		bool* handled
+ 		)
+ {
+@@ -250,7 +250,7 @@ PyObject* PythonKlass::GetAttrFinal(
+ //Setting of python attributes.  This deals solely with instance attributes.
+ int PythonKlass::SetAttr(
+     bool *handled,
+-	PyObject *self, 
++	PyObject *self,
+ 	const char* name,
+ 	PyObject* v,
+ 	bool force,
+@@ -266,7 +266,7 @@ int PythonKlass::SetAttr(
+ 		if (found) {
+ 			*handled = true;
+ 			if (!method) return -1;
+-		
++
+ 			//Now, call the funcion
+ 			const char* fmt = v?"(sO)":"(s)";
+ 			PyObject *r = PyObject_CallFunction(method, (char*)fmt, name, v);
+@@ -275,10 +275,10 @@ int PythonKlass::SetAttr(
+ 			return r?0:-1;
+ 		}
+ 	}
+-	
++
+ 	if (!force && !PyDict_GetItemString(mVars, (char*)name))
+ 		return 0;
+-	
++
+ 	*handled = true;
+ 	if (v)
+ 		return PyDict_SetItemString(mVars, (char*)name, v);
+@@ -289,7 +289,7 @@ int PythonKlass::SetAttr(
+ 
+ //Setting of python attributes.  This deals solely with instance attributes.
+ int PythonKlass::OnSetAttr(
+-    PyObject *self, 
++    PyObject *self,
+ 	const char* name,
+ 	PyObject* v
+ 	)
+@@ -335,9 +335,9 @@ PyObject *PythonKlass::Repr()
+ //Traverse all our python members, for Python acyclic GC
+ int PythonKlass::PyTraverse(visitproc visit, void *arg)
+ {
+-	int res = 0; 
++	int res = 0;
+ 	if (mVars)
+-		res = visit(mVars, arg); 
++		res = visit(mVars, arg);
+ 	if (!res)
+ 		res = visit(mKlass, arg);
+ 	return res;
+@@ -352,12 +352,12 @@ bool PythonKlass::CopyTo(IRoot const *source, IRoot *dest)
+ 	BluePy guid;
+ 	if (!IsCopied(&guid))
+ 		return true;  //this file is never copied
+-	
++
+ 	BluePy members(Persist());
+-	
++
+ 	//This currently works by invoking the CreateInstance method in blue to create
+ 	//a class of GUID type.  Would be cleaner just to call some DecoClone routine.
+-	
++
+ 	//CreateInstance was put in __builtin__ dict by nasty.py
+ 	BluePy builtins(PyImport_ImportModule("__builtin__"));
+ 	if (!builtins)
+@@ -367,7 +367,7 @@ bool PythonKlass::CopyTo(IRoot const *source, IRoot *dest)
+ 	//blue object and data to initialize it with.
+ 	BluePy pyDest(BlueWrapObjectForPython(dest));
+ 	BluePy dekko(PyObject_CallMethod(
+-		builtins, 
++		builtins,
+ 		const_cast<char*>("CreateInstance"), const_cast<char*>("O(OO)"), (PyObject*)guid, (PyObject*)pyDest, (PyObject*)members ));
+ 	return !!dekko;
+ }
+@@ -379,7 +379,7 @@ bool PythonKlass::Create(IRoot *target, Be::Clsid const &clsid, PyObject *member
+ 	BluePy klass(GetClass(PyName.Str()));
+ 	if (!klass)
+ 		return false;
+-	
++
+ 	bool persist = IsKlassPersisted(klass);
+ 	if (!persist) {
+ 		CCP_LOG_CH( s_ch, "Deco class %s isn't persistable, skipped loading", PyName.Str());
+@@ -450,7 +450,7 @@ bool PythonKlass::LookupMethod(PyObject **m, PyObject *self, const char *n)
+ 	//it turns out that most of the filtering for things like __setattr__ happens on the
+ 	//PyMethod_Check() below.  But presumably it is quicker to do a HasAttrString and GetAttrString
+ 	//rather than have to discard the exception object every time.  Why is there no GetAttrNoExcept?
+-	
++
+ 	BluePy method(PyObject_GetAttrString(mKlass, (char*)n));
+ 	if (!method) {
+ 	    PyErr_Clear();
+diff --git a/include/BlueSmartPtr.h b/include/BlueSmartPtr.h
+index 04a7182..a6b50c4 100644
+--- a/include/BlueSmartPtr.h
++++ b/include/BlueSmartPtr.h
+@@ -13,7 +13,7 @@
+ #define _BLUESMARTPTR_H_
+ 
+ #include <CcpMacros.h>
+-#include <CCPAssert.h>
++#include <CcpAssert.h>
+ #include "BlueScriptValue.h"
+ 
+ //Utility functions defined in blueutil.cpp.  Fixed functions like these reduce code.
+@@ -54,7 +54,7 @@ inline bool _BlueIsSame(IRoot *a, IRoot *b)
+ 
+ 	return va == vb;
+ }
+-	
++
+ 
+ //Core BluePtr implementation
+ //Special inherited class with private Lock, for the -> operator
+@@ -74,7 +74,7 @@ public:
+ 	BlueBasicPtr<T>() :  p( nullptr )
+ 	{
+ 	}
+-	
++
+ 	BlueBasicPtr<T>(T* lp) :  p( lp )
+ 	{
+ 		Lock();
+@@ -96,8 +96,8 @@ public:
+ 	{
+ 		return p;
+ 	}
+-	
+-	// The assert on operator& usually indicates a bug.  If the pointer is non-null the 
++
++	// The assert on operator& usually indicates a bug.  If the pointer is non-null the
+ 	// surrounding code is possibly overwriting the value of p and causing a memory leak.
+ 	// The solution is usually to call Unlock() on the smart pointer before using this operator.
+ 	// If this is really what is needed, however, take the address of the p member explicitly
+@@ -138,7 +138,7 @@ public:
+ 		*this = other.p;
+ 		return *this;
+ 	}
+-	
++
+ 	Class& operator=( Class &&other )
+ 	{
+ 		if( this->p == other.p )
+@@ -149,7 +149,7 @@ public:
+ 		other.p = nullptr;
+ 		return *this;
+ 	}
+-	
++
+ 	//Some simple operators, for truth testing and sorting
+ 	bool operator!() const
+ 	{
+@@ -222,7 +222,7 @@ public:
+ 		p = 0;
+ 		return pt;
+ 	}
+-	
++
+ 	T *p;  //the pointer itself.
+ };
+ 
+@@ -339,10 +339,10 @@ public:
+ 		*this = other.p;
+ 		return *this;
+ 	}
+-	
++
+ 	// "Dynamic cast" overload, to use with BlueCastPtr function
+ 	template <typename Other>
+-	Class& operator=( BlueCastPtrImpl<Other> obj ) 
++	Class& operator=( BlueCastPtrImpl<Other> obj )
+ 	{
+ 		IRoot* tmp = reinterpret_cast<IRoot*>( this->p );
+ 		if( obj.m_pointer )
+@@ -480,7 +480,7 @@ protected:
+ };
+ 
+ //A simple Weak pointer
+-template<class T> 
++template<class T>
+ class BlueWeakRef : public BlueWeakRefBase
+ {
+ 	typedef BlueWeakRef<T> Class;
+@@ -499,7 +499,7 @@ public:
+ 	BlueWeakRef( T* r ) : Base( reinterpret_cast<IRoot*>( r ) )
+ 	{
+ 	}
+-		
++
+ 	operator T* () const
+ 	{
+ 		return reinterpret_cast< T* >( m_pointer );
