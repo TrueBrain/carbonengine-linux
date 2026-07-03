@@ -18,7 +18,6 @@ if (PORT MATCHES "carbon-.*")
     set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-linux-carbon.cmake")
 endif ()
 
-
 if (PORT MATCHES "libyaml")
     set(VCPKG_LIBRARY_LINKAGE static)
 endif ()

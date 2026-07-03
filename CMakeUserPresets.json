@@ -1,0 +1,68 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux",
+      "inherits": "common",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/../carbonengine-linux/triplets",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/../carbonengine-linux/ports"
+      },
+      "hidden": true
+    },
+    {
+      "name": "x64-linux",
+      "inherits": "linux",
+      "cacheVariables": {
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/../carbonengine-linux/toolchains/x64-linux-carbon.cmake"
+      },
+      "hidden": true
+    },
+    {
+      "name": "x64-linux-internal",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Internal",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-internal",
+        "VCPKG_HOST_TRIPLET": "x64-linux-internal"
+      }
+    },
+    {
+      "name": "x64-linux-release",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-release",
+        "VCPKG_HOST_TRIPLET": "x64-linux-release"
+      }
+    },
+    {
+      "name": "x64-linux-debug",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-debug",
+        "VCPKG_HOST_TRIPLET": "x64-linux-debug"
+      }
+    },
+    {
+      "name": "x64-linux-trinitydev",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "TrinityDev",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-trinitydev",
+        "VCPKG_HOST_TRIPLET": "x64-linux-trinitydev"
+      }
+    }
+  ]
+}

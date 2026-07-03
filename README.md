@@ -17,16 +17,23 @@ original Windows/MacOS-only environment.
 ## Usage
 
 ```bash
-git clone https://github.com/microsoft/vcpkg microsoft-vcpkg
 git clone https://github.com/TrueBrain/carbonengine-linux
 
 # Replace "core" with any carbonengine repository you like to work on.
 git clone https://github.com/carbonengine/core
 cd core
 
-cmake . -B cmake-build-linux -DCMAKE_TOOLCHAIN_FILE=$(pwd)/../microsoft-vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_OVERLAY_TRIPLETS=$(pwd)/../carbonengine-linux/triplets -DVCPKG_OVERLAY_PORTS=$(pwd)/../carbonengine-linux/ports
-cmake --build cmake-build-linux
-ctest --test-dir cmake-build-linux
+git submodule update --init --recursive
+
+# Introduce linux presets to CMake.
+ln -s ../carbonengine-linux/CMakeUserPresets.json CMakeUserPresets.json
+
+# Apply all the patches to the repository. Replace "core" with the checked-out repository name.
+git am ../carbonengine-linux/ports/carbon-core/*.patch
+
+cmake --preset x64-linux-debug
+cmake --build .cmake-build-x64-linux-debug
+ctest --test-dir .cmake-build-x64-linux-debug
 ```
 
 ## License
