@@ -20,6 +20,8 @@ elseif(APPLE)
   set_target_properties(crashpad::handler PROPERTIES IMPORTED_LOCATION ${_IMPORT_PREFIX}/tools/crashpad_handler)
 	list(APPEND CRASHPAD_LIBRARIES ApplicationServices
         CoreFoundation Foundation IOKit Security bsm mig_output)
+elseif(LINUX)
+  set_target_properties(crashpad::handler PROPERTIES IMPORTED_LOCATION ${_IMPORT_PREFIX}/tools/crashpad_handler)
 endif()
 
 foreach(LIB_NAME ${CRASHPAD_LIBRARIES})
@@ -31,5 +33,5 @@ endforeach()
 find_package(ZLIB REQUIRED)
 target_link_libraries(crashpad INTERFACE ZLIB::ZLIB)
 
-target_include_directories(crashpad 
+target_include_directories(crashpad
         INTERFACE ${_IMPORT_PREFIX}/include/crashpad)
