@@ -5,13 +5,195 @@ Subject: [PATCH 04/11] fix: casting to (void *) isn't allowed
 
 That is a very C-era solution. Instead, cast to the actual type.
 ---
- src/socketmodule.cpp | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ src/socketmodule.cpp | 74 ++++++++++++++++++++++----------------------
+ 1 file changed, 37 insertions(+), 37 deletions(-)
 
 diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
 index fbf1215..c460a9b 100644
 --- a/src/socketmodule.cpp
 +++ b/src/socketmodule.cpp
+@@ -2929,9 +2929,9 @@ sock_accept(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
+     PyObject *addr = NULL;
+     PyObject *res = NULL;
+     struct sock_accept ctx;
+-	
++
+ 	if( is_managed_by_libuv( s ) ) {
+-		
++
+ 		if ( !is_valid_uv_handle( s->uv_handle ) )
+ 		{
+ 			errno = EBADF;
+@@ -2962,16 +2962,16 @@ sock_accept(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
+ 		if (!getsockaddrlen(s, &addrlen))
+ 			return NULL;
+ 		memset(&addrbuf, 0, addrlen);
+-	
++
+ 		if (!IS_SELECTABLE(s))
+ 			return select_error();
+-	
++
+ 		ctx.addrlen = &addrlen;
+ 		ctx.addrbuf = &addrbuf;
+ 		if (sock_call(s, 0, sock_accept_impl, &ctx) < 0)
+ 			return NULL;
+ 		newfd = ctx.result;
+-	
++
+ #ifdef MS_WINDOWS
+ #if defined(MS_WINDOWS_APP) || defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_SYSTEM)
+ #ifndef HANDLE_FLAG_INHERIT
+@@ -2984,7 +2984,7 @@ sock_accept(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
+ 		}
+ #endif
+ #else
+-	
++
+ #if defined(HAVE_ACCEPT4) && defined(SOCK_CLOEXEC)
+ 		socket_state *state = s->state;
+ 		if (!state->accept4_works)
+@@ -2996,13 +2996,13 @@ sock_accept(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
+ 			}
+ 		}
+ #endif
+-	
++
+ 		sock = PyLong_FromSocket_t(newfd);
+ 		if (sock == NULL) {
+ 			SOCKETCLOSE(newfd);
+ 			goto finally;
+ 		}
+-	
++
+ 		addr = makesockaddr(s->sock_fd, SAS2SA(&addrbuf),
+ 							addrlen, s->sock_proto);
+ 	}
+@@ -3400,7 +3400,7 @@ sock_bind(PySocketSockObject *s, PyObject *addro)
+ 					return s->errorhandler();
+ 				}
+ 			}
+-			
++
+ 			if ( s->sock_type == SOCK_STREAM )
+ 			{
+ 				auto handle = reinterpret_cast<uv_tcp_t *>(s->uv_handle);
+@@ -3671,7 +3671,7 @@ sock_connect(PySocketSockObject *s, PyObject *addro)
+ 		{
+ 			PyErr_SetString(PyExc_NotImplementedError, "Unsupported libuv connection type");
+ 			return nullptr;
+-			
++
+ 		}
+ 
+ 		if( !is_valid_uv_handle( s->uv_handle ) )
+@@ -3724,7 +3724,7 @@ sock_connect_ex(PySocketSockObject *s, PyObject *addro)
+ 		{
+ 			PyErr_SetString(PyExc_NotImplementedError, "Unsupported libuv connection type");
+ 			return nullptr;
+-			
++
+ 		}
+ 
+ 		if( !is_valid_uv_handle( s->uv_handle ) )
+@@ -3864,12 +3864,12 @@ sock_listen(PySocketSockObject *s, PyObject *args)
+ 
+     if (!PyArg_ParseTuple(args, "|i:listen", &backlog))
+         return NULL;
+-	
++
+     /* To avoid problems on systems that don't allow a negative backlog
+      * (which doesn't make sense anyway) we force a minimum value of 0. */
+     if (backlog < 0)
+         backlog = 0;
+-	
++
+ 	if( is_managed_by_libuv( s ) ) {
+ 		if( !is_valid_uv_handle( s->uv_handle ) ) {
+ 			errno = EBADF;
+@@ -4014,7 +4014,7 @@ sock_recv(PySocketSockObject *s, PyObject *args)
+                         "negative buffersize in recv");
+         return NULL;
+     }
+-	
++
+ 	if ( is_managed_by_libuv( s ))
+ 	{
+ 		if( s->sock_type == SOCK_STREAM )
+@@ -4042,7 +4042,7 @@ sock_recv(PySocketSockObject *s, PyObject *args)
+ 		buf = PyBytes_FromStringAndSize((char *) 0, recvlen);
+ 		if (buf == NULL)
+ 			return NULL;
+-	
++
+ 		/* Call the guts */
+ 		outlen = sock_recv_guts(s, PyBytes_AS_STRING(buf), recvlen, flags);
+ 		if (outlen < 0) {
+@@ -4106,7 +4106,7 @@ sock_recv_into(PySocketSockObject *s, PyObject *args, PyObject *kwds)
+                         "buffer too small for requested bytes");
+         return NULL;
+     }
+-	
++
+ 	if( is_managed_by_libuv( s ) )
+ 	{
+ 		if( s->sock_type == SOCK_STREAM )
+@@ -4293,7 +4293,7 @@ sock_recvfrom(PySocketSockObject *s, PyObject *args)
+ 		if (outlen < 0) {
+ 			goto finally;
+ 		}
+-	
++
+ 		if (outlen != recvlen) {
+ 			/* We did not read as many bytes as we anticipated, resize the
+ 			   string if possible and be successful. */
+@@ -4301,7 +4301,7 @@ sock_recvfrom(PySocketSockObject *s, PyObject *args)
+ 				/* Oopsy, not so successful after all. */
+ 				goto finally;
+ 		}
+-	
++
+ 		ret = PyTuple_Pack(2, buf, addr);
+ 	}
+ 
+@@ -4364,7 +4364,7 @@ sock_recvfrom_into(PySocketSockObject *s, PyObject *args, PyObject* kwds)
+ 				return nullptr;
+ 			}
+ 			readlen = PyLong_AsSsize_t(bytesReceived);
+-			
++
+ 			sock_addr_t addrbuf;
+ 			socklen_t addrlen;
+ 
+@@ -4925,13 +4925,13 @@ sock_sendall(PySocketSockObject *s, PyObject *args)
+ 					deadline_initialized = 1;
+ 					deadline = _PyDeadline_Init(timeout);
+ 				}
+-	
++
+ 				if (timeout <= 0) {
+ 					PyErr_SetString(PyExc_TimeoutError, "timed out");
+ 					goto done;
+ 				}
+ 			}
+-	
++
+ 			ctx.buf = buf;
+ 			ctx.len = len;
+ 			ctx.flags = flags;
+@@ -4939,10 +4939,10 @@ sock_sendall(PySocketSockObject *s, PyObject *args)
+ 				goto done;
+ 			n = ctx.result;
+ 			assert(n >= 0);
+-	
++
+ 			buf += n;
+ 			len -= n;
+-	
++
+ 			/* We must run our signal handlers before looping again.
+ 			   send() can return a successful partial write when it is
+ 			   interrupted, so we can't restrict ourselves to EINTR. */
 @@ -5501,7 +5501,7 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
      header->cmsg_level = SOL_ALG;
      header->cmsg_type = ALG_SET_OP;
@@ -39,3 +221,94 @@ index fbf1215..c460a9b 100644
          *uiptr = (unsigned int)assoclen;
      }
  
+@@ -6149,7 +6149,7 @@ uv_tcp_t* create_uv_tcp_handle( SOCKET_T* fd, int family )
+ 		return nullptr;
+ 	}
+ 
+-	
++
+ 	if( !CreateHandleData( reinterpret_cast<uv_handle_t*>( handle ) ) )
+ 	{
+ 		uv_close((uv_handle_t*)handle, cleanup_uv_handle);
+@@ -6372,7 +6372,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 				{
+ 					return -1;
+ 				}
+-				
++
+ 				s->uv_handle = LookupHandle( s->sock_fd );
+ 				if( s->uv_handle == nullptr )
+ 				{
+@@ -6439,7 +6439,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 							NULL, 0,
+ 							WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+ 			Py_END_ALLOW_THREADS
+-	
++
+ 			if (fd == INVALID_SOCKET) {
+ 				set_error();
+ 				return -1;
+@@ -6467,12 +6467,12 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 				fd = socket(family, type, proto);
+ 			}
+ 			Py_END_ALLOW_THREADS
+-	
++
+ 			if (fd == INVALID_SOCKET) {
+ 				set_error();
+ 				return -1;
+ 			}
+-	
++
+ 			if (_Py_set_inheritable(fd, 0, atomic_flag_works) < 0) {
+ 				SOCKETCLOSE(fd);
+ 				return -1;
+@@ -7157,7 +7157,7 @@ socket_close(PyObject *self, PyObject *fdobj)
+ #else
+ 	type = SOCK_STREAM;
+ #endif
+-	
++
+ 	auto uv_handle = LookupHandle( fd );
+ 	if( uv_handle && !uv_is_closing( uv_handle ) )
+ 	{
+@@ -7184,7 +7184,7 @@ int get_socket_family(SOCKET_T fd)
+ 	int family = -1;
+ 	sock_addr_t addrbuf;
+ 	socklen_t addrlen = sizeof( sock_addr_t );
+-	
++
+ 	memset( &addrbuf, 0, addrlen );
+ 	if( getsockname( fd, SAS2SA( &addrbuf ), &addrlen ) == 0 )
+ 	{
+@@ -7238,7 +7238,7 @@ uv_tcp_t* dup_uv_tcp_handle( SOCKET_T newfd )
+ 		PyErr_FromUvErr( status );
+ 		return nullptr;
+ 	}
+-	
++
+ 	if( !CreateHandleData( reinterpret_cast<uv_handle_t*>( handle ) ) )
+ 	{
+ 		uv_close( (uv_handle_t*)handle, cleanup_uv_handle );
+@@ -7265,10 +7265,10 @@ uv_udp_t* dup_uv_udp_handle( SOCKET_T newfd )
+ 		PyErr_FromUvErr( status );
+ 		return nullptr;
+ 	}
+-	
++
+ 	// at this point we need to delegate cleaning up the libuv handle to libuv
+ 	handle_guard.Dismiss();
+-	
++
+ 	if( !CreateHandleData( reinterpret_cast<uv_handle_t*>( handle ) ) )
+ 	{
+ 		uv_close( (uv_handle_t*)handle, cleanup_uv_handle );
+@@ -7329,7 +7329,7 @@ socket_dup(PyObject *self, PyObject *fdobj)
+ #else
+ 	type = SOCK_STREAM;
+ #endif
+-	
++
+ 	int family = -1;
+ 	/* validate that passed file descriptor is valid and a socket. */
+ 	sock_addr_t addrbuf;

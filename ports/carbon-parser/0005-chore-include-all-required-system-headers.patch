@@ -7,16 +7,19 @@ Linux compilers tend to be more strict in what headers
 they need, where other compilers tend to auto-include
 some.
 ---
- src/pch.h | 2 ++
- 1 file changed, 2 insertions(+)
+ src/pch.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/src/pch.h b/src/pch.h
 index 399ad62..5132570 100644
 --- a/src/pch.h
 +++ b/src/pch.h
-@@ -12,3 +12,5 @@
+@@ -11,4 +11,6 @@
+ #include <cassert>
  #include <sstream>
  #include <cmath>
- #include <charconv>
+-#include <charconv>
+\ No newline at end of file
++#include <charconv>
 +#include <cstring>
 +#include <algorithm>

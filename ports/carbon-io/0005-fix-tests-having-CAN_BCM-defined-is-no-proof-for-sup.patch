@@ -6,8 +6,8 @@ Subject: [PATCH 05/11] fix(tests): having CAN_BCM defined is no proof for
 
 This now follows better how other CAN-support is detected
 ---
- .../python/carboniotests/test/test_socket.py  | 20 +++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ .../python/carboniotests/test/test_socket.py  | 24 ++++++++++++++-----
+ 1 file changed, 18 insertions(+), 6 deletions(-)
 
 diff --git a/tests/python/carboniotests/test/test_socket.py b/tests/python/carboniotests/test/test_socket.py
 index 9e63095..37882f7 100644
@@ -75,3 +75,21 @@ index 9e63095..37882f7 100644
                           'socket.CAN_BCM required for this test.')
      def testBCM(self):
          bcm = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM, socket.CAN_BCM)
+@@ -7100,7 +7112,7 @@ class CarbonIoTest(SocketPairTest):
+         # Install a callback that eats oobData packets of length 5,
+         # that contain the string "eatme". The callback is set globally
+         # on the module, but should not cause issues, so long as we
+-        # don't write tests with this exact OOB Data packet. 
++        # don't write tests with this exact OOB Data packet.
+         sockettesthelper.addpacketeatingcallback()
+         self.addCleanup(sockettesthelper.removepacketeatingcallback)
+ 
+@@ -7112,7 +7124,7 @@ class CarbonIoTest(SocketPairTest):
+         payload += oobData
+         payload += MSG_1
+         self.serv.send(payload)
+-        
++
+         oobData_2 = b'deliverme'
+         oobDataLen_2 = len(oobData_2)
+         MSG_2 = b"WHAZZUP?"

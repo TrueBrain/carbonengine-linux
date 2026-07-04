@@ -5,14 +5,14 @@ Subject: [PATCH 7/8] port(linux): add support for Linux
 
 ---
  CcpAssert.cpp         | 32 ++++++++++++++++++++++++++++++++
- CcpFileUtils.cpp      | 16 ++++++++++++++++
+ CcpFileUtils.cpp      | 24 ++++++++++++++++++++----
  CcpMemory.cpp         |  1 +
- CcpThread.cpp         | 35 +++++++++++++++++++++++++++++++++--
+ CcpThread.cpp         | 39 +++++++++++++++++++++++++++++++++++----
  StringConversions.cpp | 34 +++++++++++++++++++++++++++++++++-
  include/CcpMacros.h   |  2 +-
- include/CcpThread.h   |  6 +++++-
- tests/CcpMemory.cpp   |  2 ++
- 8 files changed, 123 insertions(+), 5 deletions(-)
+ include/CcpThread.h   | 10 +++++++---
+ tests/CcpMemory.cpp   |  4 +++-
+ 8 files changed, 132 insertions(+), 14 deletions(-)
 
 diff --git a/CcpAssert.cpp b/CcpAssert.cpp
 index 5edcf3e..1904029 100644
@@ -75,7 +75,39 @@ index ed59d96..1b1d4bf 100644
  
  #ifdef _WIN32
  
-@@ -738,6 +746,14 @@ std::wstring CcpExecutablePath()
+@@ -501,7 +509,7 @@ void BreakPathIntoComponents( const std::string& path, std::vector<std::string>&
+ 
+ 		components.push_back( comp );
+ 		startPos = endPos;
+-	} 
++	}
+ }
+ 
+ // Removes any '.' entries, and collapses '..' entries with the entry preceding it.
+@@ -510,7 +518,7 @@ void CollapseRelativePaths( std::vector<std::string>& components )
+ {
+ 	for( auto it = components.begin(); it != components.end(); )
+ 	{
+-		if( *it == "." ) 
++		if( *it == "." )
+ 		{
+ 			it = components.erase( it );
+ 		}
+@@ -594,7 +602,7 @@ bool FindCasingCorrectedPath( const std::string& path, const std::vector<std::st
+ 				return true;
+ 			}
+ 		}
+-		else		
++		else
+ 		{
+ 			bool isMore = FindCasingCorrectedPath( candidate, components, compIx + 1, result );
+ 			if( !isMore )
+@@ -734,10 +742,18 @@ std::wstring CcpExecutablePath()
+         tmp.resize( size );
+         _NSGetExecutablePath( &tmp[0], &size );
+     }
+-    
++
      char actualpath [PATH_MAX];
      char* path = realpath(&tmp[0], actualpath);
      return std::wstring( CA2W( actualpath ) );
@@ -128,8 +160,9 @@ index 8a97d72..2401d59 100644
  
  CcpThreadId_t CcpGetCurrentThreadId()
  {
+-	return pthread_mach_thread_np(pthread_self());
 +#ifdef __APPLE__
-     return pthread_mach_thread_np(pthread_self());
++    return pthread_mach_thread_np(pthread_self());
 +#else
 +    return pthread_self();
 +#endif
@@ -164,8 +197,9 @@ index 8a97d72..2401d59 100644
  
  CcpThreadId_t CcpGetThreadId( CcpThreadHandle_t handle )
  {
+-    return pthread_mach_thread_np(handle);
 +#ifdef __APPLE__
-      return pthread_mach_thread_np(handle);
++     return pthread_mach_thread_np(handle);
 +#else
 +    return handle;
 +#endif
@@ -272,18 +306,37 @@ index 4419977..2021221 100644
 +#elif __APPLE__ || defined(__linux__)
  	#include <pthread.h>
  	#include <sched.h>
+-    typedef mach_port_t CcpThreadId_t;
 +	#ifdef __APPLE__
- 		typedef mach_port_t CcpThreadId_t;
++		typedef mach_port_t CcpThreadId_t;
 +	#else
 +		typedef pthread_t CcpThreadId_t;
 +	#endif
  	typedef pthread_t CcpThreadHandle_t;
  
  	inline void CcpThreadYield()
+@@ -128,7 +132,7 @@ private:
+ 	DWORD m_id;
+ };
+ 
+-#else 
++#else
+ 
+ #include <thread>
+ typedef std::thread CcpThread;
 diff --git a/tests/CcpMemory.cpp b/tests/CcpMemory.cpp
 index 183e43b..eacc83c 100644
 --- a/tests/CcpMemory.cpp
 +++ b/tests/CcpMemory.cpp
+@@ -99,7 +99,7 @@ public:
+ void SilencedFreeWithGuard( void* memory )
+ {
+ #ifdef _WIN32
+-	__try 
++	__try
+     {
+ #endif
+ 		CCPFreeWithGuard( memory );
 @@ -223,6 +223,7 @@ TEST( CcpMemory, CallocWithGuardSilentlyFailsWhenOutOfMemory )
  	EXPECT_EQ( nullptr, memory );
  }

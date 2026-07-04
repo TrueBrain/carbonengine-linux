@@ -4,12 +4,12 @@ Date: Sat, 4 Jul 2026 11:49:38 +0200
 Subject: [PATCH 08/10] port(linux): add support for Linux
 
 ---
- tests/CMakeLists.txt                   | 18 +++---------------
+ tests/CMakeLists.txt                   | 24 ++++++------------------
  tests/src/ResourceToolsLibraryTest.cpp |  4 ++--
  tests/src/ResourcesCliTest.cpp         | 16 ++++++++--------
- tests/src/ResourcesLibraryTest.cpp     | 12 ++++++------
+ tests/src/ResourcesLibraryTest.cpp     | 14 +++++++-------
  tools/src/ResourceTools.cpp            |  6 +++---
- 5 files changed, 22 insertions(+), 34 deletions(-)
+ 5 files changed, 26 insertions(+), 38 deletions(-)
 
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
 index c685908..271a6f1 100644
@@ -31,14 +31,17 @@ index c685908..271a6f1 100644
 -elseif (APPLE)
 -    # Get CLI exe
 -    add_custom_command(
-+# Get CLI exe
-+add_custom_command(
-         TARGET resources-test POST_BUILD
-         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:resources-cli> $<TARGET_FILE_DIR:resources-test>
-         COMMAND_EXPAND_LISTS
+-            TARGET resources-test POST_BUILD
+-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:resources-cli> $<TARGET_FILE_DIR:resources-test>
+-            COMMAND_EXPAND_LISTS
 -
 -    )
 -endif ()
++# Get CLI exe
++add_custom_command(
++        TARGET resources-test POST_BUILD
++        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:resources-cli> $<TARGET_FILE_DIR:resources-test>
++        COMMAND_EXPAND_LISTS
 +)
  
  cmake_path(SET TEST_DATA_PATH ${CMAKE_CURRENT_SOURCE_DIR}/testData)
@@ -138,6 +141,15 @@ diff --git a/tests/src/ResourcesLibraryTest.cpp b/tests/src/ResourcesLibraryTest
 index dd1b739..dcd5832 100644
 --- a/tests/src/ResourcesLibraryTest.cpp
 +++ b/tests/src/ResourcesLibraryTest.cpp
+@@ -310,7 +310,7 @@ TEST_F( ResourcesLibraryTest, ResourceGroupImportNonExistantFile )
+ 	CarbonResources::ResourceGroupImportFromFileParams importParams;
+ 
+ 	importParams.filename = GetTestFileAbsolutePath( "NonexistentFiles/ResourceGroup_which_does_not_exist.yaml" );
+-    
++
+     importParams.callbackSettings.statusCallback = StatusUpdate;
+ 
+ 	EXPECT_EQ( resourceGroup.ImportFromFile( importParams ).type, CarbonResources::ResultType::FAILED_TO_OPEN_FILE );
 @@ -1096,7 +1096,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromDirectory )
  
  #if _WIN64

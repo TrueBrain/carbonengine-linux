@@ -6,9 +6,9 @@ Subject: [PATCH 3/6] build: integrate vcpkg manifest features
 This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.
 ---
- CMakeLists.txt | 14 ++++++++++----
- vcpkg.json     | 12 +++++++++---
- 2 files changed, 19 insertions(+), 7 deletions(-)
+ CMakeLists.txt | 20 +++++++++++++-------
+ vcpkg.json     | 18 ++++++++++++------
+ 2 files changed, 25 insertions(+), 13 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 9f824a1..7c95694 100644
@@ -30,6 +30,15 @@ index 9f824a1..7c95694 100644
  project(carbon-parser VERSION 1.0.0)
  
  include(cmake/CcpBuildConfigurations.cmake)
+@@ -31,7 +40,7 @@ ccp_add_library(CcpParser STATIC
+     src/scanner.re
+     src/stdfunctions.cpp
+     src/stringview.cpp
+-        
++
+     ${GENERATED_SOURCES_DIR}/scanner.cpp
+ )
+ target_sources(CcpParser PRIVATE
 @@ -65,12 +74,9 @@ add_custom_command(
      MAIN_DEPENDENCY src/scanner.re
  )
@@ -37,10 +46,12 @@ index 9f824a1..7c95694 100644
 -if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 -    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
 -    if(BUILD_TESTING)
-+if(BUILD_TESTING)
-     include(CTest)
-     add_subdirectory(tests)
+-        include(CTest)
+-        add_subdirectory(tests)
 -    endif()
++if(BUILD_TESTING)
++    include(CTest)
++    add_subdirectory(tests)
  endif()
  
  # Provide an install target iff this is the top level project only
@@ -53,19 +64,22 @@ index 19c8e05..76e54f0 100644
        "version>=": "3.39.3#1",
        "host": true
 -    },
-+    }
+-    {
+-      "name": "gtest",
+-      "version>=": "1.16.0",
+-      "host": true
+     }
+-  ]
 +  ],
 +  "features": {
 +    "tests": {
 +      "description": "Dependencies for building tests",
 +      "dependencies": [
-         {
-           "name": "gtest",
--      "version>=": "1.16.0",
--      "host": true
++        {
++          "name": "gtest",
 +          "version>=": "1.16.0"
-         }
-       ]
++        }
++      ]
 +    }
 +  }
  }

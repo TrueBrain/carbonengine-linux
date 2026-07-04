@@ -9,7 +9,7 @@ Subject: [PATCH 2/3] fix: compile on case sensitive filesystems
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/ExeFile.cpp b/ExeFile.cpp
-index f04f525..f415ea9 100644
+index 7cdb8ad..ca58ca3 100644
 --- a/ExeFile.cpp
 +++ b/ExeFile.cpp
 @@ -3,7 +3,7 @@
@@ -22,7 +22,7 @@ index f04f525..f415ea9 100644
  #include <errno.h>
  #include <string>
 diff --git a/StdAfx.h b/StdAfx.h
-index a63df2c..e5c416e 100644
+index 454c56a..6283414 100644
 --- a/StdAfx.h
 +++ b/StdAfx.h
 @@ -37,7 +37,7 @@ using std::exception;

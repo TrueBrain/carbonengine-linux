@@ -6,8 +6,8 @@ Subject: [PATCH 01/10] build: update vcpkg registry to HTTPS
 For vcpkg, it is much more common to use HTTPS for public registries.
 Accessing them via SSH isn't always possible, as it requires a key pre-installed.
 ---
- vcpkg-configuration.json | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ vcpkg-configuration.json | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/vcpkg-configuration.json b/vcpkg-configuration.json
 index 9c0fca4..398d807 100644
@@ -28,5 +28,6 @@ index 9c0fca4..398d807 100644
 +      ]
      }
    ]
- }
+-}
++}
 \ No newline at end of file

@@ -6,9 +6,9 @@ Subject: [PATCH 2/4] build: integrate vcpkg manifest features
 This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.
 ---
- CMakeLists.txt | 15 ++++++++++-----
- vcpkg.json     | 15 +++++++++++----
- 2 files changed, 21 insertions(+), 9 deletions(-)
+ CMakeLists.txt | 17 +++++++++++------
+ vcpkg.json     | 19 +++++++++++++------
+ 2 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 018cb3e..09101e4 100644
@@ -37,8 +37,9 @@ index 018cb3e..09101e4 100644
 +if(BUILD_TESTING)
      include(CTest)
 -    if(BUILD_TESTING)
-     add_subdirectory(tests)
+-	    add_subdirectory(tests)
 -    endif()
++    add_subdirectory(tests)
  endif()
  
  # Provide an install target if this is the top level project only
@@ -57,6 +58,8 @@ index 5f11764..1e8adff 100644
        "name": "directxmath",
        "version>=": "2025-04-03"
      }
+-  ]
+-}
 +  ],
 +  "features": {
 +    "tests": {
@@ -66,8 +69,8 @@ index 5f11764..1e8adff 100644
 +          "name": "gtest",
 +          "version>=": "1.16.0"
 +        }
-       ]
++      ]
 +    }
 +  }
- }
++}
 \ No newline at end of file

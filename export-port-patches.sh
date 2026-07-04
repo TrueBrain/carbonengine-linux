@@ -52,7 +52,6 @@ find "${PORT_DIR}" -maxdepth 1 -name '*.patch' -delete
 git -C "${REPO_ROOT}" format-patch "${BASE_BRANCH}..HEAD" \
   --no-signature \
   --zero-commit \
-  --ignore-space-change \
   -o "${PORT_DIR}"
 
 PATCHES=$(find "${PORT_DIR}" -maxdepth 1 -name '*.patch' -printf '%f\n' | sort)

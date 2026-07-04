@@ -8,18 +8,18 @@ Subject: [PATCH 3/3] port(linux): add support for Linux
  CMakeLists.txt       | 10 ++++----
  CommandArguments.cpp |  4 ++--
  CommandArguments.h   |  2 +-
- Crashpad.cpp         |  4 ++--
- ExeFile.cpp          |  2 +-
+ Crashpad.cpp         | 20 ++++++++--------
+ ExeFile.cpp          |  4 ++--
  ExeFileLinux.cpp     | 56 ++++++++++++++++++++++++++++++++++++++++++++
  FileSystem.h         |  2 +-
  FileSystemLinux.cpp  | 56 ++++++++++++++++++++++++++++++++++++++++++++
  StdAfx.h             |  4 ++++
- 10 files changed, 133 insertions(+), 15 deletions(-)
+ 10 files changed, 142 insertions(+), 24 deletions(-)
  create mode 100644 ExeFileLinux.cpp
  create mode 100644 FileSystemLinux.cpp
 
 diff --git a/BlueInterface.cpp b/BlueInterface.cpp
-index b329627..9dca120 100644
+index 6c88872..dc6608a 100644
 --- a/BlueInterface.cpp
 +++ b/BlueInterface.cpp
 @@ -2,7 +2,7 @@
@@ -59,7 +59,7 @@ index b329627..9dca120 100644
  	if( !( m_blue##name##Routine = reinterpret_cast<Blue##name##Routine>( dlsym( m_module, CCP_STRINGIZE( Blue##name ) ) ) ) ) \
  	{                                                                                                                          \
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 47c195a..b74258b 100644
+index 143885e..a02cb37 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -22,11 +22,7 @@ ccp_add_executable(Exefile
@@ -99,7 +99,7 @@ index 47c195a..b74258b 100644
      set_target_properties(
              Exefile
 diff --git a/CommandArguments.cpp b/CommandArguments.cpp
-index 1ef575c..db205f1 100644
+index dac91ae..dbe9e60 100644
 --- a/CommandArguments.cpp
 +++ b/CommandArguments.cpp
 @@ -252,7 +252,7 @@ CommandLine ParseCommandLine()
@@ -121,7 +121,7 @@ index 1ef575c..db205f1 100644
  #else
  #error "Unsupported platform!"
 diff --git a/CommandArguments.h b/CommandArguments.h
-index 19a45e8..1047a61 100644
+index 8e8405e..9951206 100644
 --- a/CommandArguments.h
 +++ b/CommandArguments.h
 @@ -41,7 +41,7 @@ typedef std::vector<std::wstring> CommandLine;
@@ -134,7 +134,7 @@ index 19a45e8..1047a61 100644
  #endif
  
 diff --git a/Crashpad.cpp b/Crashpad.cpp
-index ad7f6ab..dbfc27e 100644
+index 98a39c5..29cfc5e 100644
 --- a/Crashpad.cpp
 +++ b/Crashpad.cpp
 @@ -15,7 +15,7 @@
@@ -146,17 +146,57 @@ index ad7f6ab..dbfc27e 100644
  
  auto executablePath = "eve_crashmon";
  
-@@ -81,7 +81,7 @@ bool CrashpadCrashInterface::InitializeCrashpad()
+@@ -29,30 +29,30 @@ public:
+ 	{
+ 		memset( m_name, 0, sizeof( m_name ) );
+ 		memset( m_value, 0, sizeof( m_value ) );
+-		
++
+ 		strncpy_s( m_name, sizeof( m_name ), name, strlen( name ) );
+-		
++
+ 		m_annotation = std::make_unique<crashpad::Annotation>( crashpad::Annotation::Type::kString, m_name, m_value );
+ 		SetValue( value );
+ 	}
+-	
++
+ 	AnnotationData( const AnnotationData& ) = delete;
+ 	AnnotationData& operator=( const AnnotationData& ) = delete;
+-	
++
+ 	~AnnotationData()
+ 	{
+ 		m_annotation->Clear();
+ 	}
+-	
++
+ 	void SetValue( const char* value )
+ 	{
+ 		size_t len = strlen( value );
+ 		memset( m_value, 0, strlen( m_value ) );
+ 		strncpy_s( m_value, sizeof( m_value ), value, len );
+-		
++
+ 		m_annotation->SetSize( static_cast<crashpad::Annotation::ValueSizeType>( len ) );
+ 	}
+-	
++
+ private:
+ 	char m_name[crashpad::Annotation::kNameMaxLength];
+ 	char m_value[crashpad::Annotation::kValueMaxSize];
+@@ -80,8 +80,8 @@ bool CrashpadCrashInterface::InitializeCrashpad()
+     }
  
  
- 
+-	
 -#ifdef __APPLE__
++
 +#if __APPLE__ || __linux__
  	std::string exePath = (const char*)CW2A( CcpExecutablePath().c_str() );
  	base::FilePath handler(exePath);
  	handler = handler.DirName().Append( executablePath );
 diff --git a/ExeFile.cpp b/ExeFile.cpp
-index f415ea9..86bcad2 100644
+index ca58ca3..7d607d9 100644
 --- a/ExeFile.cpp
 +++ b/ExeFile.cpp
 @@ -322,7 +322,7 @@ bool ConfigurePython( BlueInterface& blue, bool interpreterMode )
@@ -168,6 +208,15 @@ index f415ea9..86bcad2 100644
  	for( std::wstring tmp; std::getline( pathHelper, tmp, L':' ); )
  #else
  #error Unknown env var separator on this platform
+@@ -559,7 +559,7 @@ int Main(const CommandLine& commandLine, bool isSupportedOS)
+ 			return SUCCESS;
+ 		}
+ 	}
+-    
++
+     // Set desired timer resolution to 1 millisecond. By default,
+     // the granularity of timers is something like 15 milliseconds, which
+     // makes sleeps on Windows take a lot more time than one would expect.
 diff --git a/ExeFileLinux.cpp b/ExeFileLinux.cpp
 new file mode 100644
 index 0000000..35d771f
@@ -231,11 +280,11 @@ index 0000000..35d771f
 +
 +#endif
 diff --git a/FileSystem.h b/FileSystem.h
-index 2f67a0b..97b57e4 100644
+index a1e29fb..78544e1 100644
 --- a/FileSystem.h
 +++ b/FileSystem.h
 @@ -1,7 +1,7 @@
- // Copyright © 2021 CCP ehf.
+ // Copyright © 2026 CCP ehf.
  #pragma once
  
 -#if __APPLE__
@@ -306,7 +355,7 @@ index 0000000..2f83025
 +
 +#endif
 diff --git a/StdAfx.h b/StdAfx.h
-index e5c416e..50959cf 100644
+index 6283414..92af439 100644
 --- a/StdAfx.h
 +++ b/StdAfx.h
 @@ -5,6 +5,10 @@

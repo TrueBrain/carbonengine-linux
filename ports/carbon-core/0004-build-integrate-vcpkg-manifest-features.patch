@@ -6,9 +6,9 @@ Subject: [PATCH 4/8] build: integrate vcpkg manifest features
 This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.
 ---
- CMakeLists.txt | 52 +++++++++++++++++++++++++++++++++-----------------
- vcpkg.json     | 39 ++++++++++++++++++++++++++++---------
- 2 files changed, 64 insertions(+), 27 deletions(-)
+ CMakeLists.txt | 54 ++++++++++++++++++++++++++---------------
+ vcpkg.json     | 65 +++++++++++++++++++++++++++++++++-----------------
+ 2 files changed, 78 insertions(+), 41 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 5a32bc7..dd73942 100644
@@ -73,8 +73,9 @@ index 5a32bc7..dd73942 100644
 +if(BUILD_TESTING)
      include(CTest)
 -    if(BUILD_TESTING)
-     add_subdirectory(tests)
+-        add_subdirectory(tests)
 -    endif()
++    add_subdirectory(tests)
  endif()
  
  target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
@@ -100,8 +101,19 @@ diff --git a/vcpkg.json b/vcpkg.json
 index b128da3..1b60c80 100644
 --- a/vcpkg.json
 +++ b/vcpkg.json
-@@ -1,4 +1,27 @@
+@@ -1,29 +1,50 @@
  {
+-  "dependencies": [
+-    {
+-      "name": "tracy",
+-      "version>=": "0.13.1#1",
+-      "features": [
+-        "fibers",
+-        "on-demand",
+-        "no-callstack",
+-        "manual-lifetime",
+-        "delayed-init",
+-        "no-crash-handler"
 +  "dependencies": [],
 +  "features": {
 +    "docs": {
@@ -112,8 +124,11 @@ index b128da3..1b60c80 100644
 +          "version>=": "3.12.9#1",
 +          "host": true
 +        }
-+      ]
-+    },
+       ]
+     },
+-    {
+-      "name": "gtest",
+-      "version>=": "1.16.0"
 +    "tests": {
 +      "description": "Dependencies for building tests",
 +      "dependencies": [
@@ -122,36 +137,40 @@ index b128da3..1b60c80 100644
 +          "version>=": "1.16.0"
 +        }
 +      ]
-+    },
+     },
+-    {
+-      "name": "lz4",
+-      "version>=": "1.9.4"
 +    "telemetry": {
 +      "description": "Enable telemetry",
-       "dependencies": [
-         {
-           "name": "tracy",
-@@ -11,19 +34,17 @@
-             "delayed-init",
-             "no-crash-handler"
-           ]
++      "dependencies": [
++        {
++          "name": "tracy",
++          "version>=": "0.13.1#1",
++          "features": [
++            "fibers",
++            "on-demand",
++            "no-callstack",
++            "manual-lifetime",
++            "delayed-init",
++            "no-crash-handler"
++          ]
 +        }
 +      ]
      },
 -    {
--      "name": "gtest",
--      "version>=": "1.16.0"
--    },
-+    "memory-tracking": {
-+      "description": "Enable memory tracking",
-+      "dependencies": [
-         {
-           "name": "lz4",
-           "version>=": "1.9.4"
--    },
--    {
 -      "name": "python3",
 -      "version>=": "3.12.9#1",
 -      "host": true
-         }
-       ]
-+    }
++    "memory-tracking": {
++      "description": "Enable memory tracking",
++      "dependencies": [
++        {
++          "name": "lz4",
++          "version>=": "1.9.4"
++        }
++      ]
+     }
+-  ]
 +  }
  }
