@@ -16,6 +16,7 @@ vcpkg_from_git(
   URL git@github.com:carbonengine/exefile.git
   REF 55f61f3e0e84a8d982749167338237e55e59e3c0
   HEAD_REF main
+  PATCHES
     # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
 0001-build-update-vcpkg-registry-to-HTTPS.patch
 0002-fix-compile-on-case-sensitive-filesystems.patch

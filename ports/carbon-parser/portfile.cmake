@@ -3,6 +3,7 @@ vcpkg_from_git(
   URL git@github.com:carbonengine/parser.git
   REF b58a68538fe4ae63b3854b391744b86f561b901b
   HEAD_REF main
+  PATCHES
     # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
 0001-chore-update-.gitignore-to-be-more-like-the-rest.patch
 0002-build-update-vcpkg-registry-to-HTTPS.patch

@@ -3,6 +3,7 @@ vcpkg_from_git(
   URL git@github.com:carbonengine/pdm.git
   REF 222937b1cd9be45e64caecbd6bb103cc8f70723e
   HEAD_REF master
+  PATCHES
     # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
 0001-build-update-vcpkg-registry-to-HTTPS.patch
 0002-fix-submodule-configuration-is-broken.patch

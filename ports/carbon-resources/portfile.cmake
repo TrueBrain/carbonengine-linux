@@ -3,6 +3,7 @@ vcpkg_from_git(
   URL git@github.com:carbonengine/resources.git
   REF 77d0867388370a31a2f78b9f2ddbcd23deec8bc1
   HEAD_REF main
+  PATCHES
     # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
 0001-build-update-vcpkg-registry-to-HTTPS.patch
 0002-build-integrate-vcpkg-manifest-features.patch
