@@ -1,0 +1,214 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 09:41:16 +0200
+Subject: [PATCH 06/11] chore: be more portable for socket types
+
+Some parts of the code took into account NONBLOCK can exist
+on the socket-type. However, not all places, causing confusion
+when running on Linux.
+
+Instead, use a macro to more easily strip out the flags.
+---
+ src/socketmodule.cpp | 71 ++++++++++++++++++++++----------------------
+ 1 file changed, 36 insertions(+), 35 deletions(-)
+
+diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
+index c460a9b..f0da276 100644
+--- a/src/socketmodule.cpp
++++ b/src/socketmodule.cpp
+@@ -733,6 +733,22 @@ set_gaierror(socket_state *state, int error)
+ #include <BluePyCpp.h>
+ #include <carbonio.h>
+ 
++/* It's possible to pass SOCK_NONBLOCK and SOCK_CLOEXEC bit flags
++   on some OSes as part of socket.type.  We want to reset them,
++   to make socket.type be set to the same value on all platforms.
++   Otherwise, simple code like 'if sock_type == SOCK_STREAM' is
++   not portable.
++*/
++#if defined(SOCK_NONBLOCK) && defined(SOCK_CLOEXEC)
++#  define RAW_SOCK_TYPE(type) ((type) & ~(SOCK_NONBLOCK | SOCK_CLOEXEC))
++#elif defined(SOCK_NONBLOCK)
++#  define RAW_SOCK_TYPE(type) ((type) & ~SOCK_NONBLOCK)
++#elif defined(SOCK_CLOEXEC)
++#  define RAW_SOCK_TYPE(type) ((type) & ~SOCK_CLOEXEC)
++#else
++#  define RAW_SOCK_TYPE(type) (type)
++#endif
++
+ bool is_managed_by_libuv( int sock_type, int family )
+ {
+ 	if ( sock_type == SOCK_DGRAM ) {
+@@ -1062,22 +1078,7 @@ init_sockobject(socket_state *state, PySocketSockObject *s,
+ {
+     s->sock_fd = fd;
+     s->sock_family = family;
+-
+-    s->sock_type = type;
+-
+-    /* It's possible to pass SOCK_NONBLOCK and SOCK_CLOEXEC bit flags
+-       on some OSes as part of socket.type.  We want to reset them here,
+-       to make socket.type be set to the same value on all platforms.
+-       Otherwise, simple code like 'if sock.type == SOCK_STREAM' is
+-       not portable.
+-    */
+-#ifdef SOCK_NONBLOCK
+-    s->sock_type = s->sock_type & ~SOCK_NONBLOCK;
+-#endif
+-#ifdef SOCK_CLOEXEC
+-    s->sock_type = s->sock_type & ~SOCK_CLOEXEC;
+-#endif
+-
++    s->sock_type = RAW_SOCK_TYPE(type);
+     s->sock_proto = proto;
+ 
+     s->errorhandler = &set_error;
+@@ -6365,7 +6366,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+             proto = 0;
+ #endif
+ 			s->uv_handle = nullptr;
+-			if( is_managed_by_libuv( type, family ) )
++			if( is_managed_by_libuv( RAW_SOCK_TYPE(type), family ) )
+ 			{
+ 				auto loop = GetUvLoop();
+ 				if( !loop )
+@@ -6377,7 +6378,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 				if( s->uv_handle == nullptr )
+ 				{
+ 					// No handle found for re-use, must create one.
+-					if( type == SOCK_STREAM )
++					if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 					{
+ 						auto handle = create_uv_tcp_handle( &fd, family );
+ 						if( !handle )
+@@ -6386,7 +6387,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 						}
+ 						s->uv_handle = reinterpret_cast<uv_handle_t*>( handle );
+ 					}
+-					else if( type == SOCK_DGRAM )
++					else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 					{
+ 						auto handle = create_uv_udp_handle( &fd, family );
+ 						if( !handle )
+@@ -6410,9 +6411,9 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+         if (proto == -1) {
+             proto = 0;
+         }
+-		if ( is_managed_by_libuv( type, family ))
++		if ( is_managed_by_libuv( RAW_SOCK_TYPE(type), family ))
+ 		{
+-			if( type == SOCK_STREAM )
++			if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 			{
+ 				auto handle = create_uv_tcp_handle( &fd, family );
+ 				if( !handle )
+@@ -6421,7 +6422,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 				}
+ 				s->uv_handle = reinterpret_cast<uv_handle_t*>( handle );
+ 			}
+-			else if( type == SOCK_DGRAM )
++			else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 			{
+ 				auto handle = create_uv_udp_handle( &fd, family );
+ 				if( !handle )
+@@ -6480,9 +6481,9 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 
+ 			s->sock_fd = fd;
+ 			s->uv_handle = LookupHandle( fd );
+-			if ( ! s->uv_handle && is_managed_by_libuv( type, family ) )
++			if ( ! s->uv_handle && is_managed_by_libuv( RAW_SOCK_TYPE(type), family ) )
+ 			{
+-				if( type == SOCK_STREAM )
++				if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 				{
+ 					auto handle = create_uv_tcp_handle(&fd, family);
+ 					if( !handle )
+@@ -6491,7 +6492,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
+ 					}
+ 					s->uv_handle = reinterpret_cast<uv_handle_t*>(handle);
+ 				}
+-				else if( type == SOCK_DGRAM )
++				else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 				{
+ 					auto handle = create_uv_udp_handle(&fd, family);
+ 					if( !handle )
+@@ -7358,9 +7359,9 @@ socket_dup(PyObject *self, PyObject *fdobj)
+ 		}
+ 	}
+ 
+-	if( is_managed_by_libuv( type, family ) )
++	if( is_managed_by_libuv( RAW_SOCK_TYPE(type), family ) )
+ 	{
+-		if( type == SOCK_STREAM )
++		if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 		{
+ 			if (!dup_uv_tcp_handle( newfd ) )
+ 			{
+@@ -7368,7 +7369,7 @@ socket_dup(PyObject *self, PyObject *fdobj)
+ 				return nullptr;
+ 			}
+ 		}
+-		else if( type == SOCK_DGRAM )
++		else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 		{
+ 			if ( !dup_uv_udp_handle( newfd ) )
+ 			{
+@@ -7378,7 +7379,7 @@ socket_dup(PyObject *self, PyObject *fdobj)
+ 		}
+ 		else
+ 		{
+-			PyErr_Format( PyExc_NotImplementedError, "Unhandled socket type %d", type );
++			PyErr_Format( PyExc_NotImplementedError, "Unhandled socket type %d", RAW_SOCK_TYPE(type) );
+ 			return nullptr;
+ 		}
+ 	}
+@@ -7446,7 +7447,7 @@ socket_socketpair(PyObject *self, PyObject *args)
+     else
+ #endif
+ 	Py_END_ALLOW_THREADS
+-	if( !is_managed_by_libuv(type, family) )
++	if( !is_managed_by_libuv(RAW_SOCK_TYPE(type), family) )
+ 	{
+ #ifdef HAVE_SOCKETPAIR
+ 		if( socketpair(family, type, proto, sv) < 0)
+@@ -7460,11 +7461,11 @@ socket_socketpair(PyObject *self, PyObject *args)
+ 		res = PyTuple_Pack(2, s0, s1);
+ 		goto socketpair_created;
+ #else
+-		PyErr_Format(PyExc_NotImplementedError, "Unsupported socket type %d", type);
++		PyErr_Format(PyExc_NotImplementedError, "Unsupported socket type %d", RAW_SOCK_TYPE(type));
+ 		goto finally;
+ #endif
+ 	}
+-	ret = uv_socketpair( type, proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
++	ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
+ 
+     if (ret < 0)
+ 	{
+@@ -7472,7 +7473,7 @@ socket_socketpair(PyObject *self, PyObject *args)
+ 		goto finally;
+ 	}
+ 
+-	if( type == SOCK_STREAM )
++	if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 	{
+ 		auto handle = dup_uv_tcp_handle( sv[0] );
+ 		if( !handle )
+@@ -7485,7 +7486,7 @@ socket_socketpair(PyObject *self, PyObject *args)
+ 			goto finally;
+ 		}
+ 	}
+-	else if( type == SOCK_DGRAM )
++	else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 	{
+ 		auto handle = dup_uv_udp_handle( sv[0] );
+ 		if( !handle )
+@@ -7500,7 +7501,7 @@ socket_socketpair(PyObject *self, PyObject *args)
+ 	}
+ 	else
+ 	{
+-		PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", type );
++		PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", RAW_SOCK_TYPE(type) );
+ 	}
+ socketpair_created:
+ #ifdef MS_WINDOWS

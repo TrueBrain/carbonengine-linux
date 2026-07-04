@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 09:16:22 +0200
+Subject: [PATCH 03/11] fix: compile on case sensitive filesystems
+
+---
+ CMakeLists.txt                              | 2 +-
+ tests/cpp/SocketCppUnitTests/CMakeLists.txt | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7d1da5e..cc67120 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -48,7 +48,7 @@ target_precompile_headers(_socket PRIVATE
+         <memory>
+         <string>
+         <string_view>
+-        <CCPLog.h>
++        <CcpLog.h>
+         <CcpMacros.h>
+         <CcpScopeGuard.h>
+ )
+diff --git a/tests/cpp/SocketCppUnitTests/CMakeLists.txt b/tests/cpp/SocketCppUnitTests/CMakeLists.txt
+index fc2a099..0cd060c 100644
+--- a/tests/cpp/SocketCppUnitTests/CMakeLists.txt
++++ b/tests/cpp/SocketCppUnitTests/CMakeLists.txt
+@@ -9,7 +9,7 @@ target_precompile_headers(SocketCppUnitTests
+         PRIVATE
+         <Python.h>
+         <gtest/gtest.h>
+-        <CCPLog.h>
++        <CcpLog.h>
+         <CcpScopeGuard.h>
+ )
+ target_include_directories(SocketCppUnitTests

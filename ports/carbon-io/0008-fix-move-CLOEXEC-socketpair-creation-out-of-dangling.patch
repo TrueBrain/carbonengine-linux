@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 10:27:07 +0200
+Subject: [PATCH 08/11] fix: move CLOEXEC socketpair() creation out of
+ dangling-else, into non-libuv branch
+
+Py_END_ALLOW_THREADS textually expanded to "PyEval_RestoreThread(_save); }",
+which was the else-branch of "if (state->sock_cloexec_works != 0)" rather
+than a statement following the whole if/else. Whenever that condition was
+true (the default/common case whenever SOCK_CLOEXEC is defined), the GIL
+was saved but never restored, so every following CPython API call in this
+function ran without holding the GIL.
+
+On top of that, the resulting sv[] pair from this call was always
+discarded: control unconditionally fell through into the non-libuv or
+libuv socketpair creation right after, silently leaking the two fds
+whenever the CLOEXEC attempt actually succeeded.
+
+Move the whole CLOEXEC dance into the non-libuv branch, mirroring the
+already-correct pattern used by socket_socket() for plain socket()
+creation: the else is a braced block containing the plain socketpair()
+fallback call, and Py_END_ALLOW_THREADS follows the complete if/else
+rather than living inside it.
+---
+ src/socketmodule.cpp | 44 ++++++++++++++++++++++++--------------------
+ 1 file changed, 24 insertions(+), 20 deletions(-)
+
+diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
+index 2b1de9a..e1a1407 100644
+--- a/src/socketmodule.cpp
++++ b/src/socketmodule.cpp
+@@ -7428,29 +7428,33 @@ socket_socketpair(PyObject *self, PyObject *args)
+                           &family, &type, &proto))
+         return NULL;
+ 
+-    /* Create a pair of socket fds */
+-    Py_BEGIN_ALLOW_THREADS
+-#ifdef SOCK_CLOEXEC
+-    if (state->sock_cloexec_works != 0) {
+-        ret = socketpair(family, type | SOCK_CLOEXEC, proto, sv);
+-        if (state->sock_cloexec_works == -1) {
+-            if (ret >= 0) {
+-                state->sock_cloexec_works = 1;
+-            }
+-            else if (errno == EINVAL) {
+-                /* Linux older than 2.6.27 does not support SOCK_CLOEXEC */
+-                state->sock_cloexec_works = 0;
+-                ret = socketpair(family, type, proto, sv);
+-            }
+-        }
+-    }
+-    else
+-#endif
+-	Py_END_ALLOW_THREADS
+ 	if( !is_managed_by_libuv(RAW_SOCK_TYPE(type), family) )
+ 	{
+ #ifdef HAVE_SOCKETPAIR
+-		if( socketpair(family, type, proto, sv) < 0)
++		/* Create a pair of socket fds */
++		Py_BEGIN_ALLOW_THREADS
++#ifdef SOCK_CLOEXEC
++		if (state->sock_cloexec_works != 0) {
++			ret = socketpair(family, type | SOCK_CLOEXEC, proto, sv);
++			if (state->sock_cloexec_works == -1) {
++				if (ret >= 0) {
++					state->sock_cloexec_works = 1;
++				}
++				else if (errno == EINVAL) {
++					/* Linux older than 2.6.27 does not support SOCK_CLOEXEC */
++					state->sock_cloexec_works = 0;
++					ret = socketpair(family, type, proto, sv);
++				}
++			}
++		}
++		else
++#endif
++		{
++			ret = socketpair(family, type, proto, sv);
++		}
++		Py_END_ALLOW_THREADS
++
++		if (ret < 0)
+ 			return set_error();
+ #else
+ 		PyErr_Format(PyExc_NotImplementedError, "Unsupported socket type %d", RAW_SOCK_TYPE(type));

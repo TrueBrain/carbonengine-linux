@@ -1,0 +1,115 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 10:26:38 +0200
+Subject: [PATCH 07/11] fix: correct wrong goto in socket_socketpair() for
+ non-libuv path
+
+The !is_managed_by_libuv branch built its own s0/s1/res and then did
+goto socketpair_created, which re-ran object creation on the same fds
+a second time. That overwrote the s0/s1/res pointers, leaking the
+first pair of socket objects (and the first tuple) and leaving two
+independent Python socket objects wrapping the same underlying fd.
+
+Restructure the two paths into an explicit if/else so both fall
+through to the single shared tail that sets fds non-inheritable and
+wraps them exactly once. Also add the goto finally that was missing
+after the "unsupported socket type" error in the libuv branch, which
+previously fell through and returned a result while an exception was
+still pending.
+---
+ src/socketmodule.cpp | 65 ++++++++++++++++++++------------------------
+ 1 file changed, 30 insertions(+), 35 deletions(-)
+
+diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
+index f0da276..2b1de9a 100644
+--- a/src/socketmodule.cpp
++++ b/src/socketmodule.cpp
+@@ -7452,58 +7452,53 @@ socket_socketpair(PyObject *self, PyObject *args)
+ #ifdef HAVE_SOCKETPAIR
+ 		if( socketpair(family, type, proto, sv) < 0)
+ 			return set_error();
+-		s0 = new_sockobject(state, sv[0], family, type, proto);
+-		if( s0 == NULL )
+-			goto finally;
+-		s1 = new_sockobject(state, sv[1], family, type, proto);
+-		if( s1 == NULL )
+-			goto finally;
+-		res = PyTuple_Pack(2, s0, s1);
+-		goto socketpair_created;
+ #else
+ 		PyErr_Format(PyExc_NotImplementedError, "Unsupported socket type %d", RAW_SOCK_TYPE(type));
+ 		goto finally;
+ #endif
+ 	}
+-	ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
+-
+-    if (ret < 0)
++	else
+ 	{
+-		PyErr_FromUvErr(ret);
+-		goto finally;
+-	}
++		ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
+ 
+-	if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+-	{
+-		auto handle = dup_uv_tcp_handle( sv[0] );
+-		if( !handle )
++		if (ret < 0)
+ 		{
++			PyErr_FromUvErr(ret);
+ 			goto finally;
+ 		}
+-		if( !dup_uv_tcp_handle( sv[1] ) )
++
++		if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 		{
+-			uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
+-			goto finally;
++			auto handle = dup_uv_tcp_handle( sv[0] );
++			if( !handle )
++			{
++				goto finally;
++			}
++			if( !dup_uv_tcp_handle( sv[1] ) )
++			{
++				uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
++				goto finally;
++			}
+ 		}
+-	}
+-	else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+-	{
+-		auto handle = dup_uv_udp_handle( sv[0] );
+-		if( !handle )
++		else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
+ 		{
+-			goto finally;
++			auto handle = dup_uv_udp_handle( sv[0] );
++			if( !handle )
++			{
++				goto finally;
++			}
++			if( !dup_uv_udp_handle( sv[1] ) )
++			{
++				uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
++				goto finally;
++			}
+ 		}
+-		if( !dup_uv_udp_handle( sv[1] ) )
++		else
+ 		{
+-			uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
+-			goto  finally;
++			PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", sock_type );
++			goto finally;
+ 		}
+ 	}
+-	else
+-	{
+-		PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", RAW_SOCK_TYPE(type) );
+-	}
+-socketpair_created:
+ #ifdef MS_WINDOWS
+ 	// PEP 446 states all newly created file descriptors should be non-inheritable https://peps.python.org/pep-0446/
+ 	// The Windows API creates non-inheritable handles by default, so we don't need to do anything here.

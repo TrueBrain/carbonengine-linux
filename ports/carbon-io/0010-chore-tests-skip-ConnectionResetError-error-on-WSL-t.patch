@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 09:26:42 +0200
+Subject: [PATCH 10/11] chore(tests): skip ConnectionResetError error on WSL
+ too
+
+The exception was already in place for Windows, but WSL
+mostly acts like it is Linux. Except for networking.
+---
+ tests/python/carboniotests/test/test_ssl.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/tests/python/carboniotests/test/test_ssl.py b/tests/python/carboniotests/test/test_ssl.py
+index 3237457..3fc8649 100644
+--- a/tests/python/carboniotests/test/test_ssl.py
++++ b/tests/python/carboniotests/test/test_ssl.py
+@@ -4860,7 +4860,9 @@ class TestPreHandshakeClose(unittest.TestCase):
+                         pass  # closed, protocol error, etc.
+ 
+     def non_linux_skip_if_other_okay_error(self, err):
+-        if sys.platform == "linux":
++        import os
++        is_wsl = "microsoft" in os.uname().release.lower() or "wsl" in os.uname().release.lower()
++        if sys.platform == "linux" and not is_wsl:
+             return  # Expect the full test setup to always work on Linux.
+         if (isinstance(err, ConnectionResetError) or
+             (isinstance(err, OSError) and err.errno == errno.EINVAL) or

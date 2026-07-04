@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 09:18:32 +0200
+Subject: [PATCH 09/11] port(linux): add support for Linux
+
+---
+ CMakeLists.txt   | 6 +++---
+ src/carbonio.cpp | 6 ++----
+ 2 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cc67120..92642ee 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -180,7 +180,7 @@ if(BUILD_TESTING)
+ 
+     if(WIN32)
+         set(ENV{PYTHONPATH} ${CMAKE_CURRENT_SOURCE_DIR}/python)
+-    elseif(APPLE)
++    elseif(APPLE OR LINUX)
+         set(ENV{PYTHONPATH} ${CMAKE_CURRENT_SOURCE_DIR}/python)
+     endif()
+     # Discovery works with the standard python interpreter because it isn't running anything, it just needs to find all
+@@ -212,7 +212,7 @@ if(BUILD_TESTING)
+                 ENVIRONMENT
+                 "PYTHONPATH=$<TARGET_FILE_DIR:_socket>\;$<TARGET_FILE_DIR:sockettesthelper>\;${CMAKE_CURRENT_SOURCE_DIR}/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib;BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>"
+             )
+-        elseif (APPLE)
++        elseif (APPLE OR LINUX)
+             set_tests_properties(
+                 ${PYTHON_TEST}
+                 PROPERTIES
+@@ -241,7 +241,7 @@ if(CMAKE_PROJECT_NAME STREQUAL io)
+             # Run sphinx
+             if(WIN32)
+                 set(PYTHONPATH_ENV_SPHINX "${CMAKE_SOURCE_DIR}/python/\;$<TARGET_FILE_DIR:_socket>\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+-            elseif(APPLE)
++            elseif(APPLE OR LINUX)
+                 set(PYTHONPATH_ENV_SPHINX "${CMAKE_SOURCE_DIR}/python/:$<TARGET_FILE_DIR:_socket>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+             endif()
+ 
+diff --git a/src/carbonio.cpp b/src/carbonio.cpp
+index b102b90..9230e54 100644
+--- a/src/carbonio.cpp
++++ b/src/carbonio.cpp
+@@ -25,12 +25,10 @@ const char* g_moduleName = "_socket";
+ 
+ static_assert( sizeof( SOCKET_T ) == sizeof( uv_os_fd_t ), "Mismatching size between SOCKET_T and uv_os_fd_t" );
+ 
+-#if __APPLE__
+-// AppleClang doesn't know the _s versions yet, so we are forced to do the unsafe thing
+-#ifndef __STDC_LIB_EXT1_
++#ifndef _WIN32
++// Non-Windows platforms don't have the _s versions by default, so we map them to standard versions
+ #define memcpy_s(dst, dstsize, src, srcsize) memcpy(dst, src, srcsize)
+ #define memmove_s(dst, dstsize, src, srcsize) memmove(dst, src, srcsize)
+-#endif
+ // Same for ULONG, which we need to use with libuv on Windows
+ #ifndef ULONG
+ typedef unsigned int ULONG;

@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 09:32:48 +0200
+Subject: [PATCH 05/11] fix(tests): having CAN_BCM defined is no proof for
+ support
+
+This now follows better how other CAN-support is detected
+---
+ .../python/carboniotests/test/test_socket.py  | 24 ++++++++++++++-----
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/tests/python/carboniotests/test/test_socket.py b/tests/python/carboniotests/test/test_socket.py
+index 9e63095..37882f7 100644
+--- a/tests/python/carboniotests/test/test_socket.py
++++ b/tests/python/carboniotests/test/test_socket.py
+@@ -78,6 +78,16 @@ def _have_socket_can():
+         s.close()
+     return True
+ 
++def _have_socket_can_bcm():
++    """Check whether CAN BCM sockets are supported on this host."""
++    try:
++        s = socket.socket(socket.PF_CAN, socket.SOCK_RAW, socket.CAN_BCM)
++    except (AttributeError, OSError):
++        return False
++    else:
++        s.close()
++    return True
++
+ def _have_socket_can_isotp():
+     """Check whether CAN ISOTP sockets are supported on this host."""
+     try:
+@@ -170,6 +180,8 @@ def socket_setdefaulttimeout(timeout):
+ 
+ HAVE_SOCKET_CAN = _have_socket_can()
+ 
++HAVE_SOCKET_CAN_BCM = _have_socket_can_bcm()
++
+ HAVE_SOCKET_CAN_ISOTP = _have_socket_can_isotp()
+ 
+ HAVE_SOCKET_CAN_J1939 = _have_socket_can_j1939()
+@@ -2095,7 +2107,7 @@ class BasicCANTest(unittest.TestCase):
+         socket.PF_CAN
+         socket.CAN_RAW
+ 
+-    @unittest.skipUnless(hasattr(socket, "CAN_BCM"),
++    @unittest.skipUnless(HAVE_SOCKET_CAN_BCM,
+                          'socket.CAN_BCM required for this test.')
+     def testBCMConstants(self):
+         socket.CAN_BCM
+@@ -2131,7 +2143,7 @@ class BasicCANTest(unittest.TestCase):
+         with socket.socket(socket.PF_CAN, socket.SOCK_RAW, socket.CAN_RAW) as s:
+             pass
+ 
+-    @unittest.skipUnless(hasattr(socket, "CAN_BCM"),
++    @unittest.skipUnless(HAVE_SOCKET_CAN_BCM,
+                          'socket.CAN_BCM required for this test.')
+     def testCreateBCMSocket(self):
+         with socket.socket(socket.PF_CAN, socket.SOCK_DGRAM, socket.CAN_BCM) as s:
+@@ -2221,7 +2233,7 @@ class CANTest(ThreadedCANSocketTest):
+         self.cf2 = self.build_can_frame(0x12, b'\x99\x22\x33')
+         self.cli.send(self.cf2)
+ 
+-    @unittest.skipUnless(hasattr(socket, "CAN_BCM"),
++    @unittest.skipUnless(HAVE_SOCKET_CAN_BCM,
+                          'socket.CAN_BCM required for this test.')
+     def _testBCM(self):
+         cf, addr = self.cli.recvfrom(self.bufsize)
+@@ -2230,7 +2242,7 @@ class CANTest(ThreadedCANSocketTest):
+         self.assertEqual(self.can_id, can_id)
+         self.assertEqual(self.data, data)
+ 
+-    @unittest.skipUnless(hasattr(socket, "CAN_BCM"),
++    @unittest.skipUnless(HAVE_SOCKET_CAN_BCM,
+                          'socket.CAN_BCM required for this test.')
+     def testBCM(self):
+         bcm = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM, socket.CAN_BCM)
+@@ -7100,7 +7112,7 @@ class CarbonIoTest(SocketPairTest):
+         # Install a callback that eats oobData packets of length 5,
+         # that contain the string "eatme". The callback is set globally
+         # on the module, but should not cause issues, so long as we
+-        # don't write tests with this exact OOB Data packet. 
++        # don't write tests with this exact OOB Data packet.
+         sockettesthelper.addpacketeatingcallback()
+         self.addCleanup(sockettesthelper.removepacketeatingcallback)
+ 
+@@ -7112,7 +7124,7 @@ class CarbonIoTest(SocketPairTest):
+         payload += oobData
+         payload += MSG_1
+         self.serv.send(payload)
+-        
++
+         oobData_2 = b'deliverme'
+         oobDataLen_2 = len(oobData_2)
+         MSG_2 = b"WHAZZUP?"
