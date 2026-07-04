@@ -5,8 +5,8 @@ Subject: [PATCH 4/5] chore: make tests available via ctest
 
 ---
  CMakeLists.txt       | 1 +
- tests/CMakeLists.txt | 9 +++++----
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ tests/CMakeLists.txt | 7 ++++---
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 6f46717..019fc11 100644
@@ -34,13 +34,10 @@ index b2ba971..e16f6a0 100644
  
  find_package(GTest CONFIG REQUIRED)
  add_executable(Tests
-@@ -17,4 +15,7 @@ if(CMAKE_IMPORT_LIBRARY_SUFFIX)
- 		COMMAND_EXPAND_LISTS
+@@ -18,3 +16,6 @@ if(CMAKE_IMPORT_LIBRARY_SUFFIX)
  		VERBATIM
  	)
--endif()
-\ No newline at end of file
-+endif()
+ endif()
 +
 +include(GoogleTest)
 +gtest_discover_tests(Tests)

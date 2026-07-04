@@ -5,8 +5,8 @@ Subject: [PATCH 5/5] fix: compile-errors
 
 ---
  src/cmf/animation.cpp | 2 +-
- src/cmf/tangents.cpp  | 6 ++----
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ src/cmf/tangents.cpp  | 2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/cmf/animation.cpp b/src/cmf/animation.cpp
 index 71626fb..ecafbc4 100644
@@ -34,15 +34,3 @@ index fc99e39..fe1e4c4 100644
  
  					GenerateMikkTSpaceTangents(
  						ConstBufferElementStream<Vector3>( *positionElement, morphTarget.vb, bufferManager ),
-@@ -329,9 +327,9 @@ std::tuple<Vector3, Vector3, Vector3> UnpackTangentsQuaternion( Vector4 t )
- {
- 
- 	/*
--    
-+
-     Unoptimized code that clearly shows the steps of unpacking the quaternion and reconstructing the TBN matrix.
--     
-+
-     // Reconstruct the w-value of the quaternion. This is guaranteed to be positive, so we don't need to store a sign for it.
- 	float w = sqrtf( std::max( 0.0f, 1.0f - t.x * t.x - t.y * t.y - t.z * t.z ) );
- 

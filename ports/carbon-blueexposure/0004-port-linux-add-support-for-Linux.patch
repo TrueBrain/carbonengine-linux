@@ -4,39 +4,15 @@ Date: Thu, 25 Jun 2026 20:08:51 +0200
 Subject: [PATCH 4/4] port(linux): add support for Linux
 
 ---
- BlueExtractArgument.cpp             | 16 ++++++++--------
- include/BlueExposureTypeSignature.h | 12 ++++++------
- tests/CMakeLists.txt                | 10 ++--------
- 3 files changed, 16 insertions(+), 22 deletions(-)
+ BlueExtractArgument.cpp             | 2 +-
+ include/BlueExposureTypeSignature.h | 2 +-
+ tests/CMakeLists.txt                | 8 +-------
+ 3 files changed, 3 insertions(+), 9 deletions(-)
 
 diff --git a/BlueExtractArgument.cpp b/BlueExtractArgument.cpp
 index d6a8618..cf6c6d0 100644
 --- a/BlueExtractArgument.cpp
 +++ b/BlueExtractArgument.cpp
-@@ -451,9 +451,9 @@ bool BLUEIMPORT BlueExtractArgumentImpl( PyObject* argument, uint64_t& result, u
- 		PyErr_Format( PyExc_TypeError, argumentTypeMismatchString, argID, "uint64_t" );
- 		return false;
- 	}
--    
-+
- 	return true;
--    
-+
- }
- 
- #ifdef __APPLE__
-@@ -471,9 +471,9 @@ bool BLUEIMPORT BlueExtractArgumentImpl( PyObject* argument, size_t& result, uns
- 		PyErr_Format( PyExc_TypeError, argumentTypeMismatchString, argID, "size_t" );
- 		return false;
- 	}
--    
-+
- 	return true;
--    
-+
- }
- #endif
- 
 @@ -495,7 +495,7 @@ bool BLUEIMPORT BlueExtractArgumentImpl( PyObject* argument, unsigned long& resu
  
  	return true;
@@ -46,39 +22,10 @@ index d6a8618..cf6c6d0 100644
  bool BLUEIMPORT BlueExtractArgumentImpl( PyObject* argument, long& result, unsigned int argID, std::false_type isBlueType )
  {
      if( PyLong_Check(argument) )
-@@ -507,7 +507,7 @@ bool BLUEIMPORT BlueExtractArgumentImpl( PyObject* argument, long& result, unsig
-         PyErr_Format( PyExc_TypeError, argumentTypeMismatchString, argID, "long" );
-         return false;
-     }
--    
-+
-     return true;
- }
- 
-@@ -581,8 +581,8 @@ template<class T> bool ConvertSequenceToArray( PyObject* argument, T* targetElem
- 	bool success = BlueExtractVector<T>( argument, targetElements, targetElementsCount );
- 	if( !success )
- 	{
--		PyErr_Format( PyExc_TypeError, 
--			"Could not match argument %i to expected type: sequence of max %zu numbers expected.", 
-+		PyErr_Format( PyExc_TypeError,
-+			"Could not match argument %i to expected type: sequence of max %zu numbers expected.",
- 			argID, targetElementsCount );
- 	}
- 
 diff --git a/include/BlueExposureTypeSignature.h b/include/BlueExposureTypeSignature.h
 index 67fd134..2129be3 100644
 --- a/include/BlueExposureTypeSignature.h
 +++ b/include/BlueExposureTypeSignature.h
-@@ -15,7 +15,7 @@ const char* BlueGetReturnTypeName();
- namespace BlueExposureTypeSignaturePrivate
- {
- 
--	
-+
- template <typename fnType, typename arityType>
- struct last_argument_impl
- {
 @@ -689,7 +689,7 @@ struct TypeSignature<unsigned long>
  		return "long";
  	}
@@ -88,21 +35,6 @@ index 67fd134..2129be3 100644
  template <>
  struct TypeSignature<long>
  {
-@@ -818,10 +818,10 @@ template< typename fnType >
- Be::BlueExposureFunctionSignature BlueGetFunctionSignature( fnType method, uint32_t numOptional = 0 )
- {
- 	Be::BlueExposureFunctionSignature result;
--	BlueExposureTypeSignaturePrivate::BlueGetFunctionSignature( 
--		result, 
--		method, 
--		typename function_traits<fnType>::arity_type(), 
-+	BlueExposureTypeSignaturePrivate::BlueGetFunctionSignature(
-+		result,
-+		method,
-+		typename function_traits<fnType>::arity_type(),
- 		typename is_be_result<typename function_traits<fnType>::return_type>::type() );
- 	result.optionalCount = numOptional;
- 	return result;
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
 index ed1a6a0..b179fa6 100644
 --- a/tests/CMakeLists.txt
@@ -121,13 +53,12 @@ index ed1a6a0..b179fa6 100644
          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/BlueExposureTest/test
      )
 -    if(WIN32)
--        set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${PYTHONPATH_ENV};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
+     set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${PYTHONPATH_ENV};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
 -    elseif(APPLE)
 -        set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${PYTHONPATH_ENV};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
 -    else()
 -        message(FATAL_ERROR "Unsupported platform")
 -    endif()
-+    set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${PYTHONPATH_ENV};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
  endforeach()
  
  add_subdirectory(cpp)

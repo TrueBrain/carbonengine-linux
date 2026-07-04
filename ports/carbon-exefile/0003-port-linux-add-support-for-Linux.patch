@@ -8,13 +8,13 @@ Subject: [PATCH 3/3] port(linux): add support for Linux
  CMakeLists.txt       | 10 ++++----
  CommandArguments.cpp |  4 ++--
  CommandArguments.h   |  2 +-
- Crashpad.cpp         | 20 ++++++++--------
- ExeFile.cpp          |  4 ++--
+ Crashpad.cpp         |  4 ++--
+ ExeFile.cpp          |  2 +-
  ExeFileLinux.cpp     | 56 ++++++++++++++++++++++++++++++++++++++++++++
  FileSystem.h         |  2 +-
  FileSystemLinux.cpp  | 56 ++++++++++++++++++++++++++++++++++++++++++++
  StdAfx.h             |  4 ++++
- 10 files changed, 142 insertions(+), 24 deletions(-)
+ 10 files changed, 133 insertions(+), 15 deletions(-)
  create mode 100644 ExeFileLinux.cpp
  create mode 100644 FileSystemLinux.cpp
 
@@ -146,51 +146,11 @@ index ad7f6ab..dbfc27e 100644
  
  auto executablePath = "eve_crashmon";
  
-@@ -29,30 +29,30 @@ public:
- 	{
- 		memset( m_name, 0, sizeof( m_name ) );
- 		memset( m_value, 0, sizeof( m_value ) );
--		
-+
- 		strncpy_s( m_name, sizeof( m_name ), name, strlen( name ) );
--		
-+
- 		m_annotation = std::make_unique<crashpad::Annotation>( crashpad::Annotation::Type::kString, m_name, m_value );
- 		SetValue( value );
- 	}
--	
-+
- 	AnnotationData( const AnnotationData& ) = delete;
- 	AnnotationData& operator=( const AnnotationData& ) = delete;
--	
-+
- 	~AnnotationData()
- 	{
- 		m_annotation->Clear();
- 	}
--	
-+
- 	void SetValue( const char* value )
- 	{
- 		size_t len = strlen( value );
- 		memset( m_value, 0, strlen( m_value ) );
- 		strncpy_s( m_value, sizeof( m_value ), value, len );
--		
-+
- 		m_annotation->SetSize( static_cast<crashpad::Annotation::ValueSizeType>( len ) );
- 	}
--	
-+
- private:
- 	char m_name[crashpad::Annotation::kNameMaxLength];
- 	char m_value[crashpad::Annotation::kValueMaxSize];
-@@ -80,8 +80,8 @@ bool CrashpadCrashInterface::InitializeCrashpad()
-     }
+@@ -81,7 +81,7 @@ bool CrashpadCrashInterface::InitializeCrashpad()
  
  
--	
+ 
 -#ifdef __APPLE__
-+
 +#if __APPLE__ || __linux__
  	std::string exePath = (const char*)CW2A( CcpExecutablePath().c_str() );
  	base::FilePath handler(exePath);
@@ -208,15 +168,6 @@ index f415ea9..86bcad2 100644
  	for( std::wstring tmp; std::getline( pathHelper, tmp, L':' ); )
  #else
  #error Unknown env var separator on this platform
-@@ -559,7 +559,7 @@ int Main(const CommandLine& commandLine, bool isSupportedOS)
- 			return SUCCESS;
- 		}
- 	}
--    
-+
-     // Set desired timer resolution to 1 millisecond. By default,
-     // the granularity of timers is something like 15 milliseconds, which
-     // makes sleeps on Windows take a lot more time than one would expect.
 diff --git a/ExeFileLinux.cpp b/ExeFileLinux.cpp
 new file mode 100644
 index 0000000..35d771f

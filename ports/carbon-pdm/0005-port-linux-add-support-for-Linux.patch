@@ -5,33 +5,31 @@ Subject: [PATCH 5/5] port(linux): add support for Linux
 
 Linux support are all stubs; it is mostly to get this compiling.
 ---
- CMakeLists.txt               |  24 +++++-
+ CMakeLists.txt               |  20 ++++-
  include/pdm_data.h           |   2 +
  src/linux/linux_data.cpp     | 152 +++++++++++++++++++++++++++++++++++
  src/macos/macos_data.mm      |   5 ++
- src/utilities.cpp            |  24 +++++-
- src/windows/windows_data.cpp |  14 +---
- 6 files changed, 204 insertions(+), 17 deletions(-)
+ src/utilities.cpp            |  20 +++++
+ src/windows/windows_data.cpp |  10 ---
+ 6 files changed, 198 insertions(+), 11 deletions(-)
  create mode 100644 src/linux/linux_data.cpp
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 019fc11..5438c14 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -31,11 +31,29 @@ set(SRC_FILES
+@@ -31,10 +31,28 @@ set(SRC_FILES
  	src/output.cpp
  	src/utilities.cpp
  	src/wine/wine.cpp
--	src/windows/windows_data.cpp
--	src/windows/d3d_info.cpp
--	src/windows/vulkan_info.cpp
- )
- 
++)
++
 +if(WIN32)
 +	list(APPEND SRC_FILES
-+		src/windows/windows_data.cpp
-+		src/windows/d3d_info.cpp
-+		src/windows/vulkan_info.cpp
+ 		src/windows/windows_data.cpp
+ 		src/windows/d3d_info.cpp
+ 		src/windows/vulkan_info.cpp
+-)
 +	)
 +endif()
 +
@@ -47,10 +45,9 @@ index 019fc11..5438c14 100644
 +	)
 +endif()
 +
-+
+ 
  # For IDE support
  set(HDR_FILES
- 	include/version.h
 diff --git a/include/pdm_data.h b/include/pdm_data.h
 index 7901243..8e99ca8 100644
 --- a/include/pdm_data.h
@@ -259,21 +256,10 @@ index 292726e..ec07989 100644
  #endif
  
  namespace PDM
-@@ -34,7 +37,7 @@ namespace PDM
- 
- 		return bytes;
- 	}
--	
-+
- 	std::string tolower(std::string str)
- 	{
- 		transform(str.begin(), str.end(), str.begin(), ::tolower);
-@@ -109,6 +112,23 @@ namespace PDM
- 	}
+@@ -110,5 +113,22 @@ namespace PDM
  
  	// macOS implementation of UTF8ToWString is in macos_data.mm
--	
-+
+ 
 +#else
 +
 +	std::string UTF8ToNative(const std::string_view utf8String)
@@ -297,24 +283,6 @@ diff --git a/src/windows/windows_data.cpp b/src/windows/windows_data.cpp
 index d8d7726..e1cc8ea 100644
 --- a/src/windows/windows_data.cpp
 +++ b/src/windows/windows_data.cpp
-@@ -67,7 +67,7 @@ namespace PDM
- 			&number,
- 			len
- 		);
--		
-+
- 		if (retCode == ERROR_SUCCESS)
- 			return std::to_string(number);
- 
-@@ -323,7 +323,7 @@ namespace PDM
- 			std::string uuid = addr->AdapterName;
- 			if (uuid.rfind("{") == 0 && uuid[uuid.size() - 1] == '}')
- 				uuid = uuid.substr(1, uuid.size() - 2);
--			
-+
- 			if (hasPhysical && std::wstring(addr->Description).find(L"Software Loopback Interface") != 0)
- 			{
- 				adapters.push_back
 @@ -409,14 +409,4 @@ namespace PDM
  	}
  }

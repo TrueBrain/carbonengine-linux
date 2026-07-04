@@ -5,14 +5,14 @@ vcpkg_from_git(
   HEAD_REF main
   PATCHES
     # BEGIN EXPORTED PATCHES (managed by export-port-patches.sh)
-    0001-fix-be-consistent-with-casing-of-Ccp.patch
-    0002-fix-detect-std-atomic-correctly-for-GCC-5.patch
-    0003-build-update-vcpkg-registry-to-HTTPS.patch
-    0004-build-integrate-vcpkg-manifest-features.patch
-    0005-chore-include-all-required-system-headers.patch
-    0006-chore-fix-compiling-telemetry-module-when-disabled.patch
-    0007-port-linux-add-support-for-Linux.patch
-    0008-port-emscripten-add-Emscripten-specific-fixes.patch
+0001-fix-be-consistent-with-casing-of-Ccp.patch
+0002-fix-detect-std-atomic-correctly-for-GCC-5.patch
+0003-build-update-vcpkg-registry-to-HTTPS.patch
+0004-build-integrate-vcpkg-manifest-features.patch
+0005-chore-include-all-required-system-headers.patch
+0006-chore-fix-compiling-telemetry-module-when-disabled.patch
+0007-port-linux-add-support-for-Linux.patch
+0008-port-emscripten-add-Emscripten-specific-fixes.patch
     # END EXPORTED PATCHES
 )
 

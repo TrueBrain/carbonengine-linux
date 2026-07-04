@@ -4,22 +4,13 @@ Date: Mon, 29 Jun 2026 20:55:23 +0200
 Subject: [PATCH 6/8] chore: fix compiling telemetry module when disabled
 
 ---
- include/CcpTelemetry.h | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ include/CcpTelemetry.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/include/CcpTelemetry.h b/include/CcpTelemetry.h
 index ea0f39d..455bb30 100644
 --- a/include/CcpTelemetry.h
 +++ b/include/CcpTelemetry.h
-@@ -17,7 +17,7 @@
- #ifndef CCP_TELEMETRY_ENABLED
-     #if _MSC_VER
- 		#define CCP_TELEMETRY_ENABLED 1
--    #else
-+     #else
-         #define CCP_TELEMETRY_ENABLED 0
- 	#endif
- #endif
 @@ -39,6 +39,12 @@
  #else
  

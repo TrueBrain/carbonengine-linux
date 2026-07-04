@@ -17,14 +17,14 @@ after the "unsupported socket type" error in the libuv branch, which
 previously fell through and returned a result while an exception was
 still pending.
 ---
- src/socketmodule.cpp | 65 ++++++++++++++++++++------------------------
- 1 file changed, 30 insertions(+), 35 deletions(-)
+ src/socketmodule.cpp | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
 
 diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
 index f0da276..2b1de9a 100644
 --- a/src/socketmodule.cpp
 +++ b/src/socketmodule.cpp
-@@ -7452,58 +7452,53 @@ socket_socketpair(PyObject *self, PyObject *args)
+@@ -7452,19 +7452,13 @@ socket_socketpair(PyObject *self, PyObject *args)
  #ifdef HAVE_SOCKETPAIR
  		if( socketpair(family, type, proto, sv) < 0)
  			return set_error();
@@ -41,74 +41,20 @@ index f0da276..2b1de9a 100644
  		goto finally;
  #endif
  	}
--	ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
--
--    if (ret < 0)
 +	else
- 	{
--		PyErr_FromUvErr(ret);
--		goto finally;
--	}
-+		ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
++	{
+ 		ret = uv_socketpair( RAW_SOCK_TYPE(type), proto, sv, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE );
  
--	if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
--	{
--		auto handle = dup_uv_tcp_handle( sv[0] );
--		if( !handle )
-+		if (ret < 0)
- 		{
-+			PyErr_FromUvErr(ret);
- 			goto finally;
+ 		if (ret < 0)
+@@ -7501,9 +7495,10 @@ socket_socketpair(PyObject *self, PyObject *args)
  		}
--		if( !dup_uv_tcp_handle( sv[1] ) )
-+
-+		if( RAW_SOCK_TYPE(type) == SOCK_STREAM )
+ 		else
  		{
--			uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
--			goto finally;
-+			auto handle = dup_uv_tcp_handle( sv[0] );
-+			if( !handle )
-+			{
-+				goto finally;
-+			}
-+			if( !dup_uv_tcp_handle( sv[1] ) )
-+			{
-+				uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
-+				goto finally;
-+			}
- 		}
--	}
--	else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
--	{
--		auto handle = dup_uv_udp_handle( sv[0] );
--		if( !handle )
-+		else if( RAW_SOCK_TYPE(type) == SOCK_DGRAM )
- 		{
--			goto finally;
-+			auto handle = dup_uv_udp_handle( sv[0] );
-+			if( !handle )
-+			{
-+				goto finally;
-+			}
-+			if( !dup_uv_udp_handle( sv[1] ) )
-+			{
-+				uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
-+				goto finally;
-+			}
- 		}
--		if( !dup_uv_udp_handle( sv[1] ) )
-+		else
- 		{
--			uv_close( reinterpret_cast<uv_handle_t*>( handle ), cleanup_uv_handle );
--			goto  finally;
+-		PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", RAW_SOCK_TYPE(type) );
 +			PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", sock_type );
 +			goto finally;
- 		}
++		}
  	}
--	else
--	{
--		PyErr_Format( PyExc_NotImplementedError, "Unsupported socket type: %d", RAW_SOCK_TYPE(type) );
--	}
 -socketpair_created:
  #ifdef MS_WINDOWS
  	// PEP 446 states all newly created file descriptors should be non-inheritable https://peps.python.org/pep-0446/

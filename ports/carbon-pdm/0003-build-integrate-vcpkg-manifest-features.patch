@@ -6,9 +6,9 @@ Subject: [PATCH 3/5] build: integrate vcpkg manifest features
 This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.
 ---
- CMakeLists.txt | 18 ++++++++++++------
- vcpkg.json     | 18 ++++++++++++------
- 2 files changed, 24 insertions(+), 12 deletions(-)
+ CMakeLists.txt | 16 +++++++++++-----
+ vcpkg.json     |  6 ++++++
+ 2 files changed, 17 insertions(+), 5 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 8968b40..6f46717 100644
@@ -46,10 +46,9 @@ index 8968b40..6f46717 100644
 -if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 -	option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
 -	if(BUILD_TESTING)
--		add_subdirectory(tests)
--	endif()
 +if(BUILD_TESTING)
-+	add_subdirectory(tests)
+ 	add_subdirectory(tests)
+-	endif()
  endif()
  
  # Install rules
@@ -59,23 +58,17 @@ index c9d9372..ce0ad7c 100644
 +++ b/vcpkg.json
 @@ -1,8 +1,14 @@
  {
--  "dependencies": [
--    {
--      "name": "gtest",
--      "version>=": "1.16.0"
 +  "dependencies": [],
 +  "features": {
 +    "tests": {
 +      "description": "Dependencies for building tests",
-+      "dependencies": [
-+        {
-+          "name": "gtest",
-+          "version>=": "1.16.0"
-+        }
-+      ]
-     }
--  ]
--}
+       "dependencies": [
+         {
+           "name": "gtest",
+           "version>=": "1.16.0"
+         }
+       ]
++    }
 +  }
-+}
+ }
 \ No newline at end of file
