@@ -1,0 +1,1171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 12:37:36 +0200
+Subject: [PATCH 03/10] chore: update CMakePresets to be more like the rest
+
+---
+ CMakeLists.txt                                |  2 +-
+ CMakePresets.json                             | 19 ++----
+ .../toolchains/arm64-osx-carbon.cmake         | 56 -----------------
+ .../toolchains/arm64-osx-triplet.cmake        |  4 --
+ .../toolchains/x64-osx-carbon.cmake           | 56 -----------------
+ .../toolchains/x64-osx-triplet.cmake          |  4 --
+ .../toolchains/x64-windows-carbon.cmake       | 60 ------------------
+ .../toolchains/x64-windows-triplet.cmake      |  4 --
+ .../triplets/arm64-osx-debug.cmake            | 62 -------------------
+ .../triplets/arm64-osx-internal.cmake         | 62 -------------------
+ .../triplets/arm64-osx-release.cmake          | 62 -------------------
+ .../triplets/arm64-osx-trinitydev.cmake       | 62 -------------------
+ .../triplets/x64-osx-debug.cmake              | 62 -------------------
+ .../triplets/x64-osx-internal.cmake           | 62 -------------------
+ .../triplets/x64-osx-release.cmake            | 62 -------------------
+ .../triplets/x64-osx-trinitydev.cmake         | 62 -------------------
+ .../triplets/x64-windows-debug.cmake          | 62 -------------------
+ .../triplets/x64-windows-internal.cmake       | 62 -------------------
+ .../triplets/x64-windows-release.cmake        | 62 -------------------
+ .../triplets/x64-windows-trinitydev.cmake     | 62 -------------------
+ 20 files changed, 5 insertions(+), 944 deletions(-)
+ delete mode 100644 customized_toolchain/toolchains/arm64-osx-carbon.cmake
+ delete mode 100644 customized_toolchain/toolchains/arm64-osx-triplet.cmake
+ delete mode 100644 customized_toolchain/toolchains/x64-osx-carbon.cmake
+ delete mode 100644 customized_toolchain/toolchains/x64-osx-triplet.cmake
+ delete mode 100644 customized_toolchain/toolchains/x64-windows-carbon.cmake
+ delete mode 100644 customized_toolchain/toolchains/x64-windows-triplet.cmake
+ delete mode 100644 customized_toolchain/triplets/arm64-osx-debug.cmake
+ delete mode 100644 customized_toolchain/triplets/arm64-osx-internal.cmake
+ delete mode 100644 customized_toolchain/triplets/arm64-osx-release.cmake
+ delete mode 100644 customized_toolchain/triplets/arm64-osx-trinitydev.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-osx-debug.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-osx-internal.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-osx-release.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-osx-trinitydev.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-windows-debug.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-windows-internal.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-windows-release.cmake
+ delete mode 100644 customized_toolchain/triplets/x64-windows-trinitydev.cmake
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 45e9ff2..9239592 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -30,7 +30,6 @@ endif()
+ project(resources VERSION 4.3.1)
+ 
+ include(cmake/CcpTargetConfigurations.cmake)
+-include(cmake/CcpDocsGenerator.cmake)
+ include(cmake/CcpPackageConfigHelpers.cmake)
+ include(cmake/CcpBuildConfigurations.cmake)
+ 
+@@ -121,6 +120,7 @@ endif ()
+ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+     if (BUILD_DOCUMENTATION)
+         find_package(Python3 COMPONENTS Interpreter REQUIRED)
++        include(cmake/CcpDocsGenerator.cmake)
+ 
+         # Run sphinx
+         set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc/source)
+diff --git a/CMakePresets.json b/CMakePresets.json
+index b1daeae..9e1818f 100644
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -12,11 +12,7 @@
+       "binaryDir": "${sourceDir}/.cmake-build-${presetName}",
+       "cacheVariables": {
+         "VCPKG_USE_HOST_TOOLS": "ON",
+-        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/customized_toolchain/triplets",
+-        "BUILD_DOCUMENTATION": "ON",
+-        "BUILD_TESTING": "ON",
+-        "VCPKG_MANIFEST_FEATURES": "tests;docs"
++        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/triplets"
+       },
+       "environment": {
+         "VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
+@@ -47,7 +43,7 @@
+       "name": "x64-windows",
+       "inherits": "windows",
+       "cacheVariables": {
+-        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/customized_toolchain/toolchains/x64-windows-carbon.cmake"
++        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-windows-carbon.cmake"
+       },
+       "hidden": true
+     },
+@@ -56,7 +52,7 @@
+       "inherits": "osx",
+       "cacheVariables": {
+         "CMAKE_OSX_ARCHITECTURES": "arm64",
+-        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/customized_toolchain/toolchains/arm64-osx-carbon.cmake"
++        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/arm64-osx-carbon.cmake"
+       },
+       "hidden": true
+     },
+@@ -65,7 +61,7 @@
+       "inherits": "osx",
+       "cacheVariables": {
+         "CMAKE_OSX_ARCHITECTURES": "x86_64",
+-        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/customized_toolchain/toolchains/x64-osx-carbon.cmake"
++        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-osx-carbon.cmake"
+       },
+       "hidden": true
+     },
+@@ -105,13 +101,6 @@
+         "VCPKG_HOST_TRIPLET": "x64-windows-trinitydev"
+       }
+     },
+-    {
+-      "name": "x64-windows-release-with-dev-features",
+-      "inherits": "x64-windows-release",
+-      "cacheVariables": {
+-        "DEV_FEATURES": "ON"
+-      }
+-    },
+     {
+       "name": "arm64-osx-internal",
+       "inherits": "arm64-osx",
+diff --git a/customized_toolchain/toolchains/arm64-osx-carbon.cmake b/customized_toolchain/toolchains/arm64-osx-carbon.cmake
+deleted file mode 100644
+index adb6dc9..0000000
+--- a/customized_toolchain/toolchains/arm64-osx-carbon.cmake
++++ /dev/null
+@@ -1,56 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
+-    set(_CCP_TOOLCHAIN_FILE_LOADED 1)
+-
+-    set (VCPKG_USE_HOST_TOOLS ON CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD 20 CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD_REQUIRED ON CACHE STRING "")
+-    set (CMAKE_CXX_EXTENSIONS OFF CACHE STRING "")
+-    set (CMAKE_POSITION_INDEPENDENT_CODE ON CACHE STRING "")
+-    set (CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_XCODE_GENERATE_SCHEME ON CACHE STRING "")
+-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON CACHE STRING "")
+-    set (CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "")
+-
+-    #[[
+-        - `CCP_PLATFORM` indicates the operating system a binary was built for
+-        - `CCP_ARCHITECTURE` indicates the hardware architecture a binary was built for
+-        - `CCP_TOOLSET` indicates the compiler (or toolset) a binary was built with
+-        - `CCP_VENDOR_LIB_PATH` is a convenience variable for find_package modules, to construct the default `lib` folder for a vendored SDK.
+-        - `CCP_VENDOR_BIN_PATH` is the same as CCP_VENDOR_LIB_PATH, but for the `bin` folder for a vendored SDK.
+-
+-        See Platform Agnostic Developement section of the wiki:
+-        https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
+-    ]]
+-    set(CCP_PLATFORM "macOS" CACHE STRING "Target Platform")
+-    set(CCP_ARCHITECTURE "arm64" CACHE STRING "Target Architecture")
+-    set(CCP_TOOLSET "AppleClang" CACHE STRING "Target Toolset")
+-
+-    # adjust warning settings for all our projects, but do not treat them as errors just yet.
+-    add_compile_options(-Wall)
+-    # we want to use the two ones below once we're good with -Wall
+-    #    add_compile_options(-Wpedantic)
+-    #    add_compile_options(-Wextra)
+-
+-    # We're using a lot of MSVC specific pragmas in our codebase, so we silence those warnings until we got around to
+-    # cleaning them up
+-    add_compile_options(-Wno-unknown-pragmas)
+-    # There's a surprising amount of unused functions, we need to investigate this deeper at one point
+-    add_compile_options(-Wno-unused-function)
+-    # Ditto, much like the functions there are also a lot of unused variables it appears
+-    add_compile_options(-Wno-unused-variable)
+-    # We've not been very good at keeping order
+-    add_compile_options(-Wno-reorder)
+-    # -Wmissing-braces should only be used by C / ObjectiveC, but for some reason it shows up for our C++ code, too.
+-    add_compile_options(-Wno-missing-braces)
+-
+-    # Manually add debug symbols to builds
+-    add_compile_options(-g)
+-
+-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "13")
+-        set(MATH_OPTIMIZE_FLAG -ffast-math -fhonor-infinities -fhonor-nans)
+-    else()
+-        set(MATH_OPTIMIZE_FLAG -ffast-math -ffp-model=fast -fhonor-infinities -fhonor-nans)
+-    endif()
+-endif ()
+diff --git a/customized_toolchain/toolchains/arm64-osx-triplet.cmake b/customized_toolchain/toolchains/arm64-osx-triplet.cmake
+deleted file mode 100644
+index 5fbaa78..0000000
+--- a/customized_toolchain/toolchains/arm64-osx-triplet.cmake
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-# This toolchain is meant for use inside a vcpkg triplet. See `README.md` for more details.
+-include($ENV{VCPKG_ROOT}/scripts/toolchains/osx.cmake)
+-include(${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-carbon.cmake)
+diff --git a/customized_toolchain/toolchains/x64-osx-carbon.cmake b/customized_toolchain/toolchains/x64-osx-carbon.cmake
+deleted file mode 100644
+index 57b216b..0000000
+--- a/customized_toolchain/toolchains/x64-osx-carbon.cmake
++++ /dev/null
+@@ -1,56 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
+-    set(_CCP_TOOLCHAIN_FILE_LOADED 1)
+-
+-    set (VCPKG_USE_HOST_TOOLS ON CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD 17 CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD_REQUIRED ON CACHE STRING "")
+-    set (CMAKE_CXX_EXTENSIONS OFF CACHE STRING "")
+-    set (CMAKE_POSITION_INDEPENDENT_CODE ON CACHE STRING "")
+-    set (CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_XCODE_GENERATE_SCHEME ON CACHE STRING "")
+-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON CACHE STRING "")
+-    set (CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "")
+-
+-    #[[
+-        - `CCP_PLATFORM` indicates the operating system a binary was built for
+-        - `CCP_ARCHITECTURE` indicates the hardware architecture a binary was built for
+-        - `CCP_TOOLSET` indicates the compiler (or toolset) a binary was built with
+-        - `CCP_VENDOR_LIB_PATH` is a convenience variable for find_package modules, to construct the default `lib` folder for a vendored SDK.
+-        - `CCP_VENDOR_BIN_PATH` is the same as CCP_VENDOR_LIB_PATH, but for the `bin` folder for a vendored SDK.
+-
+-        See Platform Agnostic Developement section of the wiki:
+-        https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
+-    ]]
+-    set(CCP_PLATFORM "macOS" CACHE STRING "Target Platform")
+-    set(CCP_ARCHITECTURE "x64" CACHE STRING "Target Architecture")
+-    set(CCP_TOOLSET "AppleClang" CACHE STRING "Target Toolset")
+-
+-    # adjust warning settings for all our projects, but do not treat them as errors just yet.
+-    add_compile_options(-Wall)
+-    # we want to use the two ones below once we're good with -Wall
+-    #    add_compile_options(-Wpedantic)
+-    #    add_compile_options(-Wextra)
+-
+-    # We're using a lot of MSVC specific pragmas in our codebase, so we silence those warnings until we got around to
+-    # cleaning them up
+-    add_compile_options(-Wno-unknown-pragmas)
+-    # There's a surprising amount of unused functions, we need to investigate this deeper at one point
+-    add_compile_options(-Wno-unused-function)
+-    # Ditto, much like the functions there are also a lot of unused variables it appears
+-    add_compile_options(-Wno-unused-variable)
+-    # We've not been very good at keeping order
+-    add_compile_options(-Wno-reorder)
+-    # -Wmissing-braces should only be used by C / ObjectiveC, but for some reason it shows up for our C++ code, too.
+-    add_compile_options(-Wno-missing-braces)
+-
+-    # Manually add debug symbols to builds
+-    add_compile_options(-g)
+-
+-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "13")
+-        set(MATH_OPTIMIZE_FLAG -ffast-math -fhonor-infinities -fhonor-nans)
+-    else()
+-        set(MATH_OPTIMIZE_FLAG -ffast-math -ffp-model=fast -fhonor-infinities -fhonor-nans)
+-    endif()
+-endif ()
+diff --git a/customized_toolchain/toolchains/x64-osx-triplet.cmake b/customized_toolchain/toolchains/x64-osx-triplet.cmake
+deleted file mode 100644
+index 0d54713..0000000
+--- a/customized_toolchain/toolchains/x64-osx-triplet.cmake
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-# This toolchain is meant for use inside a vcpkg triplet. See `README.md` for more details.
+-include($ENV{VCPKG_ROOT}/scripts/toolchains/osx.cmake)
+-include(${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-carbon.cmake)
+diff --git a/customized_toolchain/toolchains/x64-windows-carbon.cmake b/customized_toolchain/toolchains/x64-windows-carbon.cmake
+deleted file mode 100644
+index 5d16e0a..0000000
+--- a/customized_toolchain/toolchains/x64-windows-carbon.cmake
++++ /dev/null
+@@ -1,60 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
+-    set(_CCP_TOOLCHAIN_FILE_LOADED 1)
+-
+-    set (VCPKG_USE_HOST_TOOLS ON CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD 17 CACHE STRING "")
+-    set (CMAKE_CXX_STANDARD_REQUIRED ON CACHE STRING "")
+-    set (CMAKE_CXX_EXTENSIONS OFF CACHE STRING "")
+-    set (CMAKE_POSITION_INDEPENDENT_CODE ON CACHE STRING "")
+-    set (CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden CACHE STRING "")
+-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON CACHE STRING "")
+-
+-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING INTERNAL FORCE)
+-    set(CMAKE_SYSTEM_VERSION 10.0.17763.0 CACHE STRING INTERNAL FORCE)
+-    set(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION 10.0.17763.0 CACHE STRING INTERNAL FORCE)
+-
+-    # Windows 10 is our minimum requirement, so make sure we're enforcing it.
+-    add_compile_definitions(WINVER=0x0A00)
+-    add_compile_definitions(_WIN32_WINNT=0x0A00)
+-    add_compile_definitions(_WIN32_WINDOWS=0x0A00)
+-    add_compile_definitions(NTDDI_VERSION=0x0A000000)
+-
+-    #[[
+-        - `CCP_PLATFORM` indicates the operating system a binary was built for
+-        - `CCP_ARCHITECTURE` indicates the hardware architecture a binary was built for
+-        - `CCP_TOOLSET` indicates the compiler (or toolset) a binary was built with
+-        - `CCP_VENDOR_LIB_PATH` is a convenience variable for find_package modules, to construct the default `lib` folder for a vendored SDK.
+-        - `CCP_VENDOR_BIN_PATH` is the same as CCP_VENDOR_LIB_PATH, but for the `bin` folder for a vendored SDK.
+-
+-        See Platform Agnostic Developement section of the wiki:
+-        https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
+-    ]]
+-    set(CCP_PLATFORM Windows CACHE STRING "Target Platform")
+-    set(CCP_ARCHITECTURE x64 CACHE STRING "Target Architecture")
+-    set(CCP_TOOLSET v141 CACHE STRING "Target Toolset")
+-
+-    # https://docs.microsoft.com/en-us/cpp/build/reference/mp-build-with-multiple-processes?view=msvc-150
+-    add_compile_options(/MP)
+-
+-    add_compile_options(/W3)
+-    add_compile_options(/permissive-)
+-    # Ignore missing PDB file for libraries
+-    add_link_options(/IGNORE:4099)
+-
+-    # https://docs.microsoft.com/en-us/cpp/error-messages/tool-errors/linker-tools-warning-lnk4098?view=msvc-150
+-    # NOTE: Disable linker option when building with a statically linked runtime library
+-    # add_link_options(/NODEFAULTLIB:libcmt.lib)
+-
+-    # https://docs.microsoft.com/en-us/cpp/text/support-for-multibyte-character-sets-mbcss?view=msvc-150
+-    # We don't want this, but we currently can't use /D UNICODE since this breaks all our legacy nonsense (which we should fix)
+-    # Replace with -D_UNICODE once we have fixed this
+-    # https://github.com/bluescarni/mppp/issues/177
+-    add_definitions(-D_SBCS)
+-
+-    set(MATH_OPTIMIZE_FLAG "/fp:fast")
+-
+-    # Disable /GL for /ZI support
+-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_DEBUG OFF)
+-endif ()
+diff --git a/customized_toolchain/toolchains/x64-windows-triplet.cmake b/customized_toolchain/toolchains/x64-windows-triplet.cmake
+deleted file mode 100644
+index 80b0a54..0000000
+--- a/customized_toolchain/toolchains/x64-windows-triplet.cmake
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-# This toolchain is meant for use inside a vcpkg triplet. See `README.md` for more details.
+-include($ENV{VCPKG_ROOT}/scripts/toolchains/windows.cmake)
+-include(${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-carbon.cmake)
+diff --git a/customized_toolchain/triplets/arm64-osx-debug.cmake b/customized_toolchain/triplets/arm64-osx-debug.cmake
+deleted file mode 100644
+index befb862..0000000
+--- a/customized_toolchain/triplets/arm64-osx-debug.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE arm64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES arm64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Debug")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+diff --git a/customized_toolchain/triplets/arm64-osx-internal.cmake b/customized_toolchain/triplets/arm64-osx-internal.cmake
+deleted file mode 100644
+index af1d450..0000000
+--- a/customized_toolchain/triplets/arm64-osx-internal.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE arm64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES arm64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Internal")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/arm64-osx-release.cmake b/customized_toolchain/triplets/arm64-osx-release.cmake
+deleted file mode 100644
+index 20235c9..0000000
+--- a/customized_toolchain/triplets/arm64-osx-release.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE arm64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES arm64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Release")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/arm64-osx-trinitydev.cmake b/customized_toolchain/triplets/arm64-osx-trinitydev.cmake
+deleted file mode 100644
+index 589f56b..0000000
+--- a/customized_toolchain/triplets/arm64-osx-trinitydev.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE arm64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES arm64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "TrinityDev")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/arm64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-osx-debug.cmake b/customized_toolchain/triplets/x64-osx-debug.cmake
+deleted file mode 100644
+index 8c67a99..0000000
+--- a/customized_toolchain/triplets/x64-osx-debug.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES x86_64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Debug")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-osx-internal.cmake b/customized_toolchain/triplets/x64-osx-internal.cmake
+deleted file mode 100644
+index 02daeb9..0000000
+--- a/customized_toolchain/triplets/x64-osx-internal.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES x86_64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Internal")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-osx-release.cmake b/customized_toolchain/triplets/x64-osx-release.cmake
+deleted file mode 100644
+index 3e4748a..0000000
+--- a/customized_toolchain/triplets/x64-osx-release.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES x86_64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "Release")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-osx-trinitydev.cmake b/customized_toolchain/triplets/x64-osx-trinitydev.cmake
+deleted file mode 100644
+index 77684d3..0000000
+--- a/customized_toolchain/triplets/x64-osx-trinitydev.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+-set(VCPKG_OSX_ARCHITECTURES x86_64)
+-set(VCPKG_OSX_DEPLOYMENT_TARGET 10.14)
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-
+-set(CARBON_BUILD_TYPE "TrinityDev")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-osx-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-windows-debug.cmake b/customized_toolchain/triplets/x64-windows-debug.cmake
+deleted file mode 100644
+index 81cb1cd..0000000
+--- a/customized_toolchain/triplets/x64-windows-debug.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_PLATFORM_TOOLSET v141)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_VERSION "10.0.17763.0")
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-set(VCPKG_LOAD_VCVARS_ENV ON)
+-
+-set(CARBON_BUILD_TYPE "Debug")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-windows-internal.cmake b/customized_toolchain/triplets/x64-windows-internal.cmake
+deleted file mode 100644
+index 9c2a2ec..0000000
+--- a/customized_toolchain/triplets/x64-windows-internal.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_PLATFORM_TOOLSET v141)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_VERSION "10.0.17763.0")
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-set(VCPKG_LOAD_VCVARS_ENV ON)
+-
+-set(CARBON_BUILD_TYPE "Internal")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-windows-release.cmake b/customized_toolchain/triplets/x64-windows-release.cmake
+deleted file mode 100644
+index 848f548..0000000
+--- a/customized_toolchain/triplets/x64-windows-release.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_PLATFORM_TOOLSET v141)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_VERSION "10.0.17763.0")
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-set(VCPKG_LOAD_VCVARS_ENV ON)
+-
+-set(CARBON_BUILD_TYPE "Release")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file
+diff --git a/customized_toolchain/triplets/x64-windows-trinitydev.cmake b/customized_toolchain/triplets/x64-windows-trinitydev.cmake
+deleted file mode 100644
+index 4709064..0000000
+--- a/customized_toolchain/triplets/x64-windows-trinitydev.cmake
++++ /dev/null
+@@ -1,62 +0,0 @@
+-# Copyright © 2025 CCP ehf.
+-set(VCPKG_TARGET_ARCHITECTURE x64)
+-set(VCPKG_CRT_LINKAGE static)
+-set(VCPKG_LIBRARY_LINKAGE static)
+-set(VCPKG_PLATFORM_TOOLSET v141)
+-set(VCPKG_BUILD_TYPE "release")
+-
+-set(VCPKG_CMAKE_SYSTEM_VERSION "10.0.17763.0")
+-
+-set(VCPKG_ENV_PASSTHROUGH_UNTRACKED VCPKG_ROOT)
+-set(VCPKG_LOAD_VCVARS_ENV ON)
+-
+-set(CARBON_BUILD_TYPE "TrinityDev")
+-
+-if (PORT MATCHES "carbon-.*")
+-    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-triplet.cmake")
+-    set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/../toolchains/x64-windows-carbon.cmake")
+-endif ()
+-
+-if (PORT MATCHES "libyaml")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "curl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "openssl")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "protobuf")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "zlib")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "libuv")
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DBUILD_TESTING=OFF")
+-endif()
+-
+-if (PORT MATCHES "carbon-pdmprotowrapper")
+-    set(VCPKG_LIBRARY_LINKAGE static)
+-endif ()
+-
+-if (PORT MATCHES "python3")
+-    set(VCPKG_LIBRARY_LINKAGE dynamic)
+-endif ()
+-
+-if (PORT MATCHES "yaml-cpp")
+-    # Version 8 uses version Cmake 3.4 which we don't support.
+-    # Version 9 this isn't a problem but it fails with internal compiler error due to our compiler.
+-    # When the compiler version is updated we can remove this.
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+-
+-if (PORT MATCHES "tiny-process-library")
+-    # Latest tagged version uses a version of cmake < 3.5
+-    set(VCPKG_CMAKE_CONFIGURE_OPTIONS "${VCPKG_CMAKE_CONFIGURE_OPTIONS};-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+-endif ()
+\ No newline at end of file

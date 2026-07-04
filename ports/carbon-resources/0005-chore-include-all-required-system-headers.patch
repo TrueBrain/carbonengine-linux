@@ -1,0 +1,232 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:46:19 +0200
+Subject: [PATCH 05/10] chore: include all required system headers
+
+Linux compilers tend to be more strict in what headers
+they need, where other compilers tend to auto-include
+some.
+---
+ cli/src/ApplyPatchCliOperation.cpp                    | 1 +
+ cli/src/Cli.cpp                                       | 1 +
+ cli/src/CliOperation.cpp                              | 1 +
+ cli/src/CreateBundleCliOperation.cpp                  | 1 +
+ cli/src/CreatePatchCliOperation.cpp                   | 1 +
+ cli/src/CreateResourceGroupCliOperation.cpp           | 1 +
+ cli/src/CreateResourceGroupFromFilterCliOperation.cpp | 1 +
+ cli/src/DiffResourceGroupCliOperation.cpp             | 1 +
+ cli/src/MergeResourceGroupCliOperation.cpp            | 1 +
+ cli/src/RemoveResourcesCliOperation.cpp               | 1 +
+ cli/src/UnpackBundleCliOperation.cpp                  | 1 +
+ cli/src/main.cpp                                      | 1 +
+ src/ParameterVersion.cpp                              | 1 +
+ tools/include/BundleStreamIn.h                        | 1 +
+ tools/include/BundleStreamOut.h                       | 1 +
+ tools/src/GzipDecompressionStream.cpp                 | 1 +
+ tools/src/Patching.cpp                                | 1 +
+ 17 files changed, 17 insertions(+)
+
+diff --git a/cli/src/ApplyPatchCliOperation.cpp b/cli/src/ApplyPatchCliOperation.cpp
+index 3f0f098..4a54147 100644
+--- a/cli/src/ApplyPatchCliOperation.cpp
++++ b/cli/src/ApplyPatchCliOperation.cpp
+@@ -5,6 +5,7 @@
+ #include <PatchResourceGroup.h>
+ 
+ #include <iostream>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ 
+ ApplyPatchCliOperation::ApplyPatchCliOperation() :
+diff --git a/cli/src/Cli.cpp b/cli/src/Cli.cpp
+index 4759c16..cc62b07 100644
+--- a/cli/src/Cli.cpp
++++ b/cli/src/Cli.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "Cli.h"
+ 
++#include <utility>
+ #include <argparse/argparse.hpp>
+ 
+ #include "Defines.h"
+diff --git a/cli/src/CliOperation.cpp b/cli/src/CliOperation.cpp
+index 802183f..e862c59 100644
+--- a/cli/src/CliOperation.cpp
++++ b/cli/src/CliOperation.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "CliOperation.h"
+ 
++#include <utility>
+ #include <argparse/argparse.hpp>
+ 
+ #include <ResourceGroup.h>
+diff --git a/cli/src/CreateBundleCliOperation.cpp b/cli/src/CreateBundleCliOperation.cpp
+index 22cf328..239baff 100644
+--- a/cli/src/CreateBundleCliOperation.cpp
++++ b/cli/src/CreateBundleCliOperation.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include <string>
+ 
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <yaml-cpp/yaml.h>
+ 
+diff --git a/cli/src/CreatePatchCliOperation.cpp b/cli/src/CreatePatchCliOperation.cpp
+index 162a5e7..f658440 100644
+--- a/cli/src/CreatePatchCliOperation.cpp
++++ b/cli/src/CreatePatchCliOperation.cpp
+@@ -3,6 +3,7 @@
+ #include "CreatePatchCliOperation.h"
+ 
+ #include <string>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <ResourceGroup.h>
+ 
+diff --git a/cli/src/CreateResourceGroupCliOperation.cpp b/cli/src/CreateResourceGroupCliOperation.cpp
+index 3cb68b1..0c79617 100644
+--- a/cli/src/CreateResourceGroupCliOperation.cpp
++++ b/cli/src/CreateResourceGroupCliOperation.cpp
+@@ -3,6 +3,7 @@
+ #include "CreateResourceGroupCliOperation.h"
+ 
+ #include <string>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <ResourceGroup.h>
+ 
+diff --git a/cli/src/CreateResourceGroupFromFilterCliOperation.cpp b/cli/src/CreateResourceGroupFromFilterCliOperation.cpp
+index 5ed94d0..bb4033f 100644
+--- a/cli/src/CreateResourceGroupFromFilterCliOperation.cpp
++++ b/cli/src/CreateResourceGroupFromFilterCliOperation.cpp
+@@ -3,6 +3,7 @@
+ #include "CreateResourceGroupFromFilterCliOperation.h"
+ 
+ #include <string>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <ResourceGroup.h>
+ #include <unordered_set>
+diff --git a/cli/src/DiffResourceGroupCliOperation.cpp b/cli/src/DiffResourceGroupCliOperation.cpp
+index 7e0da80..10b6f40 100644
+--- a/cli/src/DiffResourceGroupCliOperation.cpp
++++ b/cli/src/DiffResourceGroupCliOperation.cpp
+@@ -3,6 +3,7 @@
+ #include "DiffResourceGroupCliOperation.h"
+ 
+ #include <iostream>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <fstream>
+ 
+diff --git a/cli/src/MergeResourceGroupCliOperation.cpp b/cli/src/MergeResourceGroupCliOperation.cpp
+index fba775b..1ac02a5 100644
+--- a/cli/src/MergeResourceGroupCliOperation.cpp
++++ b/cli/src/MergeResourceGroupCliOperation.cpp
+@@ -5,6 +5,7 @@
+ #include <PatchResourceGroup.h>
+ 
+ #include <iostream>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ 
+ MergeResourceGroupCliOperation::MergeResourceGroupCliOperation() :
+diff --git a/cli/src/RemoveResourcesCliOperation.cpp b/cli/src/RemoveResourcesCliOperation.cpp
+index c91e05b..99453ea 100644
+--- a/cli/src/RemoveResourcesCliOperation.cpp
++++ b/cli/src/RemoveResourcesCliOperation.cpp
+@@ -5,6 +5,7 @@
+ #include <PatchResourceGroup.h>
+ 
+ #include <iostream>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <fstream>
+ 
+diff --git a/cli/src/UnpackBundleCliOperation.cpp b/cli/src/UnpackBundleCliOperation.cpp
+index 4d28997..4ff9b3f 100644
+--- a/cli/src/UnpackBundleCliOperation.cpp
++++ b/cli/src/UnpackBundleCliOperation.cpp
+@@ -3,6 +3,7 @@
+ #include "UnpackBundleCliOperation.h"
+ 
+ #include <iostream>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ 
+ UnpackBundleCliOperation::UnpackBundleCliOperation() :
+diff --git a/cli/src/main.cpp b/cli/src/main.cpp
+index b230ada..6ebc17c 100644
+--- a/cli/src/main.cpp
++++ b/cli/src/main.cpp
+@@ -4,6 +4,7 @@
+ #include <ResourceGroup.h>
+ #include <BundleResourceGroup.h>
+ #include <PatchResourceGroup.h>
++#include <utility>
+ #include <argparse/argparse.hpp>
+ #include <filesystem>
+ 
+diff --git a/src/ParameterVersion.cpp b/src/ParameterVersion.cpp
+index 2cc5f04..e443188 100644
+--- a/src/ParameterVersion.cpp
++++ b/src/ParameterVersion.cpp
+@@ -3,6 +3,7 @@
+ #include "ParameterVersion.h"
+ 
+ #include <map>
++#include <limits>
+ 
+ namespace CarbonResources
+ {
+diff --git a/tools/include/BundleStreamIn.h b/tools/include/BundleStreamIn.h
+index 9ed457f..97ff9f1 100644
+--- a/tools/include/BundleStreamIn.h
++++ b/tools/include/BundleStreamIn.h
+@@ -5,6 +5,7 @@
+ #define BundleStreamIn_H
+ 
+ #include <string>
++#include <cstdint>
+ 
+ namespace ResourceTools
+ {
+diff --git a/tools/include/BundleStreamOut.h b/tools/include/BundleStreamOut.h
+index 8fb906a..18355c0 100644
+--- a/tools/include/BundleStreamOut.h
++++ b/tools/include/BundleStreamOut.h
+@@ -9,6 +9,7 @@
+ #include <ScopedFile.h>
+ 
+ #include <string>
++#include <vector>
+ #include "GzipCompressionStream.h"
+ 
+ namespace ResourceTools
+diff --git a/tools/src/GzipDecompressionStream.cpp b/tools/src/GzipDecompressionStream.cpp
+index c3d6bbb..d8e2d83 100644
+--- a/tools/src/GzipDecompressionStream.cpp
++++ b/tools/src/GzipDecompressionStream.cpp
+@@ -3,6 +3,7 @@
+ #include "GzipDecompressionStream.h"
+ 
+ #include <algorithm>
++#include <limits>
+ 
+ constexpr int CHUNK = 16384; // 16kb
+ 
+diff --git a/tools/src/Patching.cpp b/tools/src/Patching.cpp
+index c3d9c2b..146cac1 100644
+--- a/tools/src/Patching.cpp
++++ b/tools/src/Patching.cpp
+@@ -7,6 +7,7 @@
+ 
+ #include "BundleStreamIn.h"
+ #include "ResourceTools.h"
++#include <cstring>
+ 
+ const char* BSDIFF_HEADER_STR = "ENDSLEY/BSDIFF43";
+ constexpr uint8_t BSDIFF_HEADER_TEXT_SIZE = 16;

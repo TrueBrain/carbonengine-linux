@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:45:13 +0200
+Subject: [PATCH 04/10] chore: update .gitignore to be more like the rest
+
+---
+ .gitignore | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index 25185dc..0475b89 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -28,7 +28,9 @@ __pycache__/
+ ### CMake ###
+ # User generated local cmake configuration
+ CMakeUserPresets.json
+-
++# Intermediate cmake build flavor folders #
++cmake-build-*/
++.cmake-*
+ 
+ ### IDE ###
+ # User generated local IDE configuration

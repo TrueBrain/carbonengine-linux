@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 14:08:19 +0200
+Subject: [PATCH 06/10] fix: CreateBundle ignore result from GetDataStream
+
+This silently produces an empty bundle, instead of notifying the user.
+---
+ src/ResourceGroupImpl.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/ResourceGroupImpl.cpp b/src/ResourceGroupImpl.cpp
+index 13e2164..e3de694 100644
+--- a/src/ResourceGroupImpl.cpp
++++ b/src/ResourceGroupImpl.cpp
+@@ -2065,6 +2065,11 @@ Result ResourceGroup::ResourceGroupImpl::CreateBundle( const BundleCreateParams&
+ 
+ 			Result resourceGetDataResult = resource->GetDataStream( resourceGetDataParams );
+ 
++			if( resourceGetDataResult.type != ResultType::SUCCESS )
++			{
++				return resourceGetDataResult;
++			}
++
+             while( !resourceDataStream->IsFinished() )
+ 			{
+                 if (!bundleStream.operator<<(resourceDataStream))

@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:45:00 +0200
+Subject: [PATCH 02/10] build: integrate vcpkg manifest features
+
+This ensures that CMake options propagate through via vcpkg.
+Meaning no more installing Python3 if you are not building docs.
+---
+ CMakeLists.txt | 44 ++++++++++++++++++++++++++++----------------
+ vcpkg.json     |  3 ---
+ 2 files changed, 28 insertions(+), 19 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e0525bc..45e9ff2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,32 @@
+ # Copyright © 2025 CCP ehf.
+ 
+-cmake_minimum_required(VERSION 3.31.0)
++cmake_minimum_required(VERSION 3.28.0)
++
++if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
++    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
++
++    # Determine if/when to generate/build documentation. The rules are as follows:
++    # - If running locally - Build documentation is OFF by default
++    # - If running on a build agent (TeamCity) - Build documentation is ON by default
++    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
++    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
++    if (DEFINED ENV{TEAMCITY_VERSION})
++        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
++    endif ()
++    message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
++    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
++else()
++    set(BUILD_TESTING OFF)
++    set(BUILD_DOCUMENTATION OFF)
++endif()
++
++if(BUILD_TESTING)
++    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
++endif()
++if(BUILD_DOCUMENTATION)
++    list(APPEND VCPKG_MANIFEST_FEATURES "docs")
++endif()
++
+ project(resources VERSION 4.3.1)
+ 
+ include(cmake/CcpTargetConfigurations.cmake)
+@@ -86,27 +112,13 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
+ add_subdirectory(cli)
+ 
+ # Enable testing based on option set (on by default)
+-if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+-    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+-    if (BUILD_TESTING)
++if (BUILD_TESTING)
+     include(CTest)
+     add_subdirectory(tests)
+-    endif ()
+ endif ()
+ 
+ # Provide an install target if this is the top level project only
+ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+-    # Determine if/when to generate/build documentation. The rules are as follows:
+-    # - If running locally - Build documentation is OFF by default
+-    # - If running on a build agent (TeamCity) - Build documentation is ON by default
+-    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
+-    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
+-    if (DEFINED ENV{TEAMCITY_VERSION})
+-        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
+-    endif ()
+-    message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
+-    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
+-
+     if (BUILD_DOCUMENTATION)
+         find_package(Python3 COMPONENTS Interpreter REQUIRED)
+ 
+diff --git a/vcpkg.json b/vcpkg.json
+index 02c947d..a56fad8 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -29,9 +29,6 @@
+       "version>=": "1.3.1"
+     }
+   ],
+-  "default-features": [
+-    "tests"
+-  ],
+   "features": {
+     "docs": {
+       "description": "Generate documentation",

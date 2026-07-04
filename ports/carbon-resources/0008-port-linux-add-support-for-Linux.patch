@@ -1,0 +1,225 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:49:38 +0200
+Subject: [PATCH 08/10] port(linux): add support for Linux
+
+---
+ tests/CMakeLists.txt                   | 18 +++---------------
+ tests/src/ResourceToolsLibraryTest.cpp |  4 ++--
+ tests/src/ResourcesCliTest.cpp         | 16 ++++++++--------
+ tests/src/ResourcesLibraryTest.cpp     | 12 ++++++------
+ tools/src/ResourceTools.cpp            |  6 +++---
+ 5 files changed, 22 insertions(+), 34 deletions(-)
+
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index c685908..271a6f1 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -35,24 +35,12 @@ if (DEV_FEATURES)
+     target_compile_definitions(resources-test PRIVATE DEV_FEATURES)
+ endif ()
+ 
+-if (WIN32)
+-
+-    # Get CLI exe
+-    add_custom_command(
+-            TARGET resources-test POST_BUILD
+-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:resources-cli> $<TARGET_FILE_DIR:resources-test>
+-            COMMAND_EXPAND_LISTS
+-    )
+-
+-elseif (APPLE)
+-    # Get CLI exe
+-    add_custom_command(
++# Get CLI exe
++add_custom_command(
+         TARGET resources-test POST_BUILD
+         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:resources-cli> $<TARGET_FILE_DIR:resources-test>
+         COMMAND_EXPAND_LISTS
+-
+-    )
+-endif ()
++)
+ 
+ cmake_path(SET TEST_DATA_PATH ${CMAKE_CURRENT_SOURCE_DIR}/testData)
+ 
+diff --git a/tests/src/ResourceToolsLibraryTest.cpp b/tests/src/ResourceToolsLibraryTest.cpp
+index 082e7ff..a975f69 100644
+--- a/tests/src/ResourceToolsLibraryTest.cpp
++++ b/tests/src/ResourceToolsLibraryTest.cpp
+@@ -991,8 +991,8 @@ TEST_F( ResourceToolsTest, GenerateChunkIndexWithFilter )
+ 	ASSERT_EQ( offset, data.size() - 31 );
+ }
+ 
+-#if __APPLE__
+-TEST_F( ResourceToolsTest, CalculateBinaryOperationMacOS )
++#if __APPLE__ || __linux__
++TEST_F( ResourceToolsTest, CalculateBinaryOperationPOSIX )
+ {
+ 	// Expected values
+ 	// 33279: Binaries, not just executables (No extension, .so, .pyd)
+diff --git a/tests/src/ResourcesCliTest.cpp b/tests/src/ResourcesCliTest.cpp
+index a91ee5b..80e8e1f 100644
+--- a/tests/src/ResourcesCliTest.cpp
++++ b/tests/src/ResourcesCliTest.cpp
+@@ -150,7 +150,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromDirectory )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -191,7 +191,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromDirectoryExportResources )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -227,7 +227,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromDirectoryWithSkipCompression )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupSkipCompressionWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupSkipCompressionMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -262,7 +262,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromDirectoryOldDocumentFormat )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.csv" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.csv" );
+ #else
+ #error Unsupported platform
+@@ -300,7 +300,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromDirectoryOldDocumentFormatWithP
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindowsPrefixed.csv" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOSPrefixed.csv" );
+ #else
+ #error Unsupported platform
+@@ -718,7 +718,7 @@ TEST_F( ResourcesCliTest, CreateGroup )
+ // Check expected outcome
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -766,7 +766,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromFilter )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -830,7 +830,7 @@ TEST_F( ResourcesCliTest, CreateResourceGroupFromFilterExportResources )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+diff --git a/tests/src/ResourcesLibraryTest.cpp b/tests/src/ResourcesLibraryTest.cpp
+index dd1b739..dcd5832 100644
+--- a/tests/src/ResourcesLibraryTest.cpp
++++ b/tests/src/ResourcesLibraryTest.cpp
+@@ -1096,7 +1096,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromDirectory )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -1132,7 +1132,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromDirectoryWithStreaming )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -1170,7 +1170,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromDirectoryExportResources )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -1208,7 +1208,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromDirectorySkipCompression )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupSkipCompressionWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupSkipCompressionMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -1801,7 +1801,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromFilter )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+@@ -1849,7 +1849,7 @@ TEST_F( ResourcesLibraryTest, CreateResourceGroupFromFilterExportResources )
+ 
+ #if _WIN64
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupWindows.yaml" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	std::filesystem::path goldFile = GetTestFileAbsolutePath( "CreateResourceFiles/ResourceGroupMacOS.yaml" );
+ #else
+ #error Unsupported platform
+diff --git a/tools/src/ResourceTools.cpp b/tools/src/ResourceTools.cpp
+index cd71104..40322cc 100644
+--- a/tools/src/ResourceTools.cpp
++++ b/tools/src/ResourceTools.cpp
+@@ -5,7 +5,7 @@
+ #include "BundleStreamOut.h"
+ 
+ #include <sstream>
+-#if __APPLE__
++#ifndef WIN32
+ #include <sys/stat.h> // for lstat
+ #endif
+ #include <filesystem>
+@@ -425,7 +425,7 @@ bool SaveFile( const std::filesystem::path& path, const std::string& data )
+ 	}
+ }
+ 
+-#if __APPLE__
++#ifndef WIN32
+ unsigned int CalculateBinaryOperation( const std::filesystem::path& path )
+ {
+ 	struct stat s;
+@@ -436,7 +436,7 @@ unsigned int CalculateBinaryOperation( const std::filesystem::path& path )
+ 	}
+ 	return s.st_mode;
+ }
+-#elif WIN32
++#else
+ int FileAttributesToMode( DWORD attr )
+ {
+ 	int m = 0x8000; // Regular file, not a symlink or directory or anything.

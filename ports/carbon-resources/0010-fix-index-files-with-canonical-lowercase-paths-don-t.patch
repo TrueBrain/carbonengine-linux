@@ -1,0 +1,165 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 14:04:29 +0200
+Subject: [PATCH 10/10] fix: index-files with canonical-lowercase paths don't
+ work on case-sensitive filesystems
+
+As a workaround, for these instances, implement a case-insensitive
+lookup to find the files back.
+---
+ src/PatchResourceGroupImpl.cpp     |  2 +-
+ src/ResourceInfo/ResourceInfo.cpp  |  8 ++---
+ tests/src/ResourcesTestFixture.cpp |  6 +++-
+ tools/include/ResourceTools.h      |  5 +++
+ tools/src/ResourceTools.cpp        | 52 ++++++++++++++++++++++++++++++
+ 5 files changed, 67 insertions(+), 6 deletions(-)
+
+diff --git a/src/PatchResourceGroupImpl.cpp b/src/PatchResourceGroupImpl.cpp
+index 01e7b8a..f3ba95b 100644
+--- a/src/PatchResourceGroupImpl.cpp
++++ b/src/PatchResourceGroupImpl.cpp
+@@ -702,7 +702,7 @@ Result PatchResourceGroup::PatchResourceGroupImpl::Apply( const PatchApplyParams
+         int i = 0;
+ 		for( const auto& path : *m_removedResources.GetValue() )
+ 		{
+-			auto toRemove = std::filesystem::absolute( params.resourcesToPatchDestinationSettings.basePath / path );
++			auto toRemove = std::filesystem::absolute( ResourceTools::ResolveCaseInsensitivePath( params.resourcesToPatchDestinationSettings.basePath, path ) );
+ 
+             if (removingFilesStatusSettings.RequiresStatusUpdates())
+             {
+diff --git a/src/ResourceInfo/ResourceInfo.cpp b/src/ResourceInfo/ResourceInfo.cpp
+index 1a2394b..cf85ece 100644
+--- a/src/ResourceInfo/ResourceInfo.cpp
++++ b/src/ResourceInfo/ResourceInfo.cpp
+@@ -328,7 +328,7 @@ Result ResourceInfo::PutDataLocalRelative( ResourcePutDataParams& params ) const
+ {
+ 	std::string& data = *params.data;
+ 
+-	std::filesystem::path path = params.resourceDestinationSettings.basePath / m_relativePath.GetValue();
++	std::filesystem::path path = ResourceTools::ResolveCaseInsensitivePath( params.resourceDestinationSettings.basePath, m_relativePath.GetValue() );
+ 
+ 	bool res = ResourceTools::SaveFile( path, data );
+ 
+@@ -389,7 +389,7 @@ Result ResourceInfo::PutDataLocalCdn( ResourcePutDataParams& params ) const
+ 
+ Result ResourceInfo::PutDataStreamLocalRelative( ResourcePutDataStreamParams& params ) const
+ {
+-	std::filesystem::path path = params.resourceDestinationSettings.basePath / m_relativePath.GetValue();
++	std::filesystem::path path = ResourceTools::ResolveCaseInsensitivePath( params.resourceDestinationSettings.basePath, m_relativePath.GetValue() );
+ 
+ 	bool res = params.dataStream->StartWrite( path );
+ 
+@@ -572,7 +572,7 @@ Result ResourceInfo::GetDataLocalRelative( ResourceGetDataParams& params, const
+ 
+ 	std::string& data = *params.data;
+ 
+-	std::filesystem::path dataPath = params.resourceSourceSettings.basePaths.at( basePathId ) / m_relativePath.GetValue();
++	std::filesystem::path dataPath = ResourceTools::ResolveCaseInsensitivePath( params.resourceSourceSettings.basePaths.at( basePathId ), m_relativePath.GetValue() );
+ 
+ 	bool res = ResourceTools::GetLocalFileData( dataPath, data );
+ 
+@@ -709,7 +709,7 @@ Result ResourceInfo::GetDataStreamLocalRelative( ResourceGetDataStreamParams& pa
+ 		return Result{ ResultType::FAILED_TO_OPEN_FILE_STREAM, "Internal component error" };
+ 	}
+ 
+-	std::filesystem::path dataPath = params.resourceSourceSettings.basePaths.at( basePathId ) / m_relativePath.GetValue();
++	std::filesystem::path dataPath = ResourceTools::ResolveCaseInsensitivePath( params.resourceSourceSettings.basePaths.at( basePathId ), m_relativePath.GetValue() );
+ 
+ 	bool res = params.dataStream->StartRead( dataPath );
+ 
+diff --git a/tests/src/ResourcesTestFixture.cpp b/tests/src/ResourcesTestFixture.cpp
+index 3a0bfed..7c9848a 100644
+--- a/tests/src/ResourcesTestFixture.cpp
++++ b/tests/src/ResourcesTestFixture.cpp
+@@ -86,7 +86,11 @@ bool ResourcesTestFixture::DirectoryIsSubset( const std::filesystem::path& dir1,
+ 		{
+ 			continue;
+ 		}
+-		if( !FilesMatch( entry.path(), dir2 / relative( entry.path(), dir1 ) ) )
++		std::filesystem::path relativePath = relative( entry.path(), dir1 );
++
++		// Some resource conventions (e.g. the legacy CSV format) canonicalise paths to lowercase
++		// regardless of on-disk casing, so resolve dir2's side case-insensitively to match.
++		if( !FilesMatch( entry.path(), ResourceTools::ResolveCaseInsensitivePath( dir2, relativePath ) ) )
+ 		{
+ 			return false;
+ 		}
+diff --git a/tools/include/ResourceTools.h b/tools/include/ResourceTools.h
+index 09835fe..000c1e0 100644
+--- a/tools/include/ResourceTools.h
++++ b/tools/include/ResourceTools.h
+@@ -50,6 +50,11 @@ size_t CountMatchingChunks( const std::filesystem::path& fileA, size_t offsetA,
+ 
+ bool GetLocalFileData( const std::filesystem::path& filepath, std::string& data );
+ 
++// Resolves relativePath against basePath component-by-component, falling back to a
++// case-insensitive directory match for any component that isn't an exact match on disk.
++// Only useful for case-sensitive filesystems.
++std::filesystem::path ResolveCaseInsensitivePath( const std::filesystem::path& basePath, const std::filesystem::path& relativePath );
++
+ bool GZipCompressData( const std::string& dataToCompress, std::string& compressedData );
+ 
+ bool GZipUncompressData( const std::string& dataToUncompress, std::string& uncompressedData );
+diff --git a/tools/src/ResourceTools.cpp b/tools/src/ResourceTools.cpp
+index 40322cc..afe059f 100644
+--- a/tools/src/ResourceTools.cpp
++++ b/tools/src/ResourceTools.cpp
+@@ -330,6 +330,58 @@ bool GetLocalFileData( const std::filesystem::path& filepath, std::string& data
+ 	}
+ }
+ 
++std::filesystem::path ResolveCaseInsensitivePath( const std::filesystem::path& basePath, const std::filesystem::path& relativePath )
++{
++#if defined(__linux__)
++	std::filesystem::path current = basePath;
++
++	for( const std::filesystem::path& part : relativePath )
++	{
++		std::filesystem::path candidate = current / part;
++
++		if( std::filesystem::exists( candidate ) )
++		{
++			current = candidate;
++			continue;
++		}
++
++		std::string partName = part.string();
++
++		bool found = false;
++
++		std::error_code errorCode;
++
++		for( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( current, errorCode ) )
++		{
++			std::string entryName = entry.path().filename().string();
++
++			if( entryName.size() != partName.size() )
++			{
++				continue;
++			}
++
++			if( std::equal( entryName.begin(), entryName.end(), partName.begin(), []( unsigned char a, unsigned char b ) { return std::tolower( a ) == std::tolower( b ); } ) )
++			{
++				current = entry.path();
++				found = true;
++				break;
++			}
++		}
++
++		if( !found )
++		{
++			// No case-insensitive match either; return the direct path so the caller's
++			// existing "failed to open" error reporting points at the expected location.
++			return basePath / relativePath;
++		}
++	}
++
++	return current;
++#else
++	return basePath / relativePath;
++#endif
++}
++
+ bool GZipCompressData( const std::string& dataToCompress, std::string& compressedData )
+ {
+ 	// Ensure the input is cleared prior to calculating compression
