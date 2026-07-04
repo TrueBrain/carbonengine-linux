@@ -21,6 +21,7 @@ vcpkg_from_git(
 0001-build-update-vcpkg-registry-to-HTTPS.patch
 0002-fix-compile-on-case-sensitive-filesystems.patch
 0003-port-linux-add-support-for-Linux.patch
+0004-port-linux-_DEBUG-is-MSVC-ism-use-NDEBUG-for-cross-p.patch
     # END EXPORTED PATCHES
 )
 

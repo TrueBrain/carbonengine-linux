@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 20:36:55 +0200
+Subject: [PATCH 4/4] port(linux): _DEBUG is MSVC-ism; use !NDEBUG for
+ cross-platform support
+
+---
+ CommandArguments.h | 4 ++--
+ Crashpad.cpp       | 4 ++--
+ Crashpad.h         | 2 +-
+ ExeFile.cpp        | 4 ++++
+ 4 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/CommandArguments.h b/CommandArguments.h
+index 9951206..0009826 100644
+--- a/CommandArguments.h
++++ b/CommandArguments.h
+@@ -17,7 +17,7 @@ struct CommandArguments
+ 	ConsoleMode consoleMode; // console_mode_create
+ 	bool uploadMinidump; // = true
+ 	int affinity; // = -1
+-	int pyOptimize;// = 1 or = -1 for _DEBUG
++	int pyOptimize;// = 1 or = -1 for !NDEBUG
+ 	std::wstring redirectStdErr;
+ 	std::wstring redirectStdOut;
+ 	bool asService;
+@@ -27,7 +27,7 @@ struct CommandArguments
+ 		:consoleMode( console_mode_create ),
+ 		uploadMinidump( true ),
+ 		affinity( -1 ),
+-#ifdef _DEBUG
++#if !defined(NDEBUG)
+ 		pyOptimize( -1 ),
+ #else
+ 		pyOptimize( 1 ),
+diff --git a/Crashpad.cpp b/Crashpad.cpp
+index 29cfc5e..6817428 100644
+--- a/Crashpad.cpp
++++ b/Crashpad.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2026 CCP ehf.
+ #include "StdAfx.h"
+ 
+-#if !_DEBUG
++#if defined(NDEBUG)
+ 
+ #include "Crashpad.h"
+ #include "FileSystem.h"
+@@ -165,7 +165,7 @@ void CrashpadCrashInterface::ProduceImmediateDump()
+ 
+ CrashpadCrashInterface* GetCrashReporter()
+ {
+-#if !_DEBUG
++#if defined(NDEBUG)
+ 	static CrashpadCrashInterface s_crashpadCrashInterface;
+ 	return &s_crashpadCrashInterface;
+ #else
+diff --git a/Crashpad.h b/Crashpad.h
+index cb19817..28d9591 100644
+--- a/Crashpad.h
++++ b/Crashpad.h
+@@ -1,5 +1,5 @@
+ // Copyright © 2026 CCP ehf.
+-#if !_DEBUG
++#if defined(NDEBUG)
+ 
+ 
+ class AnnotationData;
+diff --git a/ExeFile.cpp b/ExeFile.cpp
+index 7d607d9..8d95c3c 100644
+--- a/ExeFile.cpp
++++ b/ExeFile.cpp
+@@ -374,6 +374,7 @@ bool ConfigurePython( BlueInterface& blue, bool interpreterMode )
+ */
+ int runPyMain( std::vector<std::wstring> &argv, BlueInterface& blue )
+ {
++#if defined(NDEBUG)
+ 	if (auto crashReporter = GetCrashReporter(); crashReporter) {
+ 		// Signal to the crash reporting system that we're running in interpreter mode
+ 		crashReporter->SetCrashKeyValue("interpreterMode", "true");
+@@ -381,6 +382,7 @@ int runPyMain( std::vector<std::wstring> &argv, BlueInterface& blue )
+ 		// using snake_csae to be consistent with the other search able keys on sentry.
+ 		crashReporter->SetCrashKeyValue("sentry", R"({"tags": {"interpreter_mode": "true"}})");
+ 	}
++#endif
+ 
+ 	// We want vanilla python behaviour.
+ 	// Every argument after /py gets forwarded to Py_Main
+@@ -527,6 +529,7 @@ int Main(const CommandLine& commandLine, bool isSupportedOS)
+ 		return 0;
+ 	}
+ 
++#if defined(NDEBUG)
+ 	auto crashReporter = GetCrashReporter();
+ 	if( crashReporter && commandArguments.uploadMinidump )
+ 	{
+@@ -534,6 +537,7 @@ int Main(const CommandLine& commandLine, bool isSupportedOS)
+ 	}
+ 	// Tell Blue about our crash interface so that it can change settings
+ 	blue.SetCrashReporter( crashReporter );
++#endif
+ 
+ 	blue.ModuleStartup();
+ 	blue.InitializeSocketLogger();
