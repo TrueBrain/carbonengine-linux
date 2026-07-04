@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 19:02:11 +0200
+Subject: [PATCH 4/8] chore: update .gitignore to be more like the rest
+
+---
+ .gitignore | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index 05bd813..d280d4d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -28,5 +28,6 @@ __pycache__/
+ ### CMAKE ###
+ # Intermediate cmake build flavor folders #
+ cmake-build-*/
++.cmake-*
+ CMakeUserPresets.json
+-vcpkg_registry_cache/
+\ No newline at end of file
++vcpkg_registry_cache/

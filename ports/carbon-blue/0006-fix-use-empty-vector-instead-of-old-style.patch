@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 18:56:01 +0200
+Subject: [PATCH 6/8] fix: use empty vector instead of old-style {{}}
+
+---
+ src/BlueResFileSystemLocal.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/BlueResFileSystemLocal.cpp b/src/BlueResFileSystemLocal.cpp
+index 1368c7c..690d5f2 100644
+--- a/src/BlueResFileSystemLocal.cpp
++++ b/src/BlueResFileSystemLocal.cpp
+@@ -422,7 +422,7 @@ std::optional<std::vector<std::wstring>> ExpandSearchPath( const std::wstring& p
+ 	auto found = searchPaths.find( key );
+ 	if( found == searchPaths.end() )
+ 	{
+-		return { {} };
++		return std::vector<std::wstring>{};
+ 	}
+ 
+ 	if( currentExpansion.find( keyW ) != currentExpansion.end() )

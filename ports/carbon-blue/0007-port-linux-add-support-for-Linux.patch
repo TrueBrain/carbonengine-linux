@@ -1,0 +1,1085 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 18:53:13 +0200
+Subject: [PATCH 7/8] port(linux): add support for Linux
+
+---
+ CMakeLists.txt           |  22 ++++---
+ include/IBlueOS.h        |  34 ++++++-----
+ src/BlueClipboard.cpp    |  23 +++++++
+ src/BlueOS_Blue.cpp      | 128 ++++++++++++++++++++++++++++-----------
+ src/BlueSocketLogger.cpp |   8 ++-
+ src/BlueSysInfo.h        |   1 +
+ src/BlueSysInfoLinux.cpp | 120 ++++++++++++++++++++++++++++++++++++
+ src/BlueSysInfo_Blue.cpp |   1 +
+ src/PyMemory.cpp         |  67 +++++++++++++++++++-
+ src/YamlReader.cpp       |  16 +++--
+ src/YamlReader.h         |   8 +--
+ src/blue.cpp             |  24 +++++++-
+ src/errormessage.cpp     |  25 +++++++-
+ 13 files changed, 396 insertions(+), 81 deletions(-)
+ create mode 100644 src/BlueSysInfoLinux.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5c39e76..0fe3c2b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -23,7 +23,7 @@ find_package(carbon-core REQUIRED CONFIG)
+ find_package(carbon-blueexposure REQUIRED CONFIG)
+ find_package(carbon-io REQUIRED CONFIG)
+ find_package(CURL REQUIRED CONFIG)
+-find_package(YAML REQUIRED CONFIG)
++find_package(yaml CONFIG REQUIRED)
+ find_package(zlib CONFIG REQUIRED)
+ find_package(carbon-scheduler REQUIRED CONFIG)
+ find_package(OpenSSL COMPONENTS Crypto SSL REQUIRED)
+@@ -69,7 +69,6 @@ set(PUBLIC_HEADER_FILES_INCLUDE
+ 
+ ccp_add_library(Blue SHARED
+     src/Logger/Logger.cpp
+-    src/BlueSysInfo.mm
+     src/Accumulator/PercentileAccumulator.cpp
+     src/Accumulator/PercentileAccumulator_Blue.cpp
+     src/AllReferences.cpp
+@@ -89,7 +88,6 @@ ccp_add_library(Blue SHARED
+     src/BlueAsyncRes_Blue.cpp
+     src/BlueClipboard.cpp
+     src/BlueClipboard.h
+-    src/BlueClipboard.mm
+     src/BlueClipboard_Blue.cpp
+     src/BlueEventToPython.cpp
+     src/BlueEventToPython.h
+@@ -115,7 +113,6 @@ ccp_add_library(Blue SHARED
+     src/BlueNetworkStream_Blue.cpp
+     src/BlueOS.cpp
+     src/BlueOS.h
+-    src/BlueOS.mm
+     src/BlueOS_Blue.cpp
+     src/BlueObjectBuilderPython.cpp
+     src/BlueObjectBuilderPython.h
+@@ -286,6 +283,17 @@ if(APPLE)
+     enable_language(OBJCXX)
+     target_compile_definitions(Blue PRIVATE PORTING_TO_LINUX)
+     target_link_libraries(Blue PRIVATE "-framework SystemConfiguration -framework Foundation -framework IOKit -framework AppKit")
++    target_sources(Blue PRIVATE
++        src/BlueSysInfo.mm
++        src/BlueClipboard.mm
++        src/BlueOS.mm
++    )
++endif()
++
++if(LINUX)
++    target_sources(Blue PRIVATE
++        src/BlueSysInfoLinux.cpp
++    )
+ endif()
+ 
+ get_target_property(CARBONIO_INCLUDE_DIR _socket INTERFACE_INCLUDE_DIRECTORIES)
+@@ -387,8 +395,8 @@ if(BUILD_TESTING)
+         )
+         if(WIN32)
+             set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT  "PYTHONPATH=$<TARGET_FILE_DIR:Blue>\;${CMAKE_CURRENT_SOURCE_DIR}/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python\;${Python3_STDLIB};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
+-        elseif (APPLE)
+-                set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/tests/python:$<TARGET_FILE_DIR:Blue>:${CMAKE_CURRENT_SOURCE_DIR}/python:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/python3.12/lib-dynload:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python:${Python3_STDLIB};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>")
++        elseif (APPLE OR LINUX)
++            set_tests_properties(${PYTHON_TEST} PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/tests/python:$<TARGET_FILE_DIR:Blue>:${CMAKE_CURRENT_SOURCE_DIR}/python:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/python3.12/lib-dynload:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python:${Python3_STDLIB};BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:Blue>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+         else()
+             message(FATAL_ERROR "Unsupported platform")
+         endif ()
+@@ -413,7 +421,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+         configure_ccp_vendor_config_file(
+                 TARGET Blue
+                 DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/BlueConfig.cmake"
+-                DEPENDENCIES "BlueExposure;CURL;OpenSSL;PDM;YAML;ZLIB"
++                DEPENDENCIES "BlueExposure;CURL;OpenSSL;PDM;yaml;ZLIB"
+         )
+         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/BlueConfig.cmake DESTINATION .)
+         install(DIRECTORY python DESTINATION . FILES_MATCHING PATTERN "*.py")
+diff --git a/include/IBlueOS.h b/include/IBlueOS.h
+index 7c523be..52b27ad 100644
+--- a/include/IBlueOS.h
++++ b/include/IBlueOS.h
+@@ -1,17 +1,17 @@
+ // Copyright © 2000 CCP ehf.
+ 
+-/* 
++/*
+ 	*************************************************************************
+ 
+ 	IBlueOS.h
+ 
+ 	Project:   Blue
+ 
+-	Description:   
++	Description:
+ 
+ 		IBlueOS is the interface on a static object which handles most Blue
+ 		related activity, like event scheduling, class info queries, class
+-		factories, error mechanism, etc... 'BeOS' is a global variable which 
++		factories, error mechanism, etc... 'BeOS' is a global variable which
+ 		always points to the static instance of IBlueOS.
+ 
+ 		It's a bit of a hassle changing this interface because it will require
+@@ -62,7 +62,7 @@ struct BeInfo
+ 	Be::Time mSimTime;			// It's like mRealTime but sometimes slowed down in order to manage load
+ 	double mSimDilation;		// This is the current factor between Real and Sim time advancement
+ 	double mDilationSyncFactor;	// The dilation factor we are currently basing synchronization on.  May be different than mSimDilation depending on the needs of synchronization.
+-	
++
+ 	// framerate
+ 	double mFps;				// number of frames per second
+ 	Be::Time mFpsRefreshRate;	// time between recalc of fps
+@@ -93,7 +93,7 @@ struct BeInfo
+ 
+ BLUE_INTERFACE(IBlueOS) : public IRoot
+ {
+-	
++
+ 	//--------------------------------------------------------------------
+ 	// Blue OS startup / shutdown
+ 	//--------------------------------------------------------------------
+@@ -102,7 +102,7 @@ BLUE_INTERFACE(IBlueOS) : public IRoot
+ 	virtual bool Startup(
+ 		int pyOptimizeFlag
+ 		) = 0;
+-	
++
+ 	// the way to end things (we always shutdown with a terminate).  For more info
+ 	// read this: http://carbon/wiki/Blue_Shutdown
+ 	virtual void Terminate( int retCode=0 ) = 0;
+@@ -120,7 +120,7 @@ BLUE_INTERFACE(IBlueOS) : public IRoot
+ 	//--------------------------------------------------------------------
+ 	// Scheduling and such...
+ 	//--------------------------------------------------------------------
+-	
++
+ 	virtual void RegisterForTicks(
+ 		IBlueEvents *cb,
+ 		void* cookie
+@@ -150,10 +150,12 @@ BLUE_INTERFACE(IBlueOS) : public IRoot
+ 
+ #if _WIN32
+     typedef DWORD OsErrorType;
+-#else
++#elif __APPLE__
+     typedef errno_t OsErrorType;
++#else
++	typedef error_t OsErrorType;
+ #endif
+-    
++
+ 	struct Error
+ 	{
+ 		long mError;
+@@ -162,8 +164,8 @@ BLUE_INTERFACE(IBlueOS) : public IRoot
+ 		Be::Time mTimestamp;
+ 		OsErrorType mOsError; // set if mError is BE32
+ 	};
+-	
+-	
++
++
+ 	// returns error log for index = 0 to n, NULL when no more
+ 	// errors available
+ 	virtual const Error* GetError(
+@@ -181,11 +183,11 @@ BLUE_INTERFACE(IBlueOS) : public IRoot
+ 	//--------------------------------------------------------------------
+ 	// Management and such
+ 	//--------------------------------------------------------------------
+-	
++
+ 	// put here temporarily
+ 	virtual void PumpOS(
+ 		) = 0;
+-	
++
+ 	//--------------------------------------------------------------------
+ 	// Information
+ 	//--------------------------------------------------------------------
+@@ -228,18 +230,18 @@ extern "C" BLUEIMPORT IBlueOS* BlueGetBeOS();
+ 
+ struct IBlueEvents
+ {
+-	
++
+ 	//--------------------------------------------------------------------
+ 	// Basic event notification
+ 	//--------------------------------------------------------------------
+-	
++
+ 	virtual void OnTick(
+ 		Be::Time realTime,		// Time since client started
+ 		Be::Time simTime,		// The same, but for simulation time
+ 		void* cookie			// user supplied cookie value
+ 		) = 0;
+ 
+-	
++
+ };
+ 
+ // The interface to variable-rate tickers
+diff --git a/src/BlueClipboard.cpp b/src/BlueClipboard.cpp
+index f978991..0ec161d 100644
+--- a/src/BlueClipboard.cpp
++++ b/src/BlueClipboard.cpp
+@@ -89,4 +89,27 @@ BlueClipboard::OperationResult BlueClipboard::SetData( const std::wstring& data
+ {
+ 	return ::SetData( CF_UNICODETEXT, data );
+ }
++
++#else
++
++BlueClipboard::OperationResult BlueClipboard::GetData( std::string& data ) const
++{
++	return BlueClipboard::CLIPBOARD_FAILURE;
++}
++
++BlueClipboard::OperationResult BlueClipboard::GetData( std::wstring& data ) const
++{
++	return BlueClipboard::CLIPBOARD_FAILURE;
++}
++
++BlueClipboard::OperationResult BlueClipboard::SetData( const std::string& data )
++{
++	return BlueClipboard::CLIPBOARD_FAILURE;
++}
++
++BlueClipboard::OperationResult BlueClipboard::SetData( const std::wstring& data )
++{
++	return BlueClipboard::CLIPBOARD_FAILURE;
++}
++
+ #endif
+diff --git a/src/BlueOS_Blue.cpp b/src/BlueOS_Blue.cpp
+index 4fadf3e..6baa601 100644
+--- a/src/BlueOS_Blue.cpp
++++ b/src/BlueOS_Blue.cpp
+@@ -8,6 +8,14 @@
+ #include <sys/sysctl.h>
+ #endif
+ 
++#if defined(__linux__)
++#include <sys/types.h>
++#include <dirent.h>
++#include <unistd.h>
++#include <strings.h>
++#include <fstream>
++#endif
++
+ #if BLUE_WITH_PYTHON
+ 
+ static PyObject *PyCarbonIoFastWakeup( PyObject* self, PyObject* args)
+@@ -31,9 +39,9 @@ void SetCrashKeyValues( const std::string& k, const std::string& v )
+ 	BeCrashes->SetCrashKeyValue( k.c_str(), v.c_str() );
+ }
+ 
+-MAP_FUNCTION_AND_WRAP( 
+-	"SetCrashKeyValues", 
+-	SetCrashKeyValues, 
++MAP_FUNCTION_AND_WRAP(
++	"SetCrashKeyValues",
++	SetCrashKeyValues,
+ 	"Sets arbitrary key values for crash dump uploads\n"
+ 	":param key: key string\n"
+ 	":param value: value string" );
+@@ -48,9 +56,9 @@ void EnableCrashReporting( bool enable )
+ 	BeCrashes->EnableCrashReporting( enable );
+ }
+ 
+-MAP_FUNCTION_AND_WRAP( 
+-	"EnableCrashReporting", 
+-	EnableCrashReporting, 
++MAP_FUNCTION_AND_WRAP(
++	"EnableCrashReporting",
++	EnableCrashReporting,
+ 	"Enable or disable crash reporting\n"
+ 	":param enable: True to enable and False to disable" );
+ 
+@@ -149,7 +157,7 @@ static PyObject *PyGetExeFilePids( PyObject* self, PyObject* args)
+             continue;
+         }
+     }
+-    
++
+     PyObject* list = PyList_New( 0 );
+ 
+     for( auto proc : result )
+@@ -162,6 +170,52 @@ static PyObject *PyGetExeFilePids( PyObject* self, PyObject* args)
+ 
+     return list;
+ }
++#elif defined(__linux__)
++static PyObject *PyGetExeFilePids( PyObject* self, PyObject* args)
++{
++	if( !PyArg_ParseTuple( args, "" ) )
++	{
++		return nullptr;
++	}
++
++	PyObject* list = PyList_New( 0 );
++
++	DIR* dir = opendir( "/proc" );
++	if( dir )
++	{
++		struct dirent* entry;
++		while( ( entry = readdir( dir ) ) != nullptr )
++		{
++			char* endptr;
++			long pid = strtol( entry->d_name, &endptr, 10 );
++			if( *endptr == '\0' && pid > 0 )
++			{
++				char commPath[64];
++				snprintf( commPath, sizeof( commPath ), "/proc/%ld/comm", pid );
++				std::ifstream commFile( commPath );
++				if( commFile )
++				{
++					std::string comm;
++					if( std::getline( commFile, comm ) )
++					{
++						if( !comm.empty() && comm.back() == '\n' )
++						{
++							comm.pop_back();
++						}
++						if( strcasecmp( comm.c_str(), "exefile" ) == 0 ||
++							strcasecmp( comm.c_str(), "exefile.exe" ) == 0 )
++						{
++							PyList_Append( list, BluePy( PyLong_FromLong( pid ) ) );
++						}
++					}
++				}
++			}
++		}
++		closedir( dir );
++	}
++
++	return list;
++}
+ #endif
+ #endif
+ 
+@@ -179,9 +233,9 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		MAP_ATTRIBUTE( "lockFramerate", mLockFramerate, "FPS lock value.", Be::READWRITE )
+ 
+ 		// Simulation clock management
+-		MAP_METHOD_AS_METHOD( 
+-			"EnableSimDilation", 
+-			PyEnableSimDilation, 
++		MAP_METHOD_AS_METHOD(
++			"EnableSimDilation",
++			PyEnableSimDilation,
+ 			"Call this to make this node responsible for running its own simulation clock.  What is done cannot be undone.\n"
+ 			":param offset: sim clock offset\n"
+ 			":type offset: long\n"
+@@ -195,7 +249,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		MAP_ATTRIBUTE("dilationUnderloadThreshold", mDilationUnderloadThreshold, "", Be::READWRITE )
+ 		MAP_ATTRIBUTE("dilationOverloadAdjustment", mDilationOverloadAdjustment, "", Be::READWRITE )
+ 		MAP_ATTRIBUTE("dilationUnderloadAdjustment", mDilationUnderloadAdjustment, "", Be::READWRITE )
+-		
++
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"RegisterClientIDForSimTimeUpdates",
+@@ -280,9 +334,9 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		MAP_ATTRIBUTE( "frameClock", mFrameClock, "Clock that ticks on frame basis", Be::READWRITE )
+ #endif
+ 		MAP_ATTRIBUTE
+-		( 
+-			"advanceTimeInPump", 
+-			mAdvanceTimeInPump, 
++		(
++			"advanceTimeInPump",
++			mAdvanceTimeInPump,
+ 			"If true (the default) then Pump will advance the time. This can be set to false to disable\n"
+ 			"time advancement - used by butter smooth rendering where fixed time steps are used and time\n"
+ 			"is set explicitly with SetTime.",
+@@ -311,7 +365,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"GetTime",
+ 			PyGetTime,
+-			"DEPRECATED!\nReturns world time\n" 
++			"DEPRECATED!\nReturns world time\n"
+ 			":param timeType: zero for \"wallclock\" time and non-zero for \"wallclock\" time now\n"
+ 			":type timeType: Optional[int]\n"
+ 			":rtype: long"
+@@ -320,35 +374,35 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"GetWallclockTime",
+ 			PyGetWallclockTime,
+-			"Returns real world time, as you would see on a clock on a wall, from the beginning of the frame\n" 
++			"Returns real world time, as you would see on a clock on a wall, from the beginning of the frame\n"
+ 			":rtype: long"
+ 		)
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"GetWallclockTimeNow",
+ 			PyGetWallclockTimeNow,
+-			"Returns real world time, as you would see on a clock on a wall, right now\n" 
++			"Returns real world time, as you would see on a clock on a wall, right now\n"
+ 			":rtype: long"
+ 		)
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"GetSimTime",
+ 			PyGetSimTime,
+-			"Returns the current simulation time\n" 
++			"Returns the current simulation time\n"
+ 			":rtype: long"
+ 		)
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"GetCycles",
+ 			PyGetCycles,
+-			"Returns a tuple of number of cpu cycles and cpu frequency.\n" 
++			"Returns a tuple of number of cpu cycles and cpu frequency.\n"
+ 			":rtype: (long, long)"
+ 		)
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"SetTime",
+ 			PySetTime,
+-			"Sets world time\n" 
++			"Sets world time\n"
+ 			":param time: new time\n"
+ 			":type time: long\n"
+ 			":rtype: None"
+@@ -357,7 +411,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"TimeDiffInMs",
+ 			PyTimeDiffInMs,
+-			"Returns time diff in ms.\n" 
++			"Returns time diff in ms.\n"
+ 			":param t1: first time\n"
+ 			":type t1: long\n"
+ 			":param t2: second time\n"
+@@ -368,7 +422,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"TimeDiffInUs",
+ 			PyTimeDiffInUs,
+-			"Returns time diff in microsecs.\n" 
++			"Returns time diff in microsecs.\n"
+ 			":param t1: first time\n"
+ 			":type t1: long\n"
+ 			":param t2: second time\n"
+@@ -379,12 +433,12 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+         MAP_ATTRIBUTE( "timeSyncAdjust", mTimeSyncAdjust, "Our current time sync nudge, used to maintain the sync over time",  Be::READWRITE )
+         MAP_ATTRIBUTE( "timeSyncAdjustFactor", mTimeSyncAdjustFactor, "What factor of the frametime we're allowed to shift in order to maintain time sync",  Be::READWRITE )
+ #endif
+-		
++
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"TimeFromDouble",
+ 			PyTimeFromDouble,
+-			"Converts double time to UTC time.\n" 
++			"Converts double time to UTC time.\n"
+ 			":param time: double time\n"
+ 			":type time: float\n"
+ 			":rtype: long"
+@@ -393,7 +447,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"TimeAsDouble",
+ 			PyTimeAsDouble,
+-			"Converts UTC time to double time.\n" 
++			"Converts UTC time to double time.\n"
+ 			":param time: UTC time\n"
+ 			":type time: long\n"
+ 			":rtype: double"
+@@ -402,19 +456,19 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"TimeAddSec",
+ 			PyTimeAddSec,
+-			"Returns UTC time plus double secs.\n" 
++			"Returns UTC time plus double secs.\n"
+ 			":param time: UTC time\n"
+ 			":type time: long\n"
+ 			":param secs: seconds\n"
+ 			":type secs: float\n"
+ 			":rtype: long"
+ 		)
+-		
++
+ 		MAP_METHOD_AS_METHOD
+ 		(
+ 			"GetTimeParts",
+ 			PyGetTimeParts,
+-			"Returns list of time parts\n" 
++			"Returns list of time parts\n"
+ 			":param time: UTC time\n"
+ 			":type time: long\n"
+ 			":rtype: (int, int, int, int, int, int, int)"
+@@ -423,7 +477,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"GetTimeFromParts",
+ 			PyGetTimeFromParts,
+-			"Returns UTC time from parts\n" 
++			"Returns UTC time from parts\n"
+ 			":param year:\n"
+ 			":type year: int\n"
+ 			":param month:\n"
+@@ -445,7 +499,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"GetCpuTime",
+ 			PyGetCpuTime,
+-			"DEPRECATED!\nReturns CPU clock values\n" 
++			"DEPRECATED!\nReturns CPU clock values\n"
+ 			":raises RuntimeError: always!"
+ 		)
+ 
+@@ -453,7 +507,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		(
+ 			"SetAppTitle",
+ 			PySetAppTitle,
+-			"Set text in titlebar.\n" 
++			"Set text in titlebar.\n"
+ 			":param title: app title\n"
+ 			":type title: str\n"
+ 			":rtype: None"
+@@ -479,9 +533,9 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		)
+ 
+ 		MAP_METHOD_AS_METHOD
+-		( 
+-			"Terminate", 
+-			PyTerminate, 
++		(
++			"Terminate",
++			PyTerminate,
+ 			"Terminates the process forcefully.\n"
+ 			":param retCode: integer value returned as the process return code. Default is 0."
+ 			":type retCode: Optional[int]\n"
+@@ -492,7 +546,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 		MAP_METHOD_AS_METHOD(
+ 			"StacklessMain",
+ 			PyStacklessMain,
+-			"" 
++			""
+ 		)
+ #endif
+ 
+@@ -535,7 +589,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+ 			"If the argument is not present, the return value is an empty string.\n"
+ 			":param arg: argument key"
+ 		)
+-    
++
+         MAP_METHOD_AND_WRAP
+         (
+             "ShowErrorMessageBox",
+@@ -546,7 +600,7 @@ const Be::ClassInfo* BlueOS::ExposeToBlue()
+         )
+ 
+ 
+-		MAP_PROPERTY_READONLY	
++		MAP_PROPERTY_READONLY
+ 		(
+ 			"isOnMainTasklet",
+ 			IsOnMainTasklet,
+diff --git a/src/BlueSocketLogger.cpp b/src/BlueSocketLogger.cpp
+index b2face3..a762951 100644
+--- a/src/BlueSocketLogger.cpp
++++ b/src/BlueSocketLogger.cpp
+@@ -4,15 +4,17 @@
+ #include "BlueSocketLogger.h"
+ #ifndef _WIN32
+ #include <sys/time.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <netinet/tcp.h>
++#include <arpa/inet.h>
++#include <unistd.h>
+ #else
+ #include <WS2tcpip.h>
+ #endif
+ #ifdef __APPLE__
+ #include <sys/sysctl.h>
+ #include <mach-o/dyld.h>
+-#include <sys/socket.h>
+-#include <netinet/in.h>
+-#include <arpa/inet.h>
+ #endif
+ 
+ namespace
+diff --git a/src/BlueSysInfo.h b/src/BlueSysInfo.h
+index 8b42cc6..8b9d462 100644
+--- a/src/BlueSysInfo.h
++++ b/src/BlueSysInfo.h
+@@ -52,6 +52,7 @@ public:
+ 	{
+ 		WINDOWS,
+ 		OSX,
++		LINUX,
+ 	};
+ 
+ 	enum Suite
+diff --git a/src/BlueSysInfoLinux.cpp b/src/BlueSysInfoLinux.cpp
+new file mode 100644
+index 0000000..0d3610d
+--- /dev/null
++++ b/src/BlueSysInfoLinux.cpp
+@@ -0,0 +1,120 @@
++// Copyright © 2015 CCP ehf.
++
++#include "StdAfx.h"
++
++#if !defined(_WIN32) && !defined(__APPLE__)
++
++#include <string>
++#include <vector>
++#include "BlueSysInfo.h"
++#include <BlueExposure.h>
++#include "pdm.h"
++#include <sys/sysinfo.h>
++#include <sys/times.h>
++#include <unistd.h>
++#include <uuid/uuid.h>
++#include <cstdlib>
++#include <fstream>
++
++namespace
++{
++    const int64_t s_startTime = TimeNow();
++}
++
++std::wstring BlueSysInfo::GetUserDocumentsDirectory() const
++{
++    const char* home = std::getenv("HOME");
++    if( home )
++    {
++        return std::wstring( CA2W( home ) ) + L"/.local/share";
++    }
++    return L"/tmp";
++}
++
++std::wstring BlueSysInfo::GetSharedApplicationDataDirectory() const
++{
++    // Can't use /usr/local/share, as it is unlikely the user has access to that.
++    // Instead, use the same folder as User Documents.
++    const char* home = std::getenv("HOME");
++    if( home )
++    {
++        return std::wstring( CA2W( home ) ) + L"/.local/share";
++    }
++    return L"/tmp";
++}
++
++std::wstring BlueSysInfo::GetUserApplicationDataDirectory() const
++{
++    return GetSharedApplicationDataDirectory();
++}
++
++std::wstring BlueSysInfo::GetSharedFontsDirectory() const
++{
++    return L"/usr/share/fonts";
++}
++
++std::wstring BlueSysInfo::GetSystemFontsDirectory() const
++{
++    return L"/usr/share/fonts";
++}
++
++uint32_t BlueSysInfo::GetProcessBitCount() const
++{
++    return sizeof(void*) * 8;
++}
++
++uint32_t BlueSysInfo::GetSystemBitCount() const
++{
++    return sizeof(void*) * 8;
++}
++
++uint64_t BlueSysInfo::GetProcessStartTime() const
++{
++    return s_startTime;
++}
++
++std::string BlueSysInfo::GetMachineUuid() const
++{
++    return "00000000-0000-0000-0000-000000000000";
++}
++
++std::wstring BlueSysInfo::GetMachineName() const
++{
++   return {};
++}
++
++std::wstring BlueSysInfo::GetDomainName() const
++{
++    return {};
++}
++
++BlueSysInfoCpu::BlueSysInfoCpu() :
++	m_extensions( PDM::GetCPUInfo().extensions )
++{
++	auto pdmCpu = PDM::GetCPUInfo();
++	m_mHz = pdmCpu.frequency;
++    m_brand = "Generic Linux CPU";
++    m_family = 6;
++    m_revision = 0;
++    m_logicalCpuCount = sysconf(_SC_NPROCESSORS_ONLN);
++    m_bitCount = sizeof(void*) * 8;
++    m_architecture = "x86_64";
++    m_identifier = "x86_64 Generic Linux CPU";
++}
++
++BlueSysInfoOs::BlueSysInfoOs()
++{
++    m_platform = LINUX;
++    m_majorVersion = 1;
++    m_minorVersion = 0;
++    m_buildNumber  = 0;
++    m_suite = DESKTOP;
++}
++
++BlueSysInfoMemory::BlueSysInfoMemory()
++{
++    m_totalPhysical = 0;
++    m_availablePhysical = 0;
++}
++
++#endif
+diff --git a/src/BlueSysInfo_Blue.cpp b/src/BlueSysInfo_Blue.cpp
+index bd30d7f..3f1feb5 100644
+--- a/src/BlueSysInfo_Blue.cpp
++++ b/src/BlueSysInfo_Blue.cpp
+@@ -101,6 +101,7 @@ const Be::VarChooser BlueSysInfoOs_Platform_Chooser[] =
+ {
+ 	{ "WINDOWS", BeCast( BlueSysInfoOs::WINDOWS ), "Windows" },
+ 	{ "OSX", BeCast( BlueSysInfoOs::OSX ), "OSX" },
++	{ "LINUX", BeCast( BlueSysInfoOs::LINUX ), "Linux" },
+ 	{ 0 }
+ };
+ 
+diff --git a/src/PyMemory.cpp b/src/PyMemory.cpp
+index 80110b8..56ba305 100644
+--- a/src/PyMemory.cpp
++++ b/src/PyMemory.cpp
+@@ -2,6 +2,11 @@
+ 
+ #include "StdAfx.h"
+ 
++#if defined(__linux__)
++#include <mutex>
++#include <unordered_map>
++#endif
++
+ #if CCP_STACKLESS
+ 
+ //
+@@ -12,6 +17,45 @@
+ 
+ CCP_STATS_DECLARE( pyMemory, "Blue/Memory/Python", false, CST_MEMORY, "The amount of memory allocated for Python" );
+ 
++#if defined(__linux__)
++// Unlike _msize() on Windows or malloc_size() on Apple, glibc's malloc_usable_size()
++// returns the *usable* block size (rounded up to an allocator bucket), not the size
++// that was actually requested. To track requested-byte deltas exactly (as the other
++// platforms do), we keep our own ptr -> requested size map.
++namespace
++{
++	std::mutex g_pyMemSizeMutex;
++	std::unordered_map<const void*, size_t> g_pyMemSizes;
++
++	void TrackSize( const void* ptr, size_t size )
++	{
++		if( !ptr )
++		{
++			return;
++		}
++		std::lock_guard<std::mutex> guard( g_pyMemSizeMutex );
++		g_pyMemSizes[ptr] = size;
++	}
++
++	size_t TakeTrackedSize( const void* ptr )
++	{
++		if( !ptr )
++		{
++			return 0;
++		}
++		std::lock_guard<std::mutex> guard( g_pyMemSizeMutex );
++		auto it = g_pyMemSizes.find( ptr );
++		if( it == g_pyMemSizes.end() )
++		{
++			return 0;
++		}
++		size_t size = it->second;
++		g_pyMemSizes.erase( it );
++		return size;
++	}
++}
++#endif
++
+ struct MeasuredAllocator
+ {
+ 	MeasuredAllocator() :
+@@ -29,8 +73,11 @@ void* MeasuredMalloc( void* ctx, size_t size )
+ 	auto ret = _this->allocator.malloc( _this->allocator.ctx, size );
+ #if _WIN32
+ 	_this->measurement.Add( int64_t( size ) );
+-#elif __APPLE__
++#elif defined(__APPLE__)
+ 	_this->measurement.Add( int64_t( CCPMSize( ret ) ) );
++#elif defined(__linux__)
++	TrackSize( ret, size );
++	_this->measurement.Add( int64_t( size ) );
+ #else
+ #error "Unsupported platform"
+ #endif
+@@ -43,8 +90,11 @@ void* MeasuredCalloc( void* ctx, size_t nelem, size_t size )
+ 	auto ret = _this->allocator.calloc( _this->allocator.ctx, nelem, size );
+ #if _WIN32
+ 	_this->measurement.Add( int64_t( nelem * size ) );
+-#elif __APPLE__
++#elif defined(__APPLE__)
+ 	_this->measurement.Add( int64_t( CCPMSize( ret ) ) );
++#elif defined(__linux__)
++	TrackSize( ret, nelem * size );
++	_this->measurement.Add( int64_t( nelem * size ) );
+ #else
+ #error "Unsupported platform"
+ #endif
+@@ -54,12 +104,19 @@ void* MeasuredCalloc( void* ctx, size_t nelem, size_t size )
+ void* MeasuredRealloc( void* ctx, void* ptr, size_t newSize )
+ {
+ 	auto _this = reinterpret_cast<MeasuredAllocator*>( ctx );
++#if defined(__linux__)
++	uint64_t prev = TakeTrackedSize( ptr );
++#else
+ 	uint64_t prev = ptr ? CCPMSize( ptr ) : 0;
++#endif
+ 	auto ret = _this->allocator.realloc( _this->allocator.ctx, ptr, newSize );
+ #if _WIN32
+ 	_this->measurement.Add( int64_t( newSize - prev ) );
+-#elif __APPLE__
++#elif defined(__APPLE__)
+ 	_this->measurement.Add( int64_t( CCPMSize( ret ) - prev ) );
++#elif defined(__linux__)
++	TrackSize( ret, newSize );
++	_this->measurement.Add( int64_t( newSize - prev ) );
+ #else
+ #error "Unsupported platform"
+ #endif
+@@ -71,7 +128,11 @@ void MeasuredFree( void* ctx, void* ptr )
+ 	auto _this = reinterpret_cast<MeasuredAllocator*>( ctx );
+ 	if ( ptr )
+ 	{
++#if defined(__linux__)
++		_this->measurement.Add( -int64_t( TakeTrackedSize( ptr ) ) );
++#else
+ 		_this->measurement.Add( -int64_t( CCPMSize( ptr ) ) );
++#endif
+ 		_this->allocator.free( _this->allocator.ctx, ptr );
+ 	}
+ }
+diff --git a/src/YamlReader.cpp b/src/YamlReader.cpp
+index 76ae874..29a6c96 100644
+--- a/src/YamlReader.cpp
++++ b/src/YamlReader.cpp
+@@ -52,7 +52,7 @@ YamlReader::YamlReader() :
+ #ifdef _WIN32
+ 	,
+ 	m_locale( _create_locale( LC_ALL, "en_US" ) )
+-#elif __APPLE__
++#else
+ 	,
+ 	m_locale( newlocale(LC_ALL_MASK, "C", 0 ) )
+ #endif
+@@ -83,7 +83,7 @@ YamlReader::~YamlReader()
+ 	}
+ #ifdef _WIN32
+ 	_free_locale( m_locale );
+-#elif __APPLE__
++#else
+ 	freelocale( m_locale );
+ #endif
+ }
+@@ -487,8 +487,10 @@ void YamlReader::ReadValueImpl( T& dst )
+ 	{
+ #ifdef _WIN32
+ 		dst = _atoi_l( (const char*)m_event->data.scalar.value, m_locale );
+-#else
++#elif defined(APPLE)
+ 		dst = atoi_l( (const char*)m_event->data.scalar.value, m_locale );
++#else
++		dst = strtol_l( (const char*)m_event->data.scalar.value, nullptr, 10, m_locale );
+ #endif
+ 	}
+ }
+@@ -623,8 +625,10 @@ void YamlReader::ReadValue( double& dst )
+ 	{
+ #ifdef _WIN32
+ 		dst = _atof_l( (const char*)m_event->data.scalar.value, m_locale );
+-#else
++#elif defined(APPLE)
+ 		dst = atof_l( (const char*)m_event->data.scalar.value, m_locale);
++#else
++		dst = strtod_l( (const char*)m_event->data.scalar.value, nullptr, m_locale );
+ #endif
+ 	}
+ }
+@@ -679,8 +683,10 @@ void YamlReader::ReadFloatArray( float* values, size_t count )
+ 			{
+ #ifdef _WIN32
+ 				values[i] = (float)_atof_l( (const char*)m_event->data.scalar.value, m_locale );
+-#else
++#elif defined(APPLE)
+ 				values[i] = (float)atof_l( (const char*)m_event->data.scalar.value, m_locale );
++#else
++				values[i] = (float)strtod_l( (const char*)m_event->data.scalar.value, nullptr, m_locale );
+ #endif
+ 				GetNextEvent();
+ 			}
+diff --git a/src/YamlReader.h b/src/YamlReader.h
+index 5b2bb8d..554f8a2 100644
+--- a/src/YamlReader.h
++++ b/src/YamlReader.h
+@@ -14,7 +14,7 @@
+ #include <yaml.h>
+ #include <cstdint>
+ 
+-#ifdef __APPLE__
++#ifndef _WIN32
+ #include <clocale>
+ #endif
+ 
+@@ -28,7 +28,7 @@ struct PoolAllocatedYamlEvent : public yaml_event_t
+ 	USE_CACHED_ALLOCATOR( PoolAllocatedYamlEvent );
+ };
+ 
+-BLUE_CLASS(YamlReader) : 
++BLUE_CLASS(YamlReader) :
+ 	public IBlueObjectBuilder,
+ 	public ICacheable,
+ 	public IRootReader,
+@@ -56,7 +56,7 @@ public:
+ 
+ 	void SetDoInitialize( bool b ) override;
+ 	void SetTimeSlice( float t ) override;
+-	
++
+ 	void GetErrorMessage( std::string& msg ) override;
+ 
+ 	//////////////////////////////////////////////////////////////////////////
+@@ -210,7 +210,7 @@ private:
+ #ifdef _WIN32
+ 	// So user locale doesn't affect parsing results
+ 	_locale_t m_locale;
+-#elif __APPLE__
++#else
+ 	locale_t m_locale;
+ #endif
+ 
+diff --git a/src/blue.cpp b/src/blue.cpp
+index 4a91cc2..7b23c82 100644
+--- a/src/blue.cpp
++++ b/src/blue.cpp
+@@ -26,8 +26,9 @@ std::wstring s_logDeviceName( L"EVE" );
+ #ifdef _WIN32
+ #include "win32.h"
+ static HINSTANCE s_instance = NULL;
+-#elif defined(__APPLE__)
++#else
+ #include <fcntl.h>
++#include <sys/file.h>
+ #endif
+ 
+ // The templated container classes need special treatment here. Generally
+@@ -167,7 +168,8 @@ HERR:
+ 		CloseHandle(h);
+ 	return 0;
+ 
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__) || defined(__gnu_linux__)
++
+ 	wchar_t* tmp = PyUnicode_AsWideCharString( ufn.o, nullptr );
+ 	if ( !tmp )
+ 	{
+@@ -179,7 +181,15 @@ HERR:
+ 	long fileSize;
+ 	{
+ 		Ccp::PyAllowThreads _allow;
++#if defined(__APPLE__)
+         f = open( filenameStr, O_RDONLY | O_SHLOCK );
++#else
++        f = open( filenameStr, O_RDONLY );
++        if ( f >= 0 )
++        {
++            flock( f, LOCK_SH );
++        }
++#endif
+ 		if( f >= 0 )
+ 		{
+             fileSize = lseek( f, 0, SEEK_END );
+@@ -278,14 +288,22 @@ HERR:
+ 		CloseHandle(h);
+ 	return 0;
+ 
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+ 
+ 	Py_UNICODE *fileName = PyUnicode_AsWideCharString(ufn, nullptr);
+ 	CW2A filenameStr( reinterpret_cast<const wchar_t*>( fileName ) );
+ 	int f;
+ 	{
+ 		Ccp::PyAllowThreads _allow;
++#if defined(__APPLE__)
+ 		f = open( filenameStr, O_WRONLY | O_EXLOCK | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR );
++#else
++		f = open( filenameStr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR );
++		if ( f >= 0 )
++		{
++			flock( f, LOCK_EX );
++		}
++#endif
+     }
+     if( f < 0 )
+     {
+diff --git a/src/errormessage.cpp b/src/errormessage.cpp
+index 8342ba8..09b8e33 100644
+--- a/src/errormessage.cpp
++++ b/src/errormessage.cpp
+@@ -266,7 +266,23 @@ std::string GetOSLanguageCode()
+ 
+ 	return *result;
+ #else
+-#error Unsupported platform!
++	// For Linux and other POSIX-like systems, check standard env variables (e.g. LANG) or default to English
++	const char* envLang = std::getenv("LANG");
++	if (envLang) {
++		std::string lang = envLang;
++		if (lang.length() >= 2) {
++			std::string prefix = lang.substr(0, 2);
++			if (prefix == "de") return de;
++			if (prefix == "en") return en;
++			if (prefix == "es") return es;
++			if (prefix == "fr") return fr;
++			if (prefix == "ja") return ja;
++			if (prefix == "ko") return ko;
++			if (prefix == "ru") return ru;
++			if (prefix == "zh") return zh;
++		}
++	}
++	return en;
+ #endif
+ }
+ 
+@@ -330,7 +346,7 @@ void BlueShowInvalidOSVersionError()
+ #elif __APPLE__
+ 	std::string localizedMessage = TranslateErrorMessage( "Invalid macOS version", IDS_INVALIDMACOS );
+ #else
+-	#error Unsupported platform!
++	std::string localizedMessage = TranslateErrorMessage( "Invalid OS version", IDS_INVALIDMACOS );
+ #endif
+ 	std::string localizedTitle = TranslateErrorMessage( "Verification Failure", IDS_VERIFYFAIL_C );
+ 	DisplayErrorMessageBox(localizedTitle.c_str(), localizedMessage.c_str());
+@@ -365,7 +381,10 @@ void DisplayErrorMessageBox( const char* title, const char* message )
+ 	{
+ 		CFRelease( messageRef );
+ 	}
++#elif __linux__
++	CCP_LOG( "Error Box [%s]: %s", title, message );
++	fprintf( stderr, "Error Box [%s]: %s\n", title, message );
+ #else
+-#error Unsupported platform!
++    #error Unsupported platform!
+ #endif
+ }

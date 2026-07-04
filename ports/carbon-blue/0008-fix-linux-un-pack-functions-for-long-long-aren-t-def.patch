@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 19:58:11 +0200
+Subject: [PATCH 8/8] fix(linux): (un)pack functions for long long aren't
+ defined
+
+On Linux, uint64_t isn't the same as unsigned long long. Although
+they are both unsigned, and both 64bit, they are distinct types.
+
+This commit is more a "keep the change small" kinda commit. The
+actual solution is deprecating "long" from the code-base, replacing
+it with a well-defined C++-supported, cross-platform/ABI-identical
+type like uint64_t.
+---
+ include/BitPacker.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/include/BitPacker.h b/include/BitPacker.h
+index 0c40e77..2751b66 100644
+--- a/include/BitPacker.h
++++ b/include/BitPacker.h
+@@ -67,12 +67,22 @@ public:
+ 	inline bool Pack( const float value, unsigned int places );
+ 	inline bool Pack( const double value );
+ 	inline bool Pack( const double value, unsigned int places );
++#if defined(__linux__)
++	inline bool Pack( const unsigned long long value ) {
++		return Pack((const uint64_t)value);
++	}
++	inline bool Pack( const long long value ) {
++		return Pack((const int64_t)value);
++	}
++#endif
+ 
+ 	inline bool Unpack( bool &value );
+ 	inline bool Unpack( uint32_t &value );
+ 	inline bool Unpack( int32_t &value );
++#if !defined(__linux__)
+ 	inline bool Unpack( uint64_t &value );
+ 	inline bool Unpack( int64_t &value );
++#endif
+ 	inline bool Unpack( char *string, unsigned int *len =0, unsigned int maxLen =-1 );
+ 	inline bool Unpack( std::string& string );
+ 	inline bool Unpack( uint8_t &c );
+@@ -82,6 +92,17 @@ public:
+ 	inline bool Unpack( float &value, unsigned int places );
+ 	inline bool Unpack( double &value );
+ 	inline bool Unpack( double &value, unsigned int places );
++#if defined(__linux__)
++	inline bool Unpack( unsigned long long &value );
++	inline bool Unpack( long long &value );
++
++	inline bool Unpack( uint64_t &value ) {
++		return Unpack((unsigned long long&)(value));
++	}
++	inline bool Unpack( int64_t &value ) {
++		return Unpack((long long&)(value));
++	}
++#endif
+ 
+ 	unsigned int WordsRemaining() const { return m_lastBlock ? (unsigned int)(m_lastBlock - m_bitStream) + 1 : 0; }
+ 	unsigned int WordsPacked() const { return (unsigned int)(m_bitStream - m_firstBlock); }

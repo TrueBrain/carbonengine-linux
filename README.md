@@ -36,6 +36,16 @@ cmake --build .cmake-build-x64-linux-debug
 ctest --test-dir .cmake-build-x64-linux-debug
 ```
 
+## Tests hang with "blue"
+
+Make sure you have these things prepared:
+- Run a non-release (or have `eve_crashmon` available).
+- Run LogLite (via EVE Launcher -> Settings -> Tools -> LogLite).
+- Have `fr_FR` locale installed.
+
+Without the first two, the tests just hang.
+Without the last one, a single tests will fail.
+
 ## License
 
 MIT, see [LICENSE.md](LICENSE.md).

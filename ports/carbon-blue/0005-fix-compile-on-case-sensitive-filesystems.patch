@@ -1,0 +1,183 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 18:49:38 +0200
+Subject: [PATCH 5/8] fix: compile on case sensitive filesystems
+
+---
+ CMakeLists.txt                                             | 3 ++-
+ include/Blue.h                                             | 6 +++---
+ src/BlueLogInMemory.cpp                                    | 2 +-
+ src/{blueloginmemory.h => BlueLogInMemory.h}               | 0
+ src/BlueLogInMemory_Blue.cpp                               | 2 +-
+ src/BlueOS.cpp                                             | 2 +-
+ src/BluePython.cpp                                         | 4 ++--
+ src/LogControl.cpp                                         | 2 +-
+ src/Marshal.cpp                                            | 2 +-
+ src/PyRowSet.cpp                                           | 2 +-
+ src/{PyRowset.h => PyRowSet.h}                             | 0
+ src/XUtil.cpp                                              | 2 +-
+ tests/cpp/res/{TestCases => testcases}/stringattribute.txt | 0
+ 13 files changed, 14 insertions(+), 13 deletions(-)
+ rename src/{blueloginmemory.h => BlueLogInMemory.h} (100%)
+ rename src/{PyRowset.h => PyRowSet.h} (100%)
+ rename tests/cpp/res/{TestCases => testcases}/stringattribute.txt (100%)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a24532d..5c39e76 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -354,7 +354,8 @@ if(BUILD_TESTING)
+     # co-located with exefile alongside any runtime dependencies.
+     # This needs to be hardened
+     if (DEFINED CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE MATCHES "Release")
+-        set(EXEFILE_TOOL_NAME exefile_${CMAKE_BUILD_TYPE})
++        string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYP_LOWER)
++        set(EXEFILE_TOOL_NAME exefile_${CMAKE_BUILD_TYP_LOWER})
+     else()
+         set(EXEFILE_TOOL_NAME exefile)
+     endif()
+diff --git a/include/Blue.h b/include/Blue.h
+index 6b17825..60b77ce 100644
+--- a/include/Blue.h
++++ b/include/Blue.h
+@@ -1,6 +1,6 @@
+ // Copyright © 2000 CCP ehf.
+ 
+-/* 
++/*
+ 	*************************************************************************
+ 
+ 	Blue.h
+@@ -17,8 +17,8 @@
+ #ifndef _BLUE_H_
+ #define _BLUE_H_
+ 
+-#include <CCPMemory.h>
+-#include <CCPLog.h>
++#include <CcpMemory.h>
++#include <CcpLog.h>
+ #include <ICrashReporter.h>
+ 
+ #ifndef __cplusplus
+diff --git a/src/BlueLogInMemory.cpp b/src/BlueLogInMemory.cpp
+index 873367f..52bc43d 100644
+--- a/src/BlueLogInMemory.cpp
++++ b/src/BlueLogInMemory.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2010 CCP ehf.
+ 
+ #include "StdAfx.h"
+-#include "blueloginmemory.h"
++#include "BlueLogInMemory.h"
+ #include "IBlueOS.h"
+ 
+ static BlueLogInMemory* s_logInMemory = BlueLogInMemory::GetInstance();
+diff --git a/src/blueloginmemory.h b/src/BlueLogInMemory.h
+similarity index 100%
+rename from src/blueloginmemory.h
+rename to src/BlueLogInMemory.h
+diff --git a/src/BlueLogInMemory_Blue.cpp b/src/BlueLogInMemory_Blue.cpp
+index ba8b4aa..1de7b1d 100644
+--- a/src/BlueLogInMemory_Blue.cpp
++++ b/src/BlueLogInMemory_Blue.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2010 CCP ehf.
+ 
+ #include "StdAfx.h"
+-#include "blueloginmemory.h"
++#include "BlueLogInMemory.h"
+ #include "IBlueOS.h"
+ 
+ BLUE_DEFINE_ABSTRACT( BlueLogInMemory );
+diff --git a/src/BlueOS.cpp b/src/BlueOS.cpp
+index 76687d1..17b3d71 100644
+--- a/src/BlueOS.cpp
++++ b/src/BlueOS.cpp
+@@ -16,7 +16,7 @@
+ #include "BlueMemStream.h"
+ #include "BlueObjectRecycler.h"
+ #include "MotherLode.h"
+-#include "blueloginmemory.h"
++#include "BlueLogInMemory.h"
+ #include "BluePaths.h"
+ #include "BlueResFile.h"
+ #include "BlueSocketLogger.h"
+diff --git a/src/BluePython.cpp b/src/BluePython.cpp
+index 1193f75..dc5edd1 100644
+--- a/src/BluePython.cpp
++++ b/src/BluePython.cpp
+@@ -17,12 +17,12 @@
+ #include "IBluePaths.h"
+ #include <Scheduler.h>
+ 
+-#include "blueloginmemory.h"
++#include "BlueLogInMemory.h"
+ #include "LogToPython.h"
+ #include "PrettyPrint.h"
+ #include "BlueHeapq.h"
+ #include "Marshal.h"
+-#include "PyRowset.h"
++#include "PyRowSet.h"
+ #include "crypto.h"
+ #include "BlueClipboard.h"
+ #include "errormessage.h"
+diff --git a/src/LogControl.cpp b/src/LogControl.cpp
+index 62c699c..4d2c3a6 100644
+--- a/src/LogControl.cpp
++++ b/src/LogControl.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "LogControl.h"
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ #if BLUE_WITH_PYTHON
+ 
+diff --git a/src/Marshal.cpp b/src/Marshal.cpp
+index b150b48..84eb9c3 100644
+--- a/src/Marshal.cpp
++++ b/src/Marshal.cpp
+@@ -13,7 +13,7 @@
+ #include "ITaskletTimer.h"
+ #include "IBluePython.h"
+ 
+-#include "PyRowset.h"
++#include "PyRowSet.h"
+ 
+ #include <algorithm>
+ #include "zlib.h"
+diff --git a/src/PyRowSet.cpp b/src/PyRowSet.cpp
+index 230f3c9..439739a 100644
+--- a/src/PyRowSet.cpp
++++ b/src/PyRowSet.cpp
+@@ -9,7 +9,7 @@
+ 
+ #if BLUE_WITH_PYTHON
+ 
+-#include "PyRowset.h"
++#include "PyRowSet.h"
+ 
+ #include "PyTemplates.h"
+ 
+diff --git a/src/PyRowset.h b/src/PyRowSet.h
+similarity index 100%
+rename from src/PyRowset.h
+rename to src/PyRowSet.h
+diff --git a/src/XUtil.cpp b/src/XUtil.cpp
+index 88b64f8..85b85f9 100644
+--- a/src/XUtil.cpp
++++ b/src/XUtil.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "BluePython.h"
+ #if CCP_STACKLESS
+-#include "PyRowset.h"
++#include "PyRowSet.h"
+ #endif
+ 
+ // The functions in here were moved out of BluePython.cpp to reduce the size
+diff --git a/tests/cpp/res/TestCases/stringattribute.txt b/tests/cpp/res/testcases/stringattribute.txt
+similarity index 100%
+rename from tests/cpp/res/TestCases/stringattribute.txt
+rename to tests/cpp/res/testcases/stringattribute.txt

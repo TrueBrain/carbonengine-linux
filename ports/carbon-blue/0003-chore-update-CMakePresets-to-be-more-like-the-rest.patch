@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 19:03:00 +0200
+Subject: [PATCH 3/8] chore: update CMakePresets to be more like the rest
+
+---
+ CMakePresets.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakePresets.json b/CMakePresets.json
+index c848838..9e1818f 100644
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -15,7 +15,7 @@
+         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/triplets"
+       },
+       "environment": {
+-        "PATH_TO_VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
++        "VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
+       },
+       "hidden": true
+     },
