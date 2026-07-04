@@ -1,0 +1,286 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:24:42 +0200
+Subject: [PATCH 2/5] build: integrate vcpkg manifest features
+
+This ensures that CMake options propagate through via vcpkg.
+Meaning no more installing Python3 if you are not building docs.
+---
+ CMakeLists.txt |  55 ++++++++++++-------
+ vcpkg.json     | 146 +++++++++++++++++++++++++++----------------------
+ 2 files changed, 115 insertions(+), 86 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c14bf05..7ef5bc2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -6,6 +6,23 @@ set(WITH_SIMPLYGON_DEFAULT_FLAG OFF)
+ 
+ option(WITH_SIMPLYGON "Use Simplygon for LOD generation" ${WITH_SIMPLYGON_DEFAULT_FLAG})
+ 
++if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
++    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
++
++    # Determine if/when to generate/build documentation. The rules are as follows:
++    # - If running locally - Build documentation is OFF by default
++    # - If running on a build agent (TeamCity) - Build documentation is ON by default
++    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
++    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
++    if(DEFINED ENV{TEAMCITY_VERSION})
++        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
++    endif()
++    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
++else()
++    set(BUILD_TESTING OFF)
++    set(BUILD_DOCUMENTATION OFF)
++endif()
++
+ set(BUILD_TOOLS_DEFAULT_FLAG OFF)
+ option(BUILD_TOOLS "Build tools such as the mesh processor and viewer" ${BUILD_TOOLS_DEFAULT_FLAG})
+ if(BUILD_TOOLS)
+@@ -17,6 +34,13 @@ if(BUILD_TOOLS)
+ 	endif()
+ endif()
+ 
++if(BUILD_TESTING)
++    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
++endif()
++if(BUILD_DOCUMENTATION)
++    list(APPEND VCPKG_MANIFEST_FEATURES "docs")
++endif()
++
+ project(CarbonMesh VERSION 1.0.0)
+ 
+ find_package(carbon-math CONFIG REQUIRED)
+@@ -77,11 +101,11 @@ generate_export_header(CarbonMesh BASE_NAME CARBON_MESH)
+ set_build_flavor(CarbonMesh)
+ 
+ if (CMAKE_GENERATOR MATCHES "Visual Studio")
+-    target_sources(CarbonMesh PUBLIC 
++    target_sources(CarbonMesh PUBLIC
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src/cmf.natvis>
+         $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include/cmf/cmf.natvis>
+     )
+-    target_link_options(CarbonMesh PUBLIC 
++    target_link_options(CarbonMesh PUBLIC
+         $<BUILD_INTERFACE:/NATVIS:${CMAKE_CURRENT_LIST_DIR}/src/cmf.natvis>
+         $<INSTALL_INTERFACE:/NATVIS:$<INSTALL_PREFIX>/include/cmf/cmf.natvis>
+     )
+@@ -94,11 +118,11 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
+ )
+ 
+ set_target_properties(CarbonMesh PROPERTIES OUTPUT_NAME "CarbonMesh")
+-target_link_libraries(CarbonMesh PUBLIC 
+-	CcpMath 
++target_link_libraries(CarbonMesh PUBLIC
++	CcpMath
+ 	$<BUILD_INTERFACE:meshoptimizer::meshoptimizer>
+ 	$<BUILD_INTERFACE:mikktspace::mikktspace>)
+-target_include_directories(CarbonMesh PUBLIC         
++target_include_directories(CarbonMesh PUBLIC
+     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+     $<INSTALL_INTERFACE:include>
+     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+@@ -108,17 +132,6 @@ ccp_enable_vs_analizers(CarbonMesh)
+ 
+ # Provide an install target if this is the top level project only
+ if(CMAKE_PROJECT_NAME STREQUAL CarbonMesh)
+-    # Determine if/when to generate/build documentation. The rules are as follows:
+-    # - If running locally - Build documentation is OFF by default
+-    # - If running on a build agent (TeamCity) - Build documentation is ON by default
+-    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
+-    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
+-    if(DEFINED ENV{TEAMCITY_VERSION})
+-        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
+-    endif()
+-    message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
+-    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
+-
+     if(BUILD_DOCUMENTATION)
+         # Set up sphinx build for Python autodoc comments.
+         set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc/source)
+@@ -181,7 +194,7 @@ if(CMAKE_PROJECT_NAME STREQUAL CarbonMesh)
+ 
+         include(CMakePackageConfigHelpers)
+ 
+-        configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CarbonMeshConfig.cmake.in 
++        configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CarbonMeshConfig.cmake.in
+                                       ${CMAKE_CURRENT_BINARY_DIR}/CarbonMeshConfig.cmake
+                                       INSTALL_DESTINATION share/CarbonMesh)
+ 
+@@ -196,6 +209,8 @@ if(BUILD_TOOLS)
+ 	add_subdirectory( src/processor )
+ endif()
+ 
+-add_subdirectory (src/cmf/test) 
+-enable_testing()
+-add_test(NAME cmftest COMMAND cmftest)
+\ No newline at end of file
++if(BUILD_TESTING)
++    add_subdirectory (src/cmf/test)
++    enable_testing()
++    add_test(NAME cmftest COMMAND cmftest)
++endif()
+diff --git a/vcpkg.json b/vcpkg.json
+index 841db5d..d3f25f4 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -1,77 +1,91 @@
+ {
+-  "dependencies": [
+-	{
+-	  "name": "carbon-math",
+-	  "version>=": "1.2.1"
+-	},
+-    {
+-      "name": "meshoptimizer",
+-      "version>=": "0.25"
+-    },
+-    {
+-      "name": "mikktspace",
+-      "version>=": "2020-10-06#3"
+-    },
+-    {
+-      "name": "gtest",
+-      "version>=": "1.16.0"
+-    },
+-	{
+-	  "name": "python3",
+-	  "version>=": "3.12.9"
+-	}
+-  ],
+-  "overrides": [
+-    {
+-      "name": "cli11",
+-      "version": "2.4.2"
+-    }
+-  ],
+-  "features": {
+-	"simplygon": {
+-	  "description": "Use Simplygon for LOD generation",
+-	  "dependencies": [
+-		{
+-		  "name": "simplygon",
+-		  "version>=": "10.4.338#2"
+-		}
+-	  ]
+-	},
+-	"tools": {
+-	  "description": "Build tools",
+-	  "dependencies": [
++	"dependencies": [
+ 		{
+-		  "name": "glfw3",
+-		  "version>=": "3.4#1"
++			"name": "carbon-math",
++			"version>=": "1.2.1"
+ 		},
+ 		{
+-		  "name": "vulkan",
+-		  "version>=": "2023-12-17"
++			"name": "meshoptimizer",
++			"version>=": "0.25"
+ 		},
+ 		{
+-		  "name": "shaderc",
+-		  "version>=": "2025.2#1"
+-		},
+-		{
+-		  "name": "imgui",
+-		  "version>=": "1.91.9",
+-		  "features": [ "vulkan-binding", "glfw-binding" ]
+-		},
++			"name": "mikktspace",
++			"version>=": "2020-10-06#3"
++		}
++	],
++	"overrides": [
+ 		{
+-		  "name": "tinyfiledialogs",
+-		  "version>=": "3.19.1"
++			"name": "cli11",
++			"version": "2.4.2"
++		}
++	],
++	"features": {
++		"docs": {
++			"description": "Dependencies for building documentation",
++			"dependencies": [
++				{
++					"name": "python3",
++					"version>=": "3.12.9#1",
++					"host": true
++				}
++			]
+ 		},
+-		{
+-		  "name": "nlohmann-json",
+-		  "version>=": "3.12.0"
++		"tests": {
++			"description": "Build test suite",
++			"dependencies": [
++				{
++					"name": "gtest",
++					"version>=": "1.16.0"
++				}
++			]
+ 		},
+-		{
+-		  "name": "tinygltf",
+-		  "version>=": "2.9.4"
++		"simplygon": {
++			"description": "Use Simplygon for LOD generation",
++			"dependencies": [
++				{
++					"name": "simplygon",
++					"version>=": "10.4.338#2"
++				}
++			]
+ 		},
+-		"cli11",
+-		"hash-library"
+-	  ]
++		"tools": {
++			"description": "Build tools",
++			"dependencies": [
++				{
++					"name": "glfw3",
++					"version>=": "3.4#1"
++				},
++				{
++					"name": "vulkan",
++					"version>=": "2023-12-17"
++				},
++				{
++					"name": "shaderc",
++					"version>=": "2025.2#1"
++				},
++				{
++					"name": "imgui",
++					"version>=": "1.91.9",
++					"features": [
++						"vulkan-binding",
++						"glfw-binding"
++					]
++				},
++				{
++					"name": "tinyfiledialogs",
++					"version>=": "3.19.1"
++				},
++				{
++					"name": "nlohmann-json",
++					"version>=": "3.12.0"
++				},
++				{
++					"name": "tinygltf",
++					"version>=": "2.9.4"
++				},
++				"cli11",
++				"hash-library"
++			]
++		}
+ 	}
+-  }
+-}
++}
+\ No newline at end of file

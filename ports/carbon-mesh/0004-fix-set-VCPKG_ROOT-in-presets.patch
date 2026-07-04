@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:38:16 +0200
+Subject: [PATCH 4/5] fix: set VCPKG_ROOT in presets
+
+All other repositories already do this. Most likely just not sync'd into
+this repository just yet.
+---
+ CMakePresets.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakePresets.json b/CMakePresets.json
+index 4a18944..eab9ad6 100644
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -15,7 +15,7 @@
+         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/triplets"
+       },
+       "environment": {
+-        "PATH_TO_VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
++        "VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
+       },
+       "hidden": true
+     },

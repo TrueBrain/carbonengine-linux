@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:24:32 +0200
+Subject: [PATCH 1/5] build: update vcpkg registry to HTTPS
+
+For vcpkg, it is much more common to use HTTPS for public registries.
+Accessing them via SSH isn't always possible, as it requires a key pre-installed.
+---
+ vcpkg-configuration.json | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/vcpkg-configuration.json b/vcpkg-configuration.json
+index cc63fb8..4ee65e6 100644
+--- a/vcpkg-configuration.json
++++ b/vcpkg-configuration.json
+@@ -7,15 +7,13 @@
+   "registries": [
+     {
+       "kind": "git",
+-      "repository": "git@github.com:ccpgames/carbon-vcpkg-registry.git",
+-      "baseline": "ddc1854a3303051c9206ffac931b19174c30e707",
+-      "packages": [ "simplygon" ]
+-    },
+-	{
+-	  "kind": "git",
+-	  "repository": "git@github.com:carbonengine/vcpkg-registry.git",
+-	  "baseline": "87fbb75936f134fecccd01718e13216a9058713d",
+-	  "packages": [ "python3", "carbon-math", "ccp-debug-info" ]
+-	}
++      "repository": "https://github.com/carbonengine/vcpkg-registry.git",
++      "baseline": "87fbb75936f134fecccd01718e13216a9058713d",
++      "packages": [
++        "python3",
++        "carbon-math",
++        "ccp-debug-info"
++      ]
++    }
+   ]
+-}
++}
+\ No newline at end of file

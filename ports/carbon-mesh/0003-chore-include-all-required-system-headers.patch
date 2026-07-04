@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Thu, 25 Jun 2026 21:41:29 +0200
+Subject: [PATCH 3/5] chore: include all required system headers
+
+Linux compilers tend to be more strict in what headers
+they need, where other compilers tend to auto-include
+some.
+---
+ include/cmf/writer.h     |  1 +
+ src/cmf/animation.cpp    | 10 +++++-----
+ src/cmf/bufferutils.cpp  |  1 +
+ src/cmf/compression.cpp  |  1 +
+ src/cmf/memallocator.cpp |  1 +
+ src/cmf/writer.cpp       |  1 +
+ 6 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/include/cmf/writer.h b/include/cmf/writer.h
+index aaef055..09e1234 100644
+--- a/include/cmf/writer.h
++++ b/include/cmf/writer.h
+@@ -6,6 +6,7 @@
+ #include "cmf/memallocator.h"
+ #include <vector>
+ #include <memory>
++#include <cstring>
+ 
+ namespace cmf
+ {
+diff --git a/src/cmf/animation.cpp b/src/cmf/animation.cpp
+index 7df4492..71626fb 100644
+--- a/src/cmf/animation.cpp
++++ b/src/cmf/animation.cpp
+@@ -1,15 +1,15 @@
+ // Copyright © 2026 CCP ehf.
+ 
+-#include "cmf/animation.h"
+-#include "cmf/bufferstreams.h"
+-#include "cmf/declutils.h"
+-#include "cmf/transforms.h"
+-
+ #include <mutex>
+ #include <array>
+ #include <algorithm>
+ #include <cmath>
+ 
++#include "cmf/animation.h"
++#include "cmf/bufferstreams.h"
++#include "cmf/declutils.h"
++#include "cmf/transforms.h"
++
+ namespace
+ {
+ 
+diff --git a/src/cmf/bufferutils.cpp b/src/cmf/bufferutils.cpp
+index 6c8505f..ea1e2c8 100644
+--- a/src/cmf/bufferutils.cpp
++++ b/src/cmf/bufferutils.cpp
+@@ -5,6 +5,7 @@
+ #include "cmf/declutils.h"
+ #include <meshoptimizer.h>
+ #include <numeric>
++#include <cstring>
+ 
+ namespace
+ {
+diff --git a/src/cmf/compression.cpp b/src/cmf/compression.cpp
+index 5e0f0c3..dd16704 100644
+--- a/src/cmf/compression.cpp
++++ b/src/cmf/compression.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "cmf/compression.h"
+ #include "meshoptimizer.h"
++#include <cstring>
+ 
+ namespace cmf
+ {
+diff --git a/src/cmf/memallocator.cpp b/src/cmf/memallocator.cpp
+index 0c04d92..4f995cd 100644
+--- a/src/cmf/memallocator.cpp
++++ b/src/cmf/memallocator.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "cmf/memallocator.h"
+ #include "cmf/compression.h"
++#include <cstring>
+ 
+ namespace cmf
+ {
+diff --git a/src/cmf/writer.cpp b/src/cmf/writer.cpp
+index 97443bb..62a7a0e 100644
+--- a/src/cmf/writer.cpp
++++ b/src/cmf/writer.cpp
+@@ -4,6 +4,7 @@
+ #include "cmf/utils.h"
+ #include "cmf/compression.h"
+ #include "meshoptimizer.h"
++#include <cstring>
+ 
+ namespace
+ {

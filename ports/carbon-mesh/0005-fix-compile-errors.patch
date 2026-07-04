@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 11:40:57 +0200
+Subject: [PATCH 5/5] fix: compile-errors
+
+---
+ src/cmf/animation.cpp | 2 +-
+ src/cmf/tangents.cpp  | 6 ++----
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/src/cmf/animation.cpp b/src/cmf/animation.cpp
+index 71626fb..ecafbc4 100644
+--- a/src/cmf/animation.cpp
++++ b/src/cmf/animation.cpp
+@@ -531,7 +531,7 @@ void ComputeWorldTransforms( std::vector<Matrix>& outWorldTransforms, const Skel
+ 	{
+ 		const auto& localTransform = pose.boneTransforms[i];
+ 		const auto localMatrix = TransformationMatrix( localTransform.scale, localTransform.rotation, localTransform.position );
+-		if( pose.skeleton->parents[i] != -1 )
++		if( pose.skeleton->parents[i] != 0xffffffff )
+ 		{
+ 			outWorldTransforms[i] = localMatrix * outWorldTransforms[pose.skeleton->parents[i]];
+ 		}
+diff --git a/src/cmf/tangents.cpp b/src/cmf/tangents.cpp
+index fc99e39..fe1e4c4 100644
+--- a/src/cmf/tangents.cpp
++++ b/src/cmf/tangents.cpp
+@@ -266,8 +266,6 @@ bool GenerateTangents( Mesh& mesh, uint32_t usageIndex, const FlipTangentOptions
+ 				for( auto& morphTarget : lod.morphTargets )
+ 				{
+ 					auto newVb = ChangeBufferVertexDeclaration( morphTarget.vb, mesh.morphTargets.decl, newVertexDeclaration, allocator, bufferManager );
+-					auto newTangents = BufferElementStream<Vector3>( newTangentElement, newVb, bufferManager );
+-					auto newBitangents = BufferElementStream<Vector3>( newBitangentElement, newVb, bufferManager );
+ 
+ 					GenerateMikkTSpaceTangents(
+ 						ConstBufferElementStream<Vector3>( *positionElement, morphTarget.vb, bufferManager ),
+@@ -329,9 +327,9 @@ std::tuple<Vector3, Vector3, Vector3> UnpackTangentsQuaternion( Vector4 t )
+ {
+ 
+ 	/*
+-    
++
+     Unoptimized code that clearly shows the steps of unpacking the quaternion and reconstructing the TBN matrix.
+-     
++
+     // Reconstruct the w-value of the quaternion. This is guaranteed to be positive, so we don't need to store a sign for it.
+ 	float w = sqrtf( std::max( 0.0f, 1.0f - t.x * t.x - t.y * t.y - t.z * t.z ) );
+ 
