@@ -1,0 +1,371 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Tue, 30 Jun 2026 15:58:55 +0200
+Subject: [PATCH 3/3] port(linux): add support for Linux
+
+---
+ BlueInterface.cpp    |  8 +++----
+ CMakeLists.txt       | 10 ++++----
+ CommandArguments.cpp |  4 ++--
+ CommandArguments.h   |  2 +-
+ Crashpad.cpp         | 20 ++++++++--------
+ ExeFile.cpp          |  4 ++--
+ ExeFileLinux.cpp     | 56 ++++++++++++++++++++++++++++++++++++++++++++
+ FileSystem.h         |  2 +-
+ FileSystemLinux.cpp  | 56 ++++++++++++++++++++++++++++++++++++++++++++
+ StdAfx.h             |  4 ++++
+ 10 files changed, 142 insertions(+), 24 deletions(-)
+ create mode 100644 ExeFileLinux.cpp
+ create mode 100644 FileSystemLinux.cpp
+
+diff --git a/BlueInterface.cpp b/BlueInterface.cpp
+index b329627..9dca120 100644
+--- a/BlueInterface.cpp
++++ b/BlueInterface.cpp
+@@ -2,7 +2,7 @@
+ #include "StdAfx.h"
+ #include "BlueInterface.h"
+ 
+-#if __APPLE__
++#if __APPLE__ || __linux__
+ #include <dlfcn.h>
+ #endif
+ 
+@@ -11,7 +11,7 @@ BlueInterface::~BlueInterface()
+ {
+ 	if( m_module )
+ 	{
+-#if __APPLE__
++#if __APPLE__ || __linux__
+ 		dlclose( m_module );
+ #elif _WIN32
+ 		FreeLibrary( static_cast<HMODULE>( m_module ) );
+@@ -32,7 +32,7 @@ bool BlueInterface::LoadBlue( const std::wstring& buildFlavor )
+ 
+ 	std::wstring name = L"blue" + ( buildFlavor.empty() ? L"" : L"_" + buildFlavor );
+ 
+-#if __APPLE__
++#if __APPLE__ || __linux__
+ 	std::string str = std::string( std::begin( name ), std::end( name ) ) + ".so";
+ 	m_module = dlopen( str.c_str(), RTLD_LAZY );
+ #elif _WIN32
+@@ -47,7 +47,7 @@ bool BlueInterface::LoadBlue( const std::wstring& buildFlavor )
+ 		return false;
+ 	}
+ 
+-#if __APPLE__
++#if __APPLE__ || __linux__
+ #define LoadBlueRoutine( name )                                                                                                \
+ 	if( !( m_blue##name##Routine = reinterpret_cast<Blue##name##Routine>( dlsym( m_module, CCP_STRINGIZE( Blue##name ) ) ) ) ) \
+ 	{                                                                                                                          \
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 47c195a..b74258b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -22,11 +22,7 @@ ccp_add_executable(Exefile
+         Crashpad.h
+         ExeFile.cpp
+         ExeFile.h
+-        ExeFileOsX.mm
+-        ExeFileWin32.cpp
+         FileSystem.h
+-        FileSystemOsX.mm
+-        FileSystemWin32.cpp
+         resource.h
+         StdAfx.cpp
+         StdAfx.h
+@@ -36,10 +32,15 @@ ccp_add_executable(Exefile
+         )
+ 
+ if(WIN32)
++    target_sources(Exefile PRIVATE ExeFileWin32.cpp FileSystemWin32.cpp)
+     # manifest file contains supported OS versions for windows
+     target_sources(Exefile PRIVATE .manifest)
+ endif()
+ 
++if (LINUX)
++    target_sources(Exefile PRIVATE ExeFileLinux.cpp FileSystemLinux.cpp)
++endif()
++
+ target_precompile_headers(Exefile PRIVATE StdAfx.h)
+ 
+ set_target_properties(Exefile PROPERTIES OUTPUT_NAME exefile)
+@@ -51,6 +52,7 @@ endif()
+ 
+ if(APPLE)
+     enable_language(OBJCXX)
++    target_sources(Exefile PRIVATE ExeFileOsX.mm FileSystemOsX.mm)
+     target_link_libraries(Exefile PRIVATE "-framework Foundation")
+     set_target_properties(
+             Exefile
+diff --git a/CommandArguments.cpp b/CommandArguments.cpp
+index 1ef575c..db205f1 100644
+--- a/CommandArguments.cpp
++++ b/CommandArguments.cpp
+@@ -252,7 +252,7 @@ CommandLine ParseCommandLine()
+ 	auto rawCommandLine = SplitCommandLine( GetCommandLineW() );
+ 	return ExpandCommandLineWithFiles( ExpandCommandLineWithEnvironment( rawCommandLine ) );
+ }
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ CommandLine ParseCommandLine( int argc, char* argv[] )
+ {
+ 	CommandLine rawCommandLine;
+@@ -284,7 +284,7 @@ void DumpCommandLineToDebugger( const CommandLine& commandLine )
+ #if _WIN32
+         OutputDebugStringW( it->c_str() );
+         OutputDebugStringW( L"\n" );
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+         wprintf(L"%ls\n", it->c_str());
+ #else
+ #error "Unsupported platform!"
+diff --git a/CommandArguments.h b/CommandArguments.h
+index 19a45e8..1047a61 100644
+--- a/CommandArguments.h
++++ b/CommandArguments.h
+@@ -41,7 +41,7 @@ typedef std::vector<std::wstring> CommandLine;
+ 
+ #if _WIN32
+ CommandLine ParseCommandLine();
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ CommandLine ParseCommandLine( int argc, char* argv[] );
+ #endif
+ 
+diff --git a/Crashpad.cpp b/Crashpad.cpp
+index ad7f6ab..dbfc27e 100644
+--- a/Crashpad.cpp
++++ b/Crashpad.cpp
+@@ -15,7 +15,7 @@
+ 
+ auto executablePath = L"eve_crashmon.exe";
+ 
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 
+ auto executablePath = "eve_crashmon";
+ 
+@@ -29,30 +29,30 @@ public:
+ 	{
+ 		memset( m_name, 0, sizeof( m_name ) );
+ 		memset( m_value, 0, sizeof( m_value ) );
+-		
++
+ 		strncpy_s( m_name, sizeof( m_name ), name, strlen( name ) );
+-		
++
+ 		m_annotation = std::make_unique<crashpad::Annotation>( crashpad::Annotation::Type::kString, m_name, m_value );
+ 		SetValue( value );
+ 	}
+-	
++
+ 	AnnotationData( const AnnotationData& ) = delete;
+ 	AnnotationData& operator=( const AnnotationData& ) = delete;
+-	
++
+ 	~AnnotationData()
+ 	{
+ 		m_annotation->Clear();
+ 	}
+-	
++
+ 	void SetValue( const char* value )
+ 	{
+ 		size_t len = strlen( value );
+ 		memset( m_value, 0, strlen( m_value ) );
+ 		strncpy_s( m_value, sizeof( m_value ), value, len );
+-		
++
+ 		m_annotation->SetSize( static_cast<crashpad::Annotation::ValueSizeType>( len ) );
+ 	}
+-	
++
+ private:
+ 	char m_name[crashpad::Annotation::kNameMaxLength];
+ 	char m_value[crashpad::Annotation::kValueMaxSize];
+@@ -80,8 +80,8 @@ bool CrashpadCrashInterface::InitializeCrashpad()
+     }
+ 
+ 
+-	
+-#ifdef __APPLE__
++
++#if __APPLE__ || __linux__
+ 	std::string exePath = (const char*)CW2A( CcpExecutablePath().c_str() );
+ 	base::FilePath handler(exePath);
+ 	handler = handler.DirName().Append( executablePath );
+diff --git a/ExeFile.cpp b/ExeFile.cpp
+index f415ea9..86bcad2 100644
+--- a/ExeFile.cpp
++++ b/ExeFile.cpp
+@@ -322,7 +322,7 @@ bool ConfigurePython( BlueInterface& blue, bool interpreterMode )
+ 
+ #if _WIN32
+ 	for( std::wstring tmp; std::getline( pathHelper, tmp, L';' ); )
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	for( std::wstring tmp; std::getline( pathHelper, tmp, L':' ); )
+ #else
+ #error Unknown env var separator on this platform
+@@ -559,7 +559,7 @@ int Main(const CommandLine& commandLine, bool isSupportedOS)
+ 			return SUCCESS;
+ 		}
+ 	}
+-    
++
+     // Set desired timer resolution to 1 millisecond. By default,
+     // the granularity of timers is something like 15 milliseconds, which
+     // makes sleeps on Windows take a lot more time than one would expect.
+diff --git a/ExeFileLinux.cpp b/ExeFileLinux.cpp
+new file mode 100644
+index 0000000..35d771f
+--- /dev/null
++++ b/ExeFileLinux.cpp
+@@ -0,0 +1,56 @@
++#include "StdAfx.h"
++
++#ifdef __linux__
++
++#include "ExeFile.h"
++#include "Crashpad.h"
++#include <CcpCrash.h>
++#include <fcntl.h>
++
++#if CCP_MEMORY_REPLACE_OPERATOR_NEW
++
++void* operator new( size_t size )
++{
++	extern const char* g_moduleName;
++	return CCP_MALLOC( g_moduleName, size );
++}
++void* operator new[]( size_t size )
++{
++	extern const char* g_moduleName;
++	return CCP_MALLOC( g_moduleName, size );
++}
++void operator delete( void *p ) noexcept
++{
++	CCP_FREE( p );
++}
++void operator delete[]( void *p ) noexcept
++{
++	CCP_FREE( p );
++}
++
++#endif
++
++void ShowConsoleWindow( ConsoleMode mode )
++{
++}
++
++void PreStartupTest()
++{
++}
++
++void SetProcessAffinity( int affinity )
++{
++}
++
++bool IsSupportedOSVersion()
++{
++    return true;
++}
++
++int main( int argc, char* argv[] )
++{
++	CommandLine commandLine = ParseCommandLine( argc, argv );
++	return Main( commandLine, IsSupportedOSVersion() );
++}
++
++#endif
+diff --git a/FileSystem.h b/FileSystem.h
+index 2f67a0b..97b57e4 100644
+--- a/FileSystem.h
++++ b/FileSystem.h
+@@ -1,7 +1,7 @@
+ // Copyright © 2021 CCP ehf.
+ #pragma once
+ 
+-#if __APPLE__
++#if defined(__APPLE__) || defined(__linux__)
+ std::string GetAppdataFolder();
+ #elif _WIN32
+ std::wstring GetAppdataFolder();
+diff --git a/FileSystemLinux.cpp b/FileSystemLinux.cpp
+new file mode 100644
+index 0000000..2f83025
+--- /dev/null
++++ b/FileSystemLinux.cpp
+@@ -0,0 +1,56 @@
++#include "StdAfx.h"
++#ifdef __linux__
++
++#include "FileSystem.h"
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <errno.h>
++
++std::string GetAppdataFolder()
++{
++    const char* home = getenv("HOME");
++    if (home == nullptr) {
++        return "";
++    }
++    return std::string(home) + "/.config";
++}
++
++bool CreateDirectoryRec(const wchar_t* dir) {
++    if ( !mkdir( CW2A( dir ), ACCESSPERMS ) )
++    {
++        return true;
++    }
++    if (errno == EEXIST)
++    {
++        return true;
++    }
++    // find the last separator
++    std::wstring full(dir);
++    std::wstring::size_type s = full.find_last_of(L"/\\");
++    if (s != std::wstring::npos)
++    {
++        std::wstring pre = full.substr(0, s);
++        if (!CreateDirectoryRec(pre.c_str()))
++        {
++            return false;
++        }
++        return !mkdir( CW2A( dir ), ACCESSPERMS );
++    }
++    return false;
++}
++
++const std::wstring& GetLogsFolder()
++{
++    static std::wstring result;
++    if( result.empty() )
++    {
++        std::wstring appDataFolder = (const wchar_t *) CA2W( GetAppdataFolder().c_str() );
++        if( !appDataFolder.empty() )
++        {
++            result =  appDataFolder + L"/ccp/eve";
++        }
++    }
++    return result;
++}
++
++#endif
+diff --git a/StdAfx.h b/StdAfx.h
+index e5c416e..50959cf 100644
+--- a/StdAfx.h
++++ b/StdAfx.h
+@@ -5,6 +5,10 @@
+ #define STRICT
+ #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+ 
++#ifndef _WIN32
++#define __cdecl
++#endif
++
+ 
+ // comment this out if you want python
+ //#define NOPYTHON
