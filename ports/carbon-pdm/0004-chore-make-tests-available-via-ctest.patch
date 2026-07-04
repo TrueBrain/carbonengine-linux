@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 08:52:27 +0200
+Subject: [PATCH 4/5] chore: make tests available via ctest
+
+---
+ CMakeLists.txt       | 1 +
+ tests/CMakeLists.txt | 9 +++++----
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6f46717..019fc11 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,6 +91,7 @@ endif()
+ 
+ # Set up testing
+ if(BUILD_TESTING)
++	include(CTest)
+ 	add_subdirectory(tests)
+ endif()
+ 
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index b2ba971..e16f6a0 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -1,8 +1,6 @@
+ # Copyright © 2026 CCP ehf.
+ 
+-cmake_minimum_required(VERSION 3.31)
+-
+-project(Tests)
++enable_testing()
+ 
+ find_package(GTest CONFIG REQUIRED)
+ add_executable(Tests
+@@ -17,4 +15,7 @@ if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+ 		COMMAND_EXPAND_LISTS
+ 		VERBATIM
+ 	)
+-endif()
+\ No newline at end of file
++endif()
++
++include(GoogleTest)
++gtest_discover_tests(Tests)

@@ -1,0 +1,332 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 28 Jun 2026 16:32:04 +0200
+Subject: [PATCH 5/5] port(linux): add support for Linux
+
+Linux support are all stubs; it is mostly to get this compiling.
+---
+ CMakeLists.txt               |  24 +++++-
+ include/pdm_data.h           |   2 +
+ src/linux/linux_data.cpp     | 152 +++++++++++++++++++++++++++++++++++
+ src/macos/macos_data.mm      |   5 ++
+ src/utilities.cpp            |  24 +++++-
+ src/windows/windows_data.cpp |  14 +---
+ 6 files changed, 204 insertions(+), 17 deletions(-)
+ create mode 100644 src/linux/linux_data.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 019fc11..5438c14 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -31,11 +31,29 @@ set(SRC_FILES
+ 	src/output.cpp
+ 	src/utilities.cpp
+ 	src/wine/wine.cpp
+-	src/windows/windows_data.cpp
+-	src/windows/d3d_info.cpp
+-	src/windows/vulkan_info.cpp
+ )
+ 
++if(WIN32)
++	list(APPEND SRC_FILES
++		src/windows/windows_data.cpp
++		src/windows/d3d_info.cpp
++		src/windows/vulkan_info.cpp
++	)
++endif()
++
++if(APPLE)
++	list(APPEND SRC_FILES
++		src/macos/macos_data.mm
++	)
++endif()
++
++if(LINUX)
++	list(APPEND SRC_FILES
++		src/linux/linux_data.cpp
++	)
++endif()
++
++
+ # For IDE support
+ set(HDR_FILES
+ 	include/version.h
+diff --git a/include/pdm_data.h b/include/pdm_data.h
+index 7901243..8e99ca8 100644
+--- a/include/pdm_data.h
++++ b/include/pdm_data.h
+@@ -19,6 +19,7 @@
+ #include <vector>
+ #include <string>
+ #include <ctime>
++#include <cstdint>
+ 
+ namespace PDM
+ {
+@@ -44,6 +45,7 @@ namespace PDM
+ 		WINDOWS,
+ 		MACOS,
+ 		WINE,
++		LINUX,
+ 	};
+ 
+ 	enum class StreamingService
+diff --git a/src/linux/linux_data.cpp b/src/linux/linux_data.cpp
+new file mode 100644
+index 0000000..e0d8a18
+--- /dev/null
++++ b/src/linux/linux_data.cpp
+@@ -0,0 +1,152 @@
++// Copyright © 2026 CCP ehf.
++
++#if __linux__
++
++#include "../../include/pdm.h"
++#include "../defines.h"
++#include "../utilities.h"
++
++#include <string>
++#include <vector>
++#include <fstream>
++#include <sstream>
++#include <algorithm>
++#include <dirent.h>
++#include <sys/utsname.h>
++#include <sys/sysinfo.h>
++#include <unistd.h>
++#include <pwd.h>
++
++namespace PDM
++{
++	Bitness GetOSBitnessInternal()
++	{
++#if defined(__x86_64__) || defined(__aarch64__)
++		return Bitness::BITNESS_64;
++#else
++		return Bitness::BITNESS_32;
++#endif
++	}
++
++	uint32_t GetCPUFrequency()
++	{
++		return 0;
++	}
++
++	std::string GetMachineUuidString()
++	{
++		return "00000000-0000-0000-0000-000000000000";
++	}
++
++	std::vector<MonitorInfo> GetMonitorsInfo()
++	{
++		return {};
++	}
++
++	std::vector<GPUInfo> GetGPUInfo()
++	{
++		return {};
++	}
++
++	std::vector<NetworkAdapterInfo> GetNetworkAdapterInfo()
++	{
++		return {};
++	}
++
++	std::vector<HardDriveInfo> GetHardDriveInfo()
++	{
++		return {};
++	}
++
++	VulkanProperties GetVulkanProperties()
++	{
++		return {};
++	}
++
++	bool IsRosetta()
++	{
++		return false;
++	}
++
++	bool GetMetalSupported()
++	{
++		return false;
++	}
++
++	OS GetOSType()
++	{
++		return OS::LINUX;
++	}
++
++	std::string GetOSName()
++	{
++		return "Linux";
++	}
++
++	std::string GetOSKernelVersion()
++	{
++		return "";
++	}
++
++	std::string GetOSMajorVersion()
++	{
++		return "";
++	}
++
++	std::string GetOSMinorVersion()
++	{
++		return "";
++	}
++
++	std::string GetOSBuildNumber()
++	{
++		return "";
++	}
++
++	std::string GetUsername()
++	{
++		return "";
++	}
++
++	std::string GetUserLocale()
++	{
++		return "en_US.UTF-8";
++	}
++
++	bool IsRemoteSession()
++	{
++		return false;
++	}
++
++	std::string GetHardwareModel()
++	{
++		return "";
++	}
++
++	std::string GetMachineName()
++	{
++		return "";
++	}
++
++	uint64_t GetTotalMemory()
++	{
++		return 0;
++	}
++
++	uint32_t GetMonitorCount()
++	{
++		return 0;
++	}
++
++	BatteryStatus GetBatteryStatus()
++	{
++		return BatteryStatus::UNKNOWN;
++	}
++
++	std::string GetD3DHighestSupport()
++	{
++		return "NONE";
++	}
++}
++
++#endif
+diff --git a/src/macos/macos_data.mm b/src/macos/macos_data.mm
+index ab8552d..6ee4179 100644
+--- a/src/macos/macos_data.mm
++++ b/src/macos/macos_data.mm
+@@ -462,6 +462,11 @@ namespace PDM
+         NSData* data = [str dataUsingEncoding: CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingUTF32LE)];
+         return std::wstring(static_cast<const wchar_t*>([data bytes]), [data length] / sizeof(wchar_t));
+     }
++
++    std::string GetD3DHighestSupport()
++	{
++		return "NONE";
++	}
+ }
+ 
+ #endif
+diff --git a/src/utilities.cpp b/src/utilities.cpp
+index 292726e..ec07989 100644
+--- a/src/utilities.cpp
++++ b/src/utilities.cpp
+@@ -8,6 +8,9 @@
+ #if _WIN32
+ #include <codecvt>
+ #include <Windows.h>
++#elif __linux__
++#include <codecvt>
++#include <locale>
+ #endif
+ 
+ namespace PDM
+@@ -34,7 +37,7 @@ namespace PDM
+ 
+ 		return bytes;
+ 	}
+-	
++
+ 	std::string tolower(std::string str)
+ 	{
+ 		transform(str.begin(), str.end(), str.begin(), ::tolower);
+@@ -109,6 +112,23 @@ namespace PDM
+ 	}
+ 
+ 	// macOS implementation of UTF8ToWString is in macos_data.mm
+-	
++
++#else
++
++	std::string UTF8ToNative(const std::string_view utf8String)
++	{
++		return std::string(utf8String);
++	}
++
++	std::wstring UTF8ToWString(const std::string_view utf8String)
++	{
++		if (utf8String.empty())
++			return {};
++
++		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
++		return converter.from_bytes(utf8String.data(), utf8String.data() + utf8String.size());
++	}
++
+ #endif
++
+ }
+diff --git a/src/windows/windows_data.cpp b/src/windows/windows_data.cpp
+index d8d7726..e1cc8ea 100644
+--- a/src/windows/windows_data.cpp
++++ b/src/windows/windows_data.cpp
+@@ -67,7 +67,7 @@ namespace PDM
+ 			&number,
+ 			len
+ 		);
+-		
++
+ 		if (retCode == ERROR_SUCCESS)
+ 			return std::to_string(number);
+ 
+@@ -323,7 +323,7 @@ namespace PDM
+ 			std::string uuid = addr->AdapterName;
+ 			if (uuid.rfind("{") == 0 && uuid[uuid.size() - 1] == '}')
+ 				uuid = uuid.substr(1, uuid.size() - 2);
+-			
++
+ 			if (hasPhysical && std::wstring(addr->Description).find(L"Software Loopback Interface") != 0)
+ 			{
+ 				adapters.push_back
+@@ -409,14 +409,4 @@ namespace PDM
+ 	}
+ }
+ 
+-#else
+-
+-namespace PDM
+-{
+-	std::string GetD3DHighestSupport()
+-	{
+-		return "NONE";
+-	}
+-}
+-
+ #endif

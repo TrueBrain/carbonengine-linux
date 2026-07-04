@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 4 Jul 2026 08:37:24 +0200
+Subject: [PATCH 3/5] build: integrate vcpkg manifest features
+
+This ensures that CMake options propagate through via vcpkg.
+Meaning no more installing Python3 if you are not building docs.
+---
+ CMakeLists.txt | 18 ++++++++++++------
+ vcpkg.json     | 18 ++++++++++++------
+ 2 files changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8968b40..6f46717 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2,6 +2,16 @@
+ 
+ cmake_minimum_required(VERSION 3.30)
+ 
++if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
++    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
++else()
++    set(BUILD_TESTING OFF)
++endif()
++
++if(BUILD_TESTING)
++    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
++endif()
++
+ # Allow setting MSVC runtime via `CMAKE_MSVC_RUNTIME_LIBRARY`
+ cmake_policy(SET CMP0091 NEW)
+ 
+@@ -24,7 +34,6 @@ set(SRC_FILES
+ 	src/windows/windows_data.cpp
+ 	src/windows/d3d_info.cpp
+ 	src/windows/vulkan_info.cpp
+-	src/macos/macos_data.mm
+ )
+ 
+ # For IDE support
+@@ -81,11 +90,8 @@ if (APPLE)
+ endif()
+ 
+ # Set up testing
+-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+-	option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+-	if(BUILD_TESTING)
+-		add_subdirectory(tests)
+-	endif()
++if(BUILD_TESTING)
++	add_subdirectory(tests)
+ endif()
+ 
+ # Install rules
+diff --git a/vcpkg.json b/vcpkg.json
+index c9d9372..ce0ad7c 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -1,8 +1,14 @@
+ {
+-  "dependencies": [
+-    {
+-      "name": "gtest",
+-      "version>=": "1.16.0"
++  "dependencies": [],
++  "features": {
++    "tests": {
++      "description": "Dependencies for building tests",
++      "dependencies": [
++        {
++          "name": "gtest",
++          "version>=": "1.16.0"
++        }
++      ]
+     }
+-  ]
+-}
++  }
++}
+\ No newline at end of file

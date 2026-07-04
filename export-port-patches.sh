@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Exports every commit between the local main bookmark and HEAD of the
+# Exports every commit between the local main/master bookmark and HEAD of the
 # repo in the current directory as patch files, and drops them into
 # the matching vcpkg port so the port can apply them on top of its
 # pinned REF.
@@ -32,11 +32,24 @@ if [ ! -f "${PORTFILE}" ] || ! grep -qF "${PATCHES_BEGIN}" "${PORTFILE}"; then
   exit 1
 fi
 
+BASE_BRANCH=""
+for candidate in main master; do
+  if git -C "${REPO_ROOT}" show-ref --verify --quiet "refs/heads/${candidate}"; then
+    BASE_BRANCH="${candidate}"
+    break
+  fi
+done
+
+if [ -z "${BASE_BRANCH}" ]; then
+  echo "error: no local 'main' or 'master' branch found in ${REPO_ROOT}" >&2
+  exit 1
+fi
+
 # Remove previously exported patches so removed/rebased commits don't
 # leave stale files behind.
 find "${PORT_DIR}" -maxdepth 1 -name '*.patch' -delete
 
-git -C "${REPO_ROOT}" format-patch main..HEAD \
+git -C "${REPO_ROOT}" format-patch "${BASE_BRANCH}..HEAD" \
   --no-signature \
   --zero-commit \
   -o "${PORT_DIR}"
