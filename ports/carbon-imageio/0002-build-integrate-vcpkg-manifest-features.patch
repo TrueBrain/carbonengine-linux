@@ -7,8 +7,8 @@ This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.
 ---
  CMakeLists.txt | 19 +++++++++++++------
- vcpkg.json     | 24 +++++++++++++++---------
- 2 files changed, 28 insertions(+), 15 deletions(-)
+ vcpkg.json     | 25 ++++++++++++++++---------
+ 2 files changed, 29 insertions(+), 15 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 5c90e48..993cb94 100644
@@ -56,13 +56,13 @@ index 5c90e48..993cb94 100644
                                        INSTALL_DESTINATION share/carbon-imageio)
  
 diff --git a/vcpkg.json b/vcpkg.json
-index 3dd1853..e6a20e4 100644
+index c55b037..50fe9d8 100644
 --- a/vcpkg.json
 +++ b/vcpkg.json
-@@ -19,21 +19,27 @@
+@@ -19,21 +19,28 @@
      {
        "name": "openvdb",
-       "version>=": "10.0.0",
+       "version>=": "10.0.0#1",
 -      "features": [ "nanovdb-nocuda" ],
 +      "features": [
 +        "nanovdb-nocuda"
@@ -82,7 +82,8 @@ index 3dd1853..e6a20e4 100644
 +      "dependencies": [
 +        {
 +          "name": "gtest",
-+          "version>=": "1.16.0"
++          "version>=": "1.16.0",
++          "host": true
 +        }
 +      ]
 +    }
