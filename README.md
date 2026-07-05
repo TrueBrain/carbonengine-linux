@@ -6,6 +6,9 @@ for building [CarbonEngine](https://github.com/carbonengine) on Linux
 toolchain files needed to make the upstream project build outside of its
 original Windows/MacOS-only environment.
 
+It is still a work in progress.
+Not all repositories are available yet, and some parts are stubbed.
+
 ## Contents
 
 - `ports` — the vcpkg ports for CarbonEngine's libraries, including
@@ -45,6 +48,18 @@ Make sure you have these things prepared:
 
 Without the first two, the tests just hang.
 Without the last one, a single tests will fail.
+
+## Vulkan support
+
+In order for graphics to work, carbonengine/trinity needs to communicate with a graphics API.
+Trinity has built-in support for DX11, DX12, and Metal.
+All three don't work on Linux.
+
+Claude's Fable was tasked to write a Vulkan backend; although functional, performance and correctness might be lacking.
+This Vulkan backend was mostly added to proof everything else is working.
+Not to facilitate a production-ready implementation.
+
+Use with care.
 
 ## License
 

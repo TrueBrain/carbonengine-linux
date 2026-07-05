@@ -1,6 +1,7 @@
 {
   "name": "carbon-trinity",
   "version": "4.0.2",
+  "port-version": 1,
   "description": "Graphics engine for the carbon game engine",
   "dependencies": [
     {
@@ -173,6 +174,16 @@
         {
           "name": "amd-fidelityfx-fsr",
           "version>=": "1.0.2"
+        }
+      ]
+    },
+    "vulkan": {
+      "description": "Create Metal targets",
+      "supports": "linux",
+      "dependencies": [
+        {
+          "name": "directx-dxc",
+          "version>=": "2023-03-01#2"
         }
       ]
     },

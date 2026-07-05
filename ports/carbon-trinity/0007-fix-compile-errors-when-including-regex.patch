@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 11:41:37 +0200
-Subject: [PATCH 07/14] fix: compile-errors when including regex
+Subject: [PATCH 07/16] fix: compile-errors when including regex
 
 DirectXMath defines in "sal.h" a lot of macros. Old C-style.
 One of those is __pre.

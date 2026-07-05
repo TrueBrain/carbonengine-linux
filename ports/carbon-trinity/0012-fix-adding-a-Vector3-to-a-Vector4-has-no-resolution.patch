@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 11:47:29 +0200
-Subject: [PATCH 12/14] fix: adding a Vector3 to a Vector4 has no resolution
+Subject: [PATCH 12/16] fix: adding a Vector3 to a Vector4 has no resolution
 
 Honestly, I still don't have a clue how Windows/Apple can compile
 this.

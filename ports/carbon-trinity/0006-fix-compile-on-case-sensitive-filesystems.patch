@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 09:44:50 +0200
-Subject: [PATCH 06/14] fix: compile on case sensitive filesystems
+Subject: [PATCH 06/16] fix: compile on case sensitive filesystems
 
 For the include folder, more entries were using lower-case to
 include from it than upper-case. It also makes most sense, as

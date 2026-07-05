@@ -17,7 +17,9 @@ vcpkg_from_git(
 0011-chore-cast-XMVector-to-Vector-properly.patch
 0012-fix-adding-a-Vector3-to-a-Vector4-has-no-resolution.patch
 0013-port-shadercompiler-add-support-for-Linux.patch
-0014-port-trinity-add-support-for-Linux.patch
+0014-port-add-basic-support-for-Linux.patch
+0015-port-trinityal-add-Vulkan-backend-for-Linux.patch
+0016-port-trinity-add-X11-support-for-Linux.patch
     # END EXPORTED PATCHES
 )
 
@@ -28,6 +30,7 @@ vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
         dx11                    BUILD_DX11
         dx12                    BUILD_DX12
         metal                   BUILD_METAL
+        vulkan                  BUILD_VULKAN
         with-granny             WITH_GRANNY
 )
 

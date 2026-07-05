@@ -1,0 +1,1071 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 19:17:10 +0200
+Subject: [PATCH 16/16] port(trinity): add X11 support for Linux
+
+This is fully written by Claude's Fable.
+---
+ trinity/CMakeLists.txt             |   5 +
+ trinity/UI/Tr2MainWindow.h         |  19 +
+ trinity/UI/Tr2MainWindow_Linux.cpp | 993 ++++++++++++++++++++++++++++-
+ 3 files changed, 1015 insertions(+), 2 deletions(-)
+
+diff --git a/trinity/CMakeLists.txt b/trinity/CMakeLists.txt
+index 175b0575..29153c57 100644
+--- a/trinity/CMakeLists.txt
++++ b/trinity/CMakeLists.txt
+@@ -2035,6 +2035,11 @@ elseif(LINUX)
+                 TRINITYNAME=_trinity_vulkan
+         )
+         target_link_libraries(${TRINITY_VULKAN_TARGET_NAME} PRIVATE TrinityAL_vulkan)
++        find_package(X11 QUIET)
++        if(X11_FOUND)
++            target_compile_definitions(${TRINITY_VULKAN_TARGET_NAME} PRIVATE TRINITY_WITH_X11)
++            target_link_libraries(${TRINITY_VULKAN_TARGET_NAME} PRIVATE X11::X11)
++        endif()
+         set_shared_trinity_properties(${TRINITY_VULKAN_TARGET_NAME} carbon-trinity-vulkan)
+     endif()
+ 
+diff --git a/trinity/UI/Tr2MainWindow.h b/trinity/UI/Tr2MainWindow.h
+index 87366d32..f1a09558 100644
+--- a/trinity/UI/Tr2MainWindow.h
++++ b/trinity/UI/Tr2MainWindow.h
+@@ -251,6 +251,25 @@ public:
+ 	void OnKeyboardLayoutChange_MacOS();
+ 
+ 	Tr2ImeState_MacOS::Type m_imeState_MacOS = Tr2ImeState_MacOS::DISABLED;
++#elif defined( __linux__ )
++private:
++	void HandleXEvent_Linux( void* xevent );
++	void UpdateWindowHints_Linux( const Tr2MainWindowState::State& state ) const;
++
++	uint32_t m_clientWidth_Linux = 0;
++	uint32_t m_clientHeight_Linux = 0;
++	bool m_hasFocus_Linux = false;
++	bool m_quitRequested_Linux = false;
++	bool m_cursorClipped_Linux = false;
++	// Window state changes reported by the X server are coalesced here and
++	// applied at the end of ProcessMessages
++	bool m_hasPendingState_Linux = false;
++	Tr2MainWindowState::State m_pendingState_Linux;
++	// Key state indexed by Windows virtual key code
++	bool m_keysDown_Linux[256] = {};
++	// XIM / XIC handles, opaque so the X11 headers stay out of this header
++	void* m_xim_Linux = nullptr;
++	void* m_xic_Linux = nullptr;
+ #endif
+ };
+ 
+diff --git a/trinity/UI/Tr2MainWindow_Linux.cpp b/trinity/UI/Tr2MainWindow_Linux.cpp
+index 2c0787cb..8a0597e8 100644
+--- a/trinity/UI/Tr2MainWindow_Linux.cpp
++++ b/trinity/UI/Tr2MainWindow_Linux.cpp
+@@ -6,10 +6,997 @@
+ 
+ #include "Tr2MainWindow.h"
+ #include "Tr2MouseCursor.h"
++#include "TriDevice.h"
++#include "Scancodes.h"
++
++#ifdef TRINITY_WITH_X11
+ 
+ /*
+-    Placeholder Linux backend: no real window is created yet. Every entry point returns a safe,
+-    inert default so the rest of the engine can link and run without an OS window.
++    X11 (Xlib) backend. The window handle stored in m_hwnd is the X11 Window id; the Vulkan
++    swapchain creates a VkXlibSurfaceKHR from it (window ids are global on the X server, so the
++    swapchain's own display connection can address windows created here).
++
++    Key events are translated to Windows virtual key codes, which is what the script layer
++    expects on every platform (see Scancodes.h).
++*/
++
++#include <unordered_map>
++
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++#include <X11/Xatom.h>
++#include <X11/XKBlib.h>
++#include <X11/keysym.h>
++
++
++extern CcpMeanStatisticsEntry g_activeFrametimeMean;
++extern CcpStdDevStatisticsEntry g_activeFrametimeStdDev;
++CCP_STATS_DECLARED_ELSEWHERE( frameTime );
++
++
++namespace
++{
++
++Display* GetXDisplay()
++{
++	static Display* s_display = []() -> Display* {
++		Display* display = XOpenDisplay( nullptr );
++		if( display )
++		{
++			// With detectable auto-repeat the server stops sending the synthetic
++			// KeyRelease between repeated KeyPress events, which matches how
++			// Windows reports key repeats
++			XkbSetDetectableAutoRepeat( display, True, nullptr );
++		}
++		return display;
++	}();
++	return s_display;
++}
++
++Atom GetXAtom( const char* name )
++{
++	return XInternAtom( GetXDisplay(), name, False );
++}
++
++std::unordered_map<Window, Tr2MainWindow*>& WindowRegistry()
++{
++	static std::unordered_map<Window, Tr2MainWindow*> s_registry;
++	return s_registry;
++}
++
++// _NET_WM_STATE client message, understood by EWMH compliant window managers
++void SendNetWmState( Window window, bool add, Atom state1, Atom state2 = 0 )
++{
++	Display* display = GetXDisplay();
++	XEvent event = {};
++	event.xclient.type = ClientMessage;
++	event.xclient.window = window;
++	event.xclient.message_type = GetXAtom( "_NET_WM_STATE" );
++	event.xclient.format = 32;
++	event.xclient.data.l[0] = add ? 1 : 0;
++	event.xclient.data.l[1] = long( state1 );
++	event.xclient.data.l[2] = long( state2 );
++	event.xclient.data.l[3] = 1; // source: normal application
++	XSendEvent( display, DefaultRootWindow( display ), False, SubstructureRedirectMask | SubstructureNotifyMask, &event );
++}
++
++struct KeyDesc
++{
++	uint16_t vk;
++	uint16_t vkSpecific;
++	KeySym keySym;
++	const char* text;
++};
++
++const KeyDesc s_keyDescs[] = {
++	{ VK_BACK, VK_BACK, XK_BackSpace, "Backspace" },
++	{ VK_TAB, VK_TAB, XK_Tab, "Tab" },
++	{ VK_TAB, VK_TAB, XK_ISO_Left_Tab, "Tab" },
++	{ VK_RETURN, VK_RETURN, XK_Return, "Enter" },
++	{ VK_RETURN, VK_RETURN, XK_KP_Enter, "Enter" },
++	{ VK_PAUSE, VK_PAUSE, XK_Pause, "Pause" },
++	{ VK_CAPITAL, VK_CAPITAL, XK_Caps_Lock, "Caps Lock" },
++	{ VK_ESCAPE, VK_ESCAPE, XK_Escape, "Esc" },
++	{ VK_SPACE, VK_SPACE, XK_space, "Space" },
++	{ VK_PRIOR, VK_PRIOR, XK_Prior, "Page Up" },
++	{ VK_PRIOR, VK_PRIOR, XK_KP_Prior, "Page Up" },
++	{ VK_NEXT, VK_NEXT, XK_Next, "Page Down" },
++	{ VK_NEXT, VK_NEXT, XK_KP_Next, "Page Down" },
++	{ VK_END, VK_END, XK_End, "End" },
++	{ VK_END, VK_END, XK_KP_End, "End" },
++	{ VK_HOME, VK_HOME, XK_Home, "Home" },
++	{ VK_HOME, VK_HOME, XK_KP_Home, "Home" },
++	{ VK_LEFT, VK_LEFT, XK_Left, "Left" },
++	{ VK_LEFT, VK_LEFT, XK_KP_Left, "Left" },
++	{ VK_UP, VK_UP, XK_Up, "Up" },
++	{ VK_UP, VK_UP, XK_KP_Up, "Up" },
++	{ VK_RIGHT, VK_RIGHT, XK_Right, "Right" },
++	{ VK_RIGHT, VK_RIGHT, XK_KP_Right, "Right" },
++	{ VK_DOWN, VK_DOWN, XK_Down, "Down" },
++	{ VK_DOWN, VK_DOWN, XK_KP_Down, "Down" },
++	{ VK_INSERT, VK_INSERT, XK_Insert, "Insert" },
++	{ VK_INSERT, VK_INSERT, XK_KP_Insert, "Insert" },
++	{ VK_DELETE, VK_DELETE, XK_Delete, "Delete" },
++	{ VK_DELETE, VK_DELETE, XK_KP_Delete, "Delete" },
++	{ VK_SNAPSHOT, VK_SNAPSHOT, XK_Print, "Print Screen" },
++	{ VK_NUMLOCK, VK_NUMLOCK, XK_Num_Lock, "Num Lock" },
++	{ VK_SCROLL, VK_SCROLL, XK_Scroll_Lock, "Scroll Lock" },
++	{ VK_CLEAR, VK_CLEAR, XK_KP_Begin, "Clear" },
++
++	{ VK_SHIFT, VK_LSHIFT, XK_Shift_L, "Shift" },
++	{ VK_SHIFT, VK_RSHIFT, XK_Shift_R, "Shift" },
++	{ VK_CONTROL, VK_LCONTROL, XK_Control_L, "Ctrl" },
++	{ VK_CONTROL, VK_RCONTROL, XK_Control_R, "Ctrl" },
++	{ VK_MENU, VK_LMENU, XK_Alt_L, "Alt" },
++	{ VK_MENU, VK_RMENU, XK_Alt_R, "Alt" },
++	{ VK_MENU, VK_RMENU, XK_ISO_Level3_Shift, "Alt Gr" },
++	{ VK_LWIN, VK_LWIN, XK_Super_L, "Super" },
++	{ VK_RWIN, VK_RWIN, XK_Super_R, "Super" },
++	{ VK_APPS, VK_APPS, XK_Menu, "Menu" },
++
++	{ VK_MULTIPLY, VK_MULTIPLY, XK_KP_Multiply, "Num *" },
++	{ VK_ADD, VK_ADD, XK_KP_Add, "Num +" },
++	{ VK_SEPARATOR, VK_SEPARATOR, XK_KP_Separator, "Num ," },
++	{ VK_SUBTRACT, VK_SUBTRACT, XK_KP_Subtract, "Num -" },
++	{ VK_DECIMAL, VK_DECIMAL, XK_KP_Decimal, "Num ." },
++	{ VK_DIVIDE, VK_DIVIDE, XK_KP_Divide, "Num /" },
++
++	{ VK_OEM_1, VK_OEM_1, XK_semicolon, ";" },
++	{ VK_OEM_PLUS, VK_OEM_PLUS, XK_equal, "=" },
++	{ VK_OEM_COMMA, VK_OEM_COMMA, XK_comma, "," },
++	{ VK_OEM_MINUS, VK_OEM_MINUS, XK_minus, "-" },
++	{ VK_OEM_PERIOD, VK_OEM_PERIOD, XK_period, "." },
++	{ VK_OEM_2, VK_OEM_2, XK_slash, "/" },
++	{ VK_OEM_3, VK_OEM_3, XK_grave, "`" },
++	{ VK_OEM_4, VK_OEM_4, XK_bracketleft, "[" },
++	{ VK_OEM_5, VK_OEM_5, XK_backslash, "\\" },
++	{ VK_OEM_6, VK_OEM_6, XK_bracketright, "]" },
++	{ VK_OEM_7, VK_OEM_7, XK_apostrophe, "'" },
++	{ VK_OEM_102, VK_OEM_102, XK_less, "<>" },
++};
++
++bool IsKeypadKeySym( KeySym sym )
++{
++	return sym >= XK_KP_Space && sym <= XK_KP_Equal;
++}
++
++uint32_t KeySymToVk( KeySym sym, uint32_t& specific )
++{
++	specific = 0;
++	if( sym >= XK_a && sym <= XK_z )
++	{
++		return uint32_t( 'A' + ( sym - XK_a ) );
++	}
++	if( sym >= XK_A && sym <= XK_Z )
++	{
++		return uint32_t( 'A' + ( sym - XK_A ) );
++	}
++	if( sym >= XK_0 && sym <= XK_9 )
++	{
++		return uint32_t( '0' + ( sym - XK_0 ) );
++	}
++	if( sym >= XK_F1 && sym <= XK_F24 )
++	{
++		return uint32_t( VK_F1 + ( sym - XK_F1 ) );
++	}
++	if( sym >= XK_KP_0 && sym <= XK_KP_9 )
++	{
++		return uint32_t( VK_NUMPAD0 + ( sym - XK_KP_0 ) );
++	}
++	for( const auto& desc : s_keyDescs )
++	{
++		if( desc.keySym == sym )
++		{
++			specific = desc.vkSpecific;
++			return desc.vk;
++		}
++	}
++	return 0;
++}
++
++}
++
++
++void Tr2MainWindow::SetWindowTitle( const wchar_t* title )
++{
++	m_title = title;
++	if( m_hwnd )
++	{
++		Display* display = GetXDisplay();
++		auto utf8 = WideToUTF8( title );
++		XStoreName( display, Window( m_hwnd ), utf8.c_str() );
++		XChangeProperty(
++			display, Window( m_hwnd ), GetXAtom( "_NET_WM_NAME" ), GetXAtom( "UTF8_STRING" ), 8,
++			PropModeReplace, reinterpret_cast<const unsigned char*>( utf8.c_str() ), int( utf8.size() ) );
++		XFlush( display );
++	}
++}
++
++bool Tr2MainWindow::HasFocus() const
++{
++	return m_hasFocus_Linux;
++}
++
++bool Tr2MainWindow::HasWindow() const
++{
++	return m_hwnd != 0;
++}
++
++void Tr2MainWindow::UpdateWindowHints_Linux( const Tr2MainWindowState::State& state ) const
++{
++	Display* display = GetXDisplay();
++	Window window = Window( m_hwnd );
++
++	XSizeHints* hints = XAllocSizeHints();
++	hints->flags = PPosition | PSize | PMinSize;
++	hints->x = state.left;
++	hints->y = state.top;
++	hints->width = int( state.width );
++	hints->height = int( state.height );
++	hints->min_width = int( m_minimumSize.width );
++	hints->min_height = int( m_minimumSize.height );
++	if( state.windowMode != Tr2WindowMode::WINDOWED )
++	{
++		// only regular windows are user-resizable
++		hints->flags |= PMaxSize;
++		hints->min_width = hints->max_width = int( state.width );
++		hints->min_height = hints->max_height = int( state.height );
++	}
++	XSetWMNormalHints( display, window, hints );
++	XFree( hints );
++
++	// fixed windows and fullscreen windows have no decorations
++	struct
++	{
++		unsigned long flags;
++		unsigned long functions;
++		unsigned long decorations;
++		long inputMode;
++		unsigned long status;
++	} motifHints = {};
++	motifHints.flags = 1 << 1; // MWM_HINTS_DECORATIONS
++	motifHints.decorations = state.windowMode == Tr2WindowMode::WINDOWED ? 1 : 0;
++	Atom motifAtom = GetXAtom( "_MOTIF_WM_HINTS" );
++	XChangeProperty(
++		display, window, motifAtom, motifAtom, 32,
++		PropModeReplace, reinterpret_cast<const unsigned char*>( &motifHints ), 5 );
++}
++
++void Tr2MainWindow::CreateOSWindow( Tr2MainWindowState::State& state )
++{
++	if( m_hwnd )
++	{
++		return;
++	}
++	Display* display = GetXDisplay();
++	if( !display )
++	{
++		// no X server; the engine keeps running without an OS window
++		return;
++	}
++
++	int screen = DefaultScreen( display );
++	XSetWindowAttributes attributes = {};
++	attributes.background_pixel = BlackPixel( display, screen );
++	attributes.event_mask =
++		KeyPressMask | KeyReleaseMask |
++		ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
++		StructureNotifyMask | FocusChangeMask | ExposureMask;
++
++	Window window = XCreateWindow(
++		display, RootWindow( display, screen ),
++		state.left, state.top,
++		std::max( state.width, 1u ), std::max( state.height, 1u ), 0,
++		CopyFromParent, InputOutput, CopyFromParent,
++		CWBackPixel | CWEventMask, &attributes );
++	if( !window )
++	{
++		return;
++	}
++	m_hwnd = Tr2WindowHandle( window );
++	WindowRegistry()[window] = this;
++
++	Atom wmDeleteWindow = GetXAtom( "WM_DELETE_WINDOW" );
++	XSetWMProtocols( display, window, &wmDeleteWindow, 1 );
++
++	UpdateWindowHints_Linux( state );
++	SetWindowTitle( m_title.c_str() );
++
++	if( state.windowMode == Tr2WindowMode::FULL_SCREEN )
++	{
++		// setting the property before mapping avoids a visible mode transition
++		Atom fullscreen = GetXAtom( "_NET_WM_STATE_FULLSCREEN" );
++		XChangeProperty(
++			display, window, GetXAtom( "_NET_WM_STATE" ), XA_ATOM, 32,
++			PropModeReplace, reinterpret_cast<const unsigned char*>( &fullscreen ), 1 );
++	}
++
++	XMapWindow( display, window );
++	if( state.windowMode == Tr2WindowMode::WINDOWED && state.showState == Tr2WindowShowState::MAXIMIZED )
++	{
++		SendNetWmState( window, true, GetXAtom( "_NET_WM_STATE_MAXIMIZED_HORZ" ), GetXAtom( "_NET_WM_STATE_MAXIMIZED_VERT" ) );
++	}
++	XSync( display, False );
++
++	XWindowAttributes actual = {};
++	if( XGetWindowAttributes( display, window, &actual ) && actual.width > 0 && actual.height > 0 )
++	{
++		m_clientWidth_Linux = uint32_t( actual.width );
++		m_clientHeight_Linux = uint32_t( actual.height );
++		if( state.windowMode == Tr2WindowMode::WINDOWED )
++		{
++			state.width = m_clientWidth_Linux;
++			state.height = m_clientHeight_Linux;
++		}
++	}
++	else
++	{
++		m_clientWidth_Linux = state.width;
++		m_clientHeight_Linux = state.height;
++	}
++
++	// input method context for text input; fall back to XLookupString without one
++	XSetLocaleModifiers( "" );
++	XIM xim = XOpenIM( display, nullptr, nullptr, nullptr );
++	if( xim )
++	{
++		XIC xic = XCreateIC(
++			xim,
++			XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
++			XNClientWindow, window,
++			XNFocusWindow, window,
++			nullptr );
++		if( xic )
++		{
++			m_xim_Linux = xim;
++			m_xic_Linux = xic;
++		}
++		else
++		{
++			XCloseIM( xim );
++		}
++	}
++
++	m_quitRequested_Linux = false;
++}
++
++void Tr2MainWindow::DestroyOSWindow()
++{
++	if( !m_hwnd )
++	{
++		return;
++	}
++	Display* display = GetXDisplay();
++
++	if( m_xic_Linux )
++	{
++		XDestroyIC( XIC( m_xic_Linux ) );
++		m_xic_Linux = nullptr;
++	}
++	if( m_xim_Linux )
++	{
++		XCloseIM( XIM( m_xim_Linux ) );
++		m_xim_Linux = nullptr;
++	}
++
++	UnclipCursor();
++	WindowRegistry().erase( Window( m_hwnd ) );
++	XDestroyWindow( display, Window( m_hwnd ) );
++	XSync( display, False );
++	m_hwnd = 0;
++	m_hasFocus_Linux = false;
++	m_hasPendingState_Linux = false;
++}
++
++void Tr2MainWindow::AdjustWindow( Tr2MainWindowState::State& state )
++{
++	if( !m_hwnd )
++	{
++		return;
++	}
++	Display* display = GetXDisplay();
++	Window window = Window( m_hwnd );
++
++	UpdateWindowHints_Linux( state );
++
++	bool wasFullscreen = m_state.windowMode == Tr2WindowMode::FULL_SCREEN;
++	bool isFullscreen = state.windowMode == Tr2WindowMode::FULL_SCREEN;
++	if( wasFullscreen != isFullscreen )
++	{
++		SendNetWmState( window, isFullscreen, GetXAtom( "_NET_WM_STATE_FULLSCREEN" ) );
++	}
++	if( !isFullscreen )
++	{
++		XMoveResizeWindow( display, window, state.left, state.top, std::max( state.width, 1u ), std::max( state.height, 1u ) );
++	}
++
++	if( state.windowMode == Tr2WindowMode::WINDOWED )
++	{
++		Atom maximizedHorz = GetXAtom( "_NET_WM_STATE_MAXIMIZED_HORZ" );
++		Atom maximizedVert = GetXAtom( "_NET_WM_STATE_MAXIMIZED_VERT" );
++		switch( state.showState )
++		{
++		case Tr2WindowShowState::MAXIMIZED:
++			SendNetWmState( window, true, maximizedHorz, maximizedVert );
++			break;
++		case Tr2WindowShowState::MINIMIZED:
++			XIconifyWindow( display, window, DefaultScreen( display ) );
++			break;
++		default:
++			SendNetWmState( window, false, maximizedHorz, maximizedVert );
++			XMapWindow( display, window );
++			break;
++		}
++	}
++	XSync( display, False );
++
++	XWindowAttributes actual = {};
++	if( XGetWindowAttributes( display, window, &actual ) && actual.width > 0 && actual.height > 0 )
++	{
++		m_clientWidth_Linux = uint32_t( actual.width );
++		m_clientHeight_Linux = uint32_t( actual.height );
++	}
++}
++
++Tr2MainWindow::Rect Tr2MainWindow::GetDesktopRect() const
++{
++	Display* display = GetXDisplay();
++	if( !display )
++	{
++		return { 0, 0, 0, 0 };
++	}
++	int screen = DefaultScreen( display );
++	return { 0, 0, DisplayWidth( display, screen ), DisplayHeight( display, screen ) };
++}
++
++Tr2MainWindow::Rect Tr2MainWindow::GetMonitorRect( uint32_t ) const
++{
++	// core X11 exposes the combined screen only; per-monitor rects need XRandR
++	return GetDesktopRect();
++}
++
++Tr2MainWindow::Size Tr2MainWindow::GetWindowSize( const Size& clientSize, Tr2WindowMode::Type ) const
++{
++	// X11 window manager decorations live outside the window we create
++	return clientSize;
++}
++
++Tr2MainWindow::Size Tr2MainWindow::GetClientSize( const Size& windowSize, Tr2WindowMode::Type ) const
++{
++	return windowSize;
++}
++
++bool Tr2MainWindow::SupportsFullscreen() const
++{
++	return GetXDisplay() != nullptr;
++}
++
++void Tr2MainWindow::ClipCursor( int32_t, int32_t, int32_t, int32_t )
++{
++	if( !m_hwnd )
++	{
++		return;
++	}
++	// X11 can only confine the pointer to a window, not to an arbitrary rectangle
++	Display* display = GetXDisplay();
++	if( XGrabPointer(
++			display, Window( m_hwnd ), True,
++			ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
++			GrabModeAsync, GrabModeAsync, Window( m_hwnd ), 0, CurrentTime ) == GrabSuccess )
++	{
++		m_cursorClipped_Linux = true;
++	}
++}
++
++void Tr2MainWindow::UnclipCursor()
++{
++	if( m_cursorClipped_Linux )
++	{
++		Display* display = GetXDisplay();
++		XUngrabPointer( display, CurrentTime );
++		XFlush( display );
++		m_cursorClipped_Linux = false;
++	}
++}
++
++void Tr2MainWindow::SetCursorPos( int32_t x, int32_t y )
++{
++	if( !m_hwnd || !m_state.width || !m_state.height )
++	{
++		return;
++	}
++	Display* display = GetXDisplay();
++	XWarpPointer(
++		display, 0, Window( m_hwnd ), 0, 0, 0, 0,
++		int( double( x ) / m_state.width * m_clientWidth_Linux + 0.5 ),
++		int( double( y ) / m_state.height * m_clientHeight_Linux + 0.5 ) );
++	XFlush( display );
++}
++
++std::pair<int32_t, int32_t> Tr2MainWindow::GetCursorPos() const
++{
++	if( !m_hwnd || !m_clientWidth_Linux || !m_clientHeight_Linux )
++	{
++		return { 0, 0 };
++	}
++	Display* display = GetXDisplay();
++	Window root, child;
++	int rootX = 0, rootY = 0, x = 0, y = 0;
++	unsigned int mask = 0;
++	XQueryPointer( display, Window( m_hwnd ), &root, &child, &rootX, &rootY, &x, &y, &mask );
++	return {
++		int32_t( double( x ) / m_clientWidth_Linux * m_state.width + 0.5 ),
++		int32_t( double( y ) / m_clientHeight_Linux * m_state.height + 0.5 )
++	};
++}
++
++bool Tr2MainWindow::IsKeyToggled( uint32_t keyCode ) const
++{
++	Display* display = GetXDisplay();
++	if( !display )
++	{
++		return false;
++	}
++	Window root, child;
++	int rootX = 0, rootY = 0, x = 0, y = 0;
++	unsigned int mask = 0;
++	XQueryPointer( display, DefaultRootWindow( display ), &root, &child, &rootX, &rootY, &x, &y, &mask );
++	switch( keyCode )
++	{
++	case VK_CAPITAL:
++		return ( mask & LockMask ) != 0;
++	case VK_NUMLOCK:
++		return ( mask & Mod2Mask ) != 0;
++	default:
++		return false;
++	}
++}
++
++bool Tr2MainWindow::IsKeyPressed( uint32_t keyCode ) const
++{
++	return keyCode < 256 && m_keysDown_Linux[keyCode];
++}
++
++std::string Tr2MainWindow::GetKeyName( uint32_t keyCode ) const
++{
++	if( ( keyCode >= '0' && keyCode <= '9' ) || ( keyCode >= 'A' && keyCode <= 'Z' ) )
++	{
++		return std::string( 1, char( keyCode ) );
++	}
++	if( keyCode >= VK_F1 && keyCode <= VK_F24 )
++	{
++		return "F" + std::to_string( keyCode - VK_F1 + 1 );
++	}
++	if( keyCode >= VK_NUMPAD0 && keyCode <= VK_NUMPAD9 )
++	{
++		return "Num " + std::to_string( keyCode - VK_NUMPAD0 );
++	}
++	for( const auto& desc : s_keyDescs )
++	{
++		if( desc.vk == keyCode || desc.vkSpecific == keyCode )
++		{
++			return desc.text;
++		}
++	}
++	return "";
++}
++
++void Tr2MainWindow::HandleXEvent_Linux( void* xevent )
++{
++	XEvent& event = *static_cast<XEvent*>( xevent );
++	Display* display = GetXDisplay();
++
++	auto scaleMouseX = [&]( int x ) {
++		return m_clientWidth_Linux ? int32_t( double( x ) / m_clientWidth_Linux * m_state.width + 0.5 ) : int32_t( x );
++	};
++	auto scaleMouseY = [&]( int y ) {
++		return m_clientHeight_Linux ? int32_t( double( y ) / m_clientHeight_Linux * m_state.height + 0.5 ) : int32_t( y );
++	};
++
++	switch( event.type )
++	{
++	case ButtonPress:
++	case ButtonRelease: {
++		const XButtonEvent& button = event.xbutton;
++		bool down = event.type == ButtonPress;
++		int32_t engineButton;
++		uint32_t vk;
++		switch( button.button )
++		{
++		case Button1:
++			engineButton = 0;
++			vk = VK_LBUTTON;
++			break;
++		case Button3:
++			engineButton = 1;
++			vk = VK_RBUTTON;
++			break;
++		case Button2:
++			engineButton = 2;
++			vk = VK_MBUTTON;
++			break;
++		case Button4:
++		case Button5:
++			if( down )
++			{
++				m_onMouseWheel.CallVoid( int32_t( button.button == Button4 ? 120 : -120 ) );
++			}
++			return;
++		case 8:
++			engineButton = 3;
++			vk = VK_XBUTTON1;
++			break;
++		case 9:
++			engineButton = 4;
++			vk = VK_XBUTTON2;
++			break;
++		default:
++			return;
++		}
++		m_keysDown_Linux[vk] = down;
++		auto& callback = down ? m_onMouseDown : m_onMouseUp;
++		callback.CallVoid( engineButton, scaleMouseX( button.x ), scaleMouseY( button.y ) );
++		break;
++	}
++
++	case MotionNotify:
++		m_onMouseMove.CallVoid( scaleMouseX( event.xmotion.x ), scaleMouseY( event.xmotion.y ) ).ReportException();
++		break;
++
++	case KeyPress: {
++		XKeyEvent& key = event.xkey;
++		char buffer[64];
++		KeySym lookupSym = NoSymbol;
++		int length = 0;
++		bool isUtf8 = false;
++		if( m_xic_Linux )
++		{
++			Status status = 0;
++			length = Xutf8LookupString( XIC( m_xic_Linux ), &key, buffer, int( sizeof( buffer ) ) - 1, &lookupSym, &status );
++			if( status != XLookupChars && status != XLookupBoth )
++			{
++				length = 0;
++			}
++			if( status != XLookupKeySym && status != XLookupBoth )
++			{
++				lookupSym = NoSymbol;
++			}
++			isUtf8 = true;
++		}
++		else
++		{
++			length = XLookupString( &key, buffer, int( sizeof( buffer ) ) - 1, &lookupSym, nullptr );
++		}
++
++		// The unshifted keysym matches how Windows reports virtual keys ("1" stays
++		// VK_1 with shift held); the modifier-resolved keysym is needed for the
++		// keypad, where num lock decides between digits and navigation
++		KeySym sym = XkbKeycodeToKeysym( display, KeyCode( key.keycode ), 0, 0 );
++		if( lookupSym != NoSymbol && IsKeypadKeySym( lookupSym ) )
++		{
++			sym = lookupSym;
++		}
++		uint32_t specific = 0;
++		uint32_t vk = KeySymToVk( sym, specific );
++		if( vk )
++		{
++			m_keysDown_Linux[vk & 0xff] = true;
++			if( specific )
++			{
++				m_keysDown_Linux[specific & 0xff] = true;
++			}
++			m_onKeyDown.CallVoid( int32_t( vk ), int32_t( key.keycode ) );
++		}
++
++		for( int i = 0; i < length; )
++		{
++			uint32_t codepoint = uint8_t( buffer[i] );
++			if( !isUtf8 )
++			{
++				++i;
++			}
++			else if( codepoint < 0x80 )
++			{
++				++i;
++			}
++			else if( ( codepoint >> 5 ) == 0x6 && i + 1 < length )
++			{
++				codepoint = ( ( codepoint & 0x1f ) << 6 ) | ( uint8_t( buffer[i + 1] ) & 0x3f );
++				i += 2;
++			}
++			else if( ( codepoint >> 4 ) == 0xe && i + 2 < length )
++			{
++				codepoint = ( ( codepoint & 0x0f ) << 12 ) | ( ( uint8_t( buffer[i + 1] ) & 0x3f ) << 6 ) | ( uint8_t( buffer[i + 2] ) & 0x3f );
++				i += 3;
++			}
++			else if( ( codepoint >> 3 ) == 0x1e && i + 3 < length )
++			{
++				codepoint = ( ( codepoint & 0x07 ) << 18 ) | ( ( uint8_t( buffer[i + 1] ) & 0x3f ) << 12 ) | ( ( uint8_t( buffer[i + 2] ) & 0x3f ) << 6 ) | ( uint8_t( buffer[i + 3] ) & 0x3f );
++				i += 4;
++			}
++			else
++			{
++				++i;
++				continue;
++			}
++			m_onChar.CallVoid( int32_t( codepoint ), int32_t( key.keycode ), false );
++		}
++		break;
++	}
++
++	case KeyRelease: {
++		XKeyEvent& key = event.xkey;
++		// without detectable auto-repeat the server inserts a KeyRelease before
++		// each repeated KeyPress; swallow those so keys don't flicker
++		if( XEventsQueued( display, QueuedAfterReading ) )
++		{
++			XEvent next;
++			XPeekEvent( display, &next );
++			if( next.type == KeyPress && next.xkey.time == key.time && next.xkey.keycode == key.keycode )
++			{
++				break;
++			}
++		}
++		char buffer[8];
++		KeySym lookupSym = NoSymbol;
++		XLookupString( &key, buffer, int( sizeof( buffer ) ) - 1, &lookupSym, nullptr );
++		KeySym sym = XkbKeycodeToKeysym( display, KeyCode( key.keycode ), 0, 0 );
++		if( lookupSym != NoSymbol && IsKeypadKeySym( lookupSym ) )
++		{
++			sym = lookupSym;
++		}
++		uint32_t specific = 0;
++		uint32_t vk = KeySymToVk( sym, specific );
++		if( vk )
++		{
++			m_keysDown_Linux[vk & 0xff] = false;
++			if( specific )
++			{
++				m_keysDown_Linux[specific & 0xff] = false;
++			}
++			m_onKeyUp.CallVoid( int32_t( vk ), int32_t( key.keycode ) );
++		}
++		break;
++	}
++
++	case FocusIn:
++		if( event.xfocus.mode == NotifyGrab || event.xfocus.mode == NotifyUngrab )
++		{
++			break;
++		}
++		m_hasFocus_Linux = true;
++		if( m_xic_Linux )
++		{
++			XSetICFocus( XIC( m_xic_Linux ) );
++		}
++		if( gTriDev )
++		{
++			gTriDev->ApplicationActivated( TriDevice::APP_ACTIVATED );
++			gTriDev->SetThrottling( TriDevice::WINDOW_OUT_OF_FOCUS, false );
++		}
++		g_activeFrametimeMean.SetSource( &g_ccpStatistics_frameTime );
++		g_activeFrametimeStdDev.SetSource( &g_ccpStatistics_frameTime );
++		m_onFocusChange.CallVoid( true );
++		break;
++
++	case FocusOut:
++		if( event.xfocus.mode == NotifyGrab || event.xfocus.mode == NotifyUngrab )
++		{
++			break;
++		}
++		m_hasFocus_Linux = false;
++		if( m_xic_Linux )
++		{
++			XUnsetICFocus( XIC( m_xic_Linux ) );
++		}
++		UnclipCursor();
++		memset( m_keysDown_Linux, 0, sizeof( m_keysDown_Linux ) );
++		if( gTriDev )
++		{
++			gTriDev->ApplicationActivated( TriDevice::APP_DEACTIVATED );
++			gTriDev->SetThrottling( TriDevice::WINDOW_OUT_OF_FOCUS, true );
++		}
++		g_activeFrametimeMean.SetSource( nullptr );
++		g_activeFrametimeStdDev.SetSource( nullptr );
++		m_onFocusChange.CallVoid( false );
++		break;
++
++	case ConfigureNotify: {
++		const XConfigureEvent& configure = event.xconfigure;
++		if( configure.width <= 0 || configure.height <= 0 )
++		{
++			break;
++		}
++		m_clientWidth_Linux = uint32_t( configure.width );
++		m_clientHeight_Linux = uint32_t( configure.height );
++		if( m_inSetState || m_isResizing )
++		{
++			break;
++		}
++		auto newMode = m_state;
++		newMode.width = m_clientWidth_Linux;
++		newMode.height = m_clientHeight_Linux;
++		if( m_state.windowMode == Tr2WindowMode::WINDOWED )
++		{
++			if( configure.send_event )
++			{
++				// synthetic ConfigureNotify carries root-relative coordinates
++				newMode.left = configure.x;
++				newMode.top = configure.y;
++			}
++			else
++			{
++				int x = 0, y = 0;
++				Window child;
++				XTranslateCoordinates( display, Window( m_hwnd ), DefaultRootWindow( display ), 0, 0, &x, &y, &child );
++				newMode.left = x;
++				newMode.top = y;
++			}
++		}
++		if( !( newMode == m_state ) )
++		{
++			m_pendingState_Linux = newMode;
++			m_hasPendingState_Linux = true;
++		}
++		break;
++	}
++
++	case UnmapNotify:
++		if( m_state.windowMode == Tr2WindowMode::WINDOWED && m_state.showState != Tr2WindowShowState::MINIMIZED )
++		{
++			auto newMode = m_hasPendingState_Linux ? m_pendingState_Linux : m_state;
++			newMode.showState = Tr2WindowShowState::MINIMIZED;
++			m_pendingState_Linux = newMode;
++			m_hasPendingState_Linux = true;
++		}
++		break;
++
++	case MapNotify:
++		if( m_state.windowMode == Tr2WindowMode::WINDOWED && m_state.showState == Tr2WindowShowState::MINIMIZED )
++		{
++			auto newMode = m_hasPendingState_Linux ? m_pendingState_Linux : m_state;
++			newMode.showState = Tr2WindowShowState::NORMAL;
++			m_pendingState_Linux = newMode;
++			m_hasPendingState_Linux = true;
++		}
++		break;
++
++	case ClientMessage:
++		if( event.xclient.message_type == GetXAtom( "WM_PROTOCOLS" ) &&
++			Atom( event.xclient.data.l[0] ) == GetXAtom( "WM_DELETE_WINDOW" ) )
++		{
++			bool canClose = true;
++			m_onClose.Call( canClose );
++			if( !m_onClose.IsValid() || canClose )
++			{
++				m_quitRequested_Linux = true;
++			}
++		}
++		break;
++	}
++}
++
++bool Tr2MainWindow::ProcessMessages()
++{
++	Display* display = GetXDisplay();
++	if( !display )
++	{
++		return true;
++	}
++
++	while( XPending( display ) )
++	{
++		XEvent event;
++		XNextEvent( display, &event );
++		if( XFilterEvent( &event, 0 ) )
++		{
++			continue;
++		}
++		if( event.type == MappingNotify )
++		{
++			XRefreshKeyboardMapping( &event.xmapping );
++			continue;
++		}
++		auto& registry = WindowRegistry();
++		auto it = registry.find( event.xany.window );
++		if( it != registry.end() )
++		{
++			it->second->HandleXEvent_Linux( &event );
++		}
++	}
++
++	// apply window state changes reported by the X server, coalesced per pump
++	if( m_hasPendingState_Linux && !m_inSetState && !g_renderContextIsBeingDestroyed && gTriDev )
++	{
++		auto pendingState = m_pendingState_Linux;
++		m_hasPendingState_Linux = false;
++		SetState( false, pendingState );
++	}
++
++	return !m_quitRequested_Linux;
++}
++
++void Tr2MainWindow::OnTick( Be::Time, Be::Time, void* )
++{
++}
++
++void Tr2MainWindow::SanitizeWindowedResolution( Tr2MainWindowState::State& state ) const
++{
++	if( state.width == 0 && state.height == 0 )
++	{
++		// use window size that spans default display
++		Tr2DisplayModeInfo mi;
++		Tr2VideoAdapterInfo::GetAdapterDisplayMode( state.adapter, mi );
++
++		Size size = { mi.width, mi.height };
++		size = GetClientSize( size, state.windowMode );
++
++		state.width = size.width;
++		state.height = size.height;
++	}
++	else
++	{
++		state.width = std::max( m_minimumSize.width, state.width );
++		state.height = std::max( m_minimumSize.height, state.height );
++
++		auto desktop = GetDesktopRect();
++		Size desktopSize;
++		desktopSize.width = uint32_t( desktop.right - desktop.left );
++		desktopSize.height = uint32_t( desktop.bottom - desktop.top );
++		if( desktopSize.width > 0 && desktopSize.height > 0 )
++		{
++			state.width = std::min( desktopSize.width, state.width );
++			state.height = std::min( desktopSize.height, state.height );
++		}
++	}
++}
++
++void Tr2MainWindow::SanitizeWindowPosition( Tr2MainWindowState::State& state ) const
++{
++	auto desktop = GetDesktopRect();
++	if( desktop.right - desktop.left <= 0 || desktop.bottom - desktop.top <= 0 )
++	{
++		return;
++	}
++	if( state.windowMode == Tr2WindowMode::FIXED_WINDOW )
++	{
++		// fixed windows are always at the top left corner of the display
++		auto rect = GetMonitorRect( state.adapter );
++		state.left = rect.left;
++		state.top = rect.top;
++	}
++	else
++	{
++		// window should intersect desktop with some margin
++		Size size = { state.width, state.height };
++		size = GetWindowSize( size, state.windowMode );
++
++		auto margin = int32_t( std::max( std::min( size.width / 2, size.height / 2 ), 50u ) );
++
++		state.left = std::max( state.left, int32_t( desktop.left - size.width + margin ) );
++		state.top = std::max( state.top, int32_t( desktop.top - size.height + margin ) );
++		state.left = std::min( state.left, int32_t( desktop.right - margin ) );
++		state.top = std::min( state.top, int32_t( desktop.bottom - margin ) );
++	}
++}
++
++Tr2MainWindow::Size Tr2MainWindow::GetLargestWindowSize( uint32_t, Tr2WindowMode::Type ) const
++{
++	auto desktopRect = GetDesktopRect();
++	return { uint32_t( desktopRect.right - desktopRect.left ), uint32_t( desktopRect.bottom - desktopRect.top ) };
++}
++
++uintptr_t Tr2MainWindow::GetHwnd() const
++{
++	return m_hwnd;
++}
++
++#else // !TRINITY_WITH_X11
++
++/*
++    Headless fallback used when X11 development files are not available at build time. Every
++    entry point returns a safe, inert default so the rest of the engine can link and run
++    without an OS window.
+ */
+ 
+ void Tr2MainWindow::SetWindowTitle( const wchar_t* title )
+@@ -123,6 +1110,8 @@ uintptr_t Tr2MainWindow::GetHwnd() const
+ 	return 0;
+ }
+ 
++#endif // TRINITY_WITH_X11
++
+ Tr2WindowHandle Tr2MainWindow::GetOutputWindow() const
+ {
+ 	return m_hwnd;
