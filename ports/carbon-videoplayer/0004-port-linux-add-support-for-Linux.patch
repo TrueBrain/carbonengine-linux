@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 15:47:06 +0200
+Subject: [PATCH 4/4] port(linux): add support for Linux
+
+---
+ CMakeLists.txt |  4 ++++
+ vcpkg.json     | 10 ++++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 510ba35..eed01b6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -74,6 +74,8 @@ if(WIN32)
+     target_include_directories(VideoPlayer PRIVATE "$<TARGET_PROPERTY:trinity_stub,INTERFACE_INCLUDE_DIRECTORIES>")
+ elseif(APPLE)
+     target_include_directories(VideoPlayer PRIVATE "$<TARGET_PROPERTY:trinity_metal,INTERFACE_INCLUDE_DIRECTORIES>")
++elseif(LINUX)
++    target_include_directories(VideoPlayer PRIVATE "$<TARGET_PROPERTY:trinity_vulkan,INTERFACE_INCLUDE_DIRECTORIES>")
+ endif()
+ 
+ target_link_libraries(VideoPlayer PRIVATE Blue Vorbis::vorbis unofficial::libvpx::libvpx nestegg)
+@@ -182,6 +184,8 @@ if(BUILD_TESTING)
+         target_include_directories(VideoPlayerTest PRIVATE "$<TARGET_PROPERTY:trinity_stub,INTERFACE_INCLUDE_DIRECTORIES>")
+     elseif(APPLE)
+         target_include_directories(VideoPlayerTest PRIVATE "$<TARGET_PROPERTY:trinity_metal,INTERFACE_INCLUDE_DIRECTORIES>")
++    elseif(LINUX)
++        target_include_directories(VideoPlayerTest PRIVATE "$<TARGET_PROPERTY:trinity_vulkan,INTERFACE_INCLUDE_DIRECTORIES>")
+     else()
+         message(FATAL_ERROR "Unsupported platform!")
+     endif()
+diff --git a/vcpkg.json b/vcpkg.json
+index 298d74a..2130298 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -25,12 +25,18 @@
+       "name": "carbon-trinity",
+       "version>=": "3.10.3",
+       "platform": "osx",
+-      "features":["metal" ]
++      "features": ["metal"]
++    },
++    {
++      "name": "carbon-trinity",
++      "version>=": "3.10.3",
++      "platform": "linux",
++      "features": ["vulkan"]
+     },
+     {
+       "name": "carbon-trinityaudioapi",
+       "version>=": "2.0.3"
+-    },
++    }
+   ],
+   "overrides": [
+     {

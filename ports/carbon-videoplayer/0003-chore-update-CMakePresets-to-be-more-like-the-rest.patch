@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:57:33 +0200
+Subject: [PATCH 3/4] chore: update CMakePresets to be more like the rest
+
+---
+ CMakePresets.json | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/CMakePresets.json b/CMakePresets.json
+index e9081ef..9e1818f 100644
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -15,7 +15,7 @@
+         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/triplets"
+       },
+       "environment": {
+-        "PATH_TO_VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
++        "VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
+       },
+       "hidden": true
+     },
+@@ -43,7 +43,7 @@
+       "name": "x64-windows",
+       "inherits": "windows",
+       "cacheVariables": {
+-        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-windows-145-carbon.cmake"
++        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-windows-carbon.cmake"
+       },
+       "hidden": true
+     },
