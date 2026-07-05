@@ -11,8 +11,9 @@ vcpkg_from_git(
 0004-build-integrate-vcpkg-manifest-features.patch
 0005-chore-include-all-required-system-headers.patch
 0006-chore-fix-compiling-telemetry-module-when-disabled.patch
-0007-port-linux-add-support-for-Linux.patch
-0008-port-emscripten-add-Emscripten-specific-fixes.patch
+0007-fix-sem_timedwait-uses-absolute-time-not-relative.patch
+0008-port-linux-add-support-for-Linux.patch
+0009-port-emscripten-add-Emscripten-specific-fixes.patch
     # END EXPORTED PATCHES
 )
 

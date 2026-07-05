@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 20:10:19 +0200
+Subject: [PATCH 7/9] fix: sem_timedwait uses absolute time, not relative
+
+This causes timeouts to happen instantly; it never actually waits.
+---
+ CcpSemaphore.cpp | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/CcpSemaphore.cpp b/CcpSemaphore.cpp
+index 599015c..e3771f9 100644
+--- a/CcpSemaphore.cpp
++++ b/CcpSemaphore.cpp
+@@ -69,7 +69,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
+ 	mach_timespec_t mts;
+     mts.tv_sec = timeoutInMs / 1000;
+     mts.tv_nsec = ( timeoutInMs % 1000 ) * 1000000;
+-    
++
+     return semaphore_timedwait( m_semaphore, mts ) == KERN_SUCCESS;
+ }
+ 
+@@ -80,6 +80,8 @@ void CcpSemaphore::Signal()
+ 
+ #else
+ 
++#include <time.h>
++
+ CcpSemaphore::CcpSemaphore()
+ {
+ 	sem_init( &m_semaphore, 0, 0 );
+@@ -110,12 +112,16 @@ bool CcpSemaphore::Wait()
+ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
+ {
+     timespec ts;
+-    ts.tv_sec = timeoutInMs / 1000;
+-    ts.tv_nsec = (timeoutInMs % 1000) * 1000000;
+-    if( sem_timedwait( &m_semaphore, &ts ) == 0 )
++    clock_gettime( CLOCK_REALTIME, &ts );
++    ts.tv_sec  += timeoutInMs / 1000;
++    ts.tv_nsec += (timeoutInMs % 1000) * 1000000;
++    if( ts.tv_nsec >= 1000000000 )
+     {
+-        return true;
++        ts.tv_sec  += 1;
++        ts.tv_nsec -= 1000000000;
+     }
++    if( sem_timedwait( &m_semaphore, &ts ) == 0 )
++        return true;
+     return false;
+ }
+ 
