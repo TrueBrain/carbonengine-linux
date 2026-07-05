@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:41:37 +0200
+Subject: [PATCH 07/14] fix: compile-errors when including regex
+
+DirectXMath defines in "sal.h" a lot of macros. Old C-style.
+One of those is __pre.
+The <regex> on Linux uses a local variable __pre. See where this
+goes wrong?
+---
+ trinity/Controllers/Tr2ControllerExpression.cpp | 7 +++++++
+ trinity/Resources/Tr2LightProfileRes.cpp        | 7 +++++++
+ trinity/Tr2DynamicBinding.cpp                   | 7 +++++++
+ 3 files changed, 21 insertions(+)
+
+diff --git a/trinity/Controllers/Tr2ControllerExpression.cpp b/trinity/Controllers/Tr2ControllerExpression.cpp
+index 95f6af4e..1423182f 100644
+--- a/trinity/Controllers/Tr2ControllerExpression.cpp
++++ b/trinity/Controllers/Tr2ControllerExpression.cpp
+@@ -12,6 +12,13 @@
+ #include "Tr2GrannyAnimation.h"
+ #include "Tr2ExpressionTermInfo.h"
+ #include "TriSettingsRegistrar.h"
++#if defined(__linux__)
++// DirectXMath includes "sal.h", which defines __pre. On Linux,
++// regex uses __pre for internal variable names. And this combination
++// breaks. As __pre isn't actually used, undef it, so regex can
++// be included.
++#undef __pre
++#endif
+ #include <regex>
+ 
+ 
+diff --git a/trinity/Resources/Tr2LightProfileRes.cpp b/trinity/Resources/Tr2LightProfileRes.cpp
+index b18e8e41..75f66637 100644
+--- a/trinity/Resources/Tr2LightProfileRes.cpp
++++ b/trinity/Resources/Tr2LightProfileRes.cpp
+@@ -4,6 +4,13 @@
+ #include "Tr2LightProfileRes.h"
+ #include "../Tr2LightManager.h"
+ #include "../Tr2HostBitmap.h"
++#if defined(__linux__)
++// DirectXMath includes "sal.h", which defines __pre. On Linux,
++// regex uses __pre for internal variable names. And this combination
++// breaks. As __pre isn't actually used, undef it, so regex can
++// be included.
++#undef __pre
++#endif
+ #include <regex>
+ #include <sstream>
+ 
+diff --git a/trinity/Tr2DynamicBinding.cpp b/trinity/Tr2DynamicBinding.cpp
+index 4949c532..ffb4908b 100644
+--- a/trinity/Tr2DynamicBinding.cpp
++++ b/trinity/Tr2DynamicBinding.cpp
+@@ -4,6 +4,13 @@
+ #include "Tr2DynamicBinding.h"
+ #include "ITr2DynamicBindingOwner.h"
+ #include "TriValueBinding.h"
++#if defined(__linux__)
++// DirectXMath includes "sal.h", which defines __pre. On Linux,
++// regex uses __pre for internal variable names. And this combination
++// breaks. As __pre isn't actually used, undef it, so regex can
++// be included.
++#undef __pre
++#endif
+ #include <regex>
+ 
+ 

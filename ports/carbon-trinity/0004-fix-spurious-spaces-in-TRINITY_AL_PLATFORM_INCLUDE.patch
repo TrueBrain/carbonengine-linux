@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 09:27:51 +0200
+Subject: [PATCH 04/14] fix: spurious spaces in TRINITY_AL_PLATFORM_INCLUDE
+
+On GCC/Clang, a spurious space is added to includes using
+TRINITY_AL_PLATFORM_INCLUDE. This caused because CCP_CONCATENATE()
+isn't expanded yet, and sits directly adjacent to a literal text.
+
+MSVC preprocessor doesn't do this.
+---
+ trinityal/include/TrinityALForward.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/trinityal/include/TrinityALForward.h b/trinityal/include/TrinityALForward.h
+index 1fa5dcae..7ab15b45 100644
+--- a/trinityal/include/TrinityALForward.h
++++ b/trinityal/include/TrinityALForward.h
+@@ -89,5 +89,6 @@
+ #endif
+ 
+ // clang-format off
+-#define TRINITY_AL_PLATFORM_INCLUDE( className ) CCP_STRINGIZE(../TRINITY_PLATFORM_SYMBOL/CCP_CONCATENATE( className, TRINITY_PLATFORM_SYMBOL_SUFFIX ).h )
+-// clang-format on
+\ No newline at end of file
++#define TRINITY_AL_PLATFORM_INCLUDE( className ) TRINITY_AL_PLATFORM_INCLUDE_IMPL( CCP_CONCATENATE( className, TRINITY_PLATFORM_SYMBOL_SUFFIX ) )
++#define TRINITY_AL_PLATFORM_INCLUDE_IMPL( filename ) CCP_STRINGIZE(../TRINITY_PLATFORM_SYMBOL/filename.h )
++// clang-format on

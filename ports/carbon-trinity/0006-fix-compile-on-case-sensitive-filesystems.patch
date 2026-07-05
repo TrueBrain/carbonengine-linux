@@ -1,0 +1,1358 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 09:44:50 +0200
+Subject: [PATCH 06/14] fix: compile on case sensitive filesystems
+
+For the include folder, more entries were using lower-case to
+include from it than upper-case. It also makes most sense, as
+the common naming of "include" folder is in lower case.
+---
+ trinity/CMakeLists.txt                        | 128 +++++++++---------
+ .../Actions/Tr2ActionAnimateCurveSet.h        |   2 +-
+ .../Actions/Tr2ActionAnimateValue.h           |   2 +-
+ .../Controllers/Actions/Tr2ActionBindRTPC.h   |   2 +-
+ .../Actions/Tr2ActionPlayCurveSet.h           |   2 +-
+ trinity/Controllers/Actions/Tr2ActionPython.h |   2 +-
+ trinity/Controllers/Tr2Controller.cpp         |   2 +-
+ trinity/Controllers/Tr2TimelineController.cpp |   2 +-
+ trinity/Curves/Tr2TranslationAdapter.cpp      |   2 +-
+ trinity/Eve/AudioGameObject.h                 |   2 +-
+ trinity/Eve/EveCamera.cpp                     |   2 +-
+ trinity/Eve/EveEffectRoot2.h                  |   2 +-
+ trinity/Eve/EvePlanet.h                       |   2 +-
+ trinity/Eve/EveSpaceScene.cpp                 |   2 +-
+ trinity/Eve/EveUpdateContext.h                |   2 +-
+ .../Renderable/EveSceneStaticParticles.cpp    |   2 +-
+ trinity/Eve/Renderable/Stretch/EveStretch.cpp |   2 +-
+ .../Eve/Renderable/Stretch/EveStretch3.cpp    |   2 +-
+ .../Attachments/EveBoosterSet2.cpp            |   2 +-
+ .../Attachments/EveImpactOverlay.h            |   2 +-
+ .../Attachments/Sets/EveSpriteLineSet.cpp     |   2 +-
+ .../Children/Behaviors/FollowASpline.cpp      |   2 +-
+ .../Children/Behaviors/Formation.cpp          |   2 +-
+ .../SpaceObject/Children/Behaviors/Wander.cpp |   2 +-
+ .../Eve/SpaceObject/Children/EveChildAudio.h  |   2 +-
+ .../Children/EveChildBulletStorm.cpp          |   2 +-
+ .../SmartLightSets/EveSmartLightMesh.cpp      |   2 +-
+ .../EveChildModifierStretch.cpp               |   2 +-
+ trinity/Eve/SpaceObject/EveSpaceObject2.cpp   |   2 +-
+ trinity/Eve/SpaceObjectFactory/EveSOF.cpp     |   2 +-
+ trinity/Eve/Turret/EveTurretFiringFX.h        |   2 +-
+ trinity/Eve/Turret/EveTurretTarget.h          |   2 +-
+ .../{Tr2Sbit_Blue.cpp => Tr2SBit_Blue.cpp}    |   0
+ trinity/ITr2PickableScene.cpp                 |   2 +-
+ trinity/Interior/Tr2InteriorLightSource.cpp   |   2 +-
+ trinity/Interior/Tr2InteriorScene.h           |   4 +-
+ trinity/Lights/Tr2FactionLight.h              |   2 +-
+ trinity/Lights/Tr2Light.cpp                   |   2 +-
+ trinity/Lights/Tr2SpotLight.cpp               |   2 +-
+ trinity/Particle/Tr2ForceSphereVolume.cpp     |   2 +-
+ .../Particle/Tr2ParticleAttractorForce.cpp    |   2 +-
+ trinity/Particle/Tr2ParticleDirectForce.cpp   |   2 +-
+ trinity/Particle/Tr2ParticleSpring.cpp        |   2 +-
+ trinity/Particle/Tr2ParticleSystem.h          |   2 +-
+ trinity/Particle/Tr2ParticleVortexForce.cpp   |   2 +-
+ trinity/Particle/Tr2PlaneConstraint.cpp       |   2 +-
+ trinity/Particle/Tr2SphereConstraint.cpp      |   2 +-
+ .../PostProcess/Tr2PostProcessRenderer.cpp    |   2 +-
+ trinity/RenderJob/TriStepSetVariableStore.h   |   2 +-
+ .../TriStepSetVariableStore_Blue.cpp          |   2 +-
+ trinity/Resources/TriGeometryRes.cpp          |   2 +-
+ trinity/Shader/Tr2Effect_Blue.cpp             |   2 +-
+ trinity/Shader/Tr2Material.cpp                |   2 +-
+ trinity/Sprite2d/Tr2Sprite2dScene.cpp         |   2 +-
+ trinity/Tr2DebugRenderer.h                    |   2 +-
+ trinity/Tr2GStateAnimation.h                  |   2 +-
+ trinity/Tr2GrannyAnimation.h                  |   2 +-
+ trinity/Tr2GrannyAnimationLayer.h             |   2 +-
+ trinity/Tr2HostBitmap.cpp                     |   2 +-
+ trinity/Tr2RuntimeGpuBuffer.h                 |   2 +-
+ trinity/Tr2SkinnedObject.cpp                  |   2 +-
+ trinity/Tr2VariableStore_Blue.cpp             |   2 +-
+ trinity/TriColor_Blue.cpp                     |   2 +-
+ trinity/TriDebugTextRenderer.h                |   2 +-
+ trinity/TriDevice.cpp                         |   2 +-
+ trinity/TriMatrix_Blue.cpp                    |   4 +-
+ trinity/TriQuaternion_Blue.cpp                |   4 +-
+ trinity/TriRigidOrientation.cpp               |   2 +-
+ trinity/TriVector.cpp                         |   2 +-
+ trinity/TriVector_Blue.cpp                    |   4 +-
+ trinity/Utilities/BoundingSphere.cpp          |   2 +-
+ trinity/{Include => include}/IEveBallpark.h   |   0
+ .../{Include => include}/IEveReferencePoint.h |   0
+ .../ITr2AnimationUpdater.h                    |   0
+ .../{Include => include}/ITr2AudioEmitter.h   |   0
+ .../{Include => include}/ITr2BoundingBox.h    |   0
+ .../{Include => include}/ITr2DebugRenderer.h  |   0
+ .../{Include => include}/ITr2DebugRenderer2.h |   0
+ trinity/{Include => include}/ITr2GpuBuffer.h  |   0
+ .../{Include => include}/ITr2InstanceData.h   |   0
+ trinity/{Include => include}/ITr2Interior.h   |   0
+ .../{Include => include}/ITr2MultiPassScene.h |   0
+ trinity/{Include => include}/ITr2Scene.h      |   0
+ trinity/{Include => include}/ITr2Updateable.h |   0
+ .../{Include => include}/ITr2ValueBinding.h   |   0
+ trinity/{Include => include}/ITriColor.h      |   0
+ trinity/{Include => include}/ITriDevice.h     |   0
+ trinity/{Include => include}/ITriDuration.h   |   0
+ .../ITriEffectParameter.h                     |   0
+ trinity/{Include => include}/ITriMatrix.h     |   0
+ trinity/{Include => include}/ITriQuaternion.h |   0
+ trinity/{Include => include}/ITriTargetable.h |   0
+ trinity/{Include => include}/ITriTextureRes.h |   0
+ trinity/{Include => include}/ITriVector.h     |   0
+ trinity/{Include => include}/Point.h          |   0
+ trinity/{Include => include}/Rect.h           |   0
+ trinity/{Include => include}/Tr2Curve.h       |   0
+ .../{Include => include}/Tr2WindowHandle.h    |   0
+ trinity/{Include => include}/TriColor.h       |   0
+ trinity/{Include => include}/TriMath.h        |   0
+ trinity/{Include => include}/TriMatrix.h      |   0
+ trinity/{Include => include}/TriQuaternion.h  |   0
+ trinity/{Include => include}/TriVector.h      |   0
+ 103 files changed, 137 insertions(+), 137 deletions(-)
+ rename trinity/Font/{Tr2Sbit_Blue.cpp => Tr2SBit_Blue.cpp} (100%)
+ rename trinity/{Include => include}/IEveBallpark.h (100%)
+ rename trinity/{Include => include}/IEveReferencePoint.h (100%)
+ rename trinity/{Include => include}/ITr2AnimationUpdater.h (100%)
+ rename trinity/{Include => include}/ITr2AudioEmitter.h (100%)
+ rename trinity/{Include => include}/ITr2BoundingBox.h (100%)
+ rename trinity/{Include => include}/ITr2DebugRenderer.h (100%)
+ rename trinity/{Include => include}/ITr2DebugRenderer2.h (100%)
+ rename trinity/{Include => include}/ITr2GpuBuffer.h (100%)
+ rename trinity/{Include => include}/ITr2InstanceData.h (100%)
+ rename trinity/{Include => include}/ITr2Interior.h (100%)
+ rename trinity/{Include => include}/ITr2MultiPassScene.h (100%)
+ rename trinity/{Include => include}/ITr2Scene.h (100%)
+ rename trinity/{Include => include}/ITr2Updateable.h (100%)
+ rename trinity/{Include => include}/ITr2ValueBinding.h (100%)
+ rename trinity/{Include => include}/ITriColor.h (100%)
+ rename trinity/{Include => include}/ITriDevice.h (100%)
+ rename trinity/{Include => include}/ITriDuration.h (100%)
+ rename trinity/{Include => include}/ITriEffectParameter.h (100%)
+ rename trinity/{Include => include}/ITriMatrix.h (100%)
+ rename trinity/{Include => include}/ITriQuaternion.h (100%)
+ rename trinity/{Include => include}/ITriTargetable.h (100%)
+ rename trinity/{Include => include}/ITriTextureRes.h (100%)
+ rename trinity/{Include => include}/ITriVector.h (100%)
+ rename trinity/{Include => include}/Point.h (100%)
+ rename trinity/{Include => include}/Rect.h (100%)
+ rename trinity/{Include => include}/Tr2Curve.h (100%)
+ rename trinity/{Include => include}/Tr2WindowHandle.h (100%)
+ rename trinity/{Include => include}/TriColor.h (100%)
+ rename trinity/{Include => include}/TriMath.h (100%)
+ rename trinity/{Include => include}/TriMatrix.h (100%)
+ rename trinity/{Include => include}/TriQuaternion.h (100%)
+ rename trinity/{Include => include}/TriVector.h (100%)
+
+diff --git a/trinity/CMakeLists.txt b/trinity/CMakeLists.txt
+index 234fbedd..fc881d6b 100644
+--- a/trinity/CMakeLists.txt
++++ b/trinity/CMakeLists.txt
+@@ -34,43 +34,43 @@ else()
+ endif()
+ 
+ set(PUBLIC_HEADER_FILES
+-    Include/IEveBallpark.h
+-    Include/IEveReferencePoint.h
+-    Include/ITr2AnimationUpdater.h
+-    Include/ITr2BoundingBox.h
+-    Include/ITr2DebugRenderer.h
+-    Include/ITr2GpuBuffer.h
+-    Include/ITr2InstanceData.h
+-    Include/ITr2Interior.h
+-    Include/ITr2MultiPassScene.h
+-    Include/ITr2Scene.h
+-    Include/ITr2Updateable.h
+-    Include/ITr2ValueBinding.h
+-    Include/ITriColor.h
+-    Include/ITriDevice.h
+-    Include/ITriDuration.h
+-    Include/ITriEffectParameter.h
+-    Include/ITriMatrix.h
+-    Include/ITriQuaternion.h
+-    Include/ITriTargetable.h
+-    Include/ITriTextureRes.h
+-    Include/ITriVector.h
+-    Include/Point.h
+-    Include/Rect.h
+-    Include/Tr2Curve.h
+-    Include/Tr2WindowHandle.h
+-    Include/TriColor.h
+-    Include/TriMath.h
+-    Include/TriMath.h
+-    Include/TriQuaternion.h
+-    Include/TriVector.h
++    include/IEveBallpark.h
++    include/IEveReferencePoint.h
++    include/ITr2AnimationUpdater.h
++    include/ITr2BoundingBox.h
++    include/ITr2DebugRenderer.h
++    include/ITr2GpuBuffer.h
++    include/ITr2InstanceData.h
++    include/ITr2Interior.h
++    include/ITr2MultiPassScene.h
++    include/ITr2Scene.h
++    include/ITr2Updateable.h
++    include/ITr2ValueBinding.h
++    include/ITriColor.h
++    include/ITriDevice.h
++    include/ITriDuration.h
++    include/ITriEffectParameter.h
++    include/ITriMatrix.h
++    include/ITriQuaternion.h
++    include/ITriTargetable.h
++    include/ITriTextureRes.h
++    include/ITriVector.h
++    include/Point.h
++    include/Rect.h
++    include/Tr2Curve.h
++    include/Tr2WindowHandle.h
++    include/TriColor.h
++    include/TriMath.h
++    include/TriMath.h
++    include/TriQuaternion.h
++    include/TriVector.h
+ )
+ 
+ if(BUILD_FOR_PYTHON_2)
+     # This is only needed for py2 as the file now belongs in blue.
+     # Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+     # The file version in the older blue versions had diverged from this one is incompatible.
+-    list(APPEND PUBLIC_HEADER_FILES Include/ITr2DebugRenderer2.h)
++    list(APPEND PUBLIC_HEADER_FILES include/ITr2DebugRenderer2.h)
+ endif()
+ 
+ set(_SOURCES
+@@ -832,36 +832,36 @@ set(_SOURCES
+     Font/Tr2SBit.cpp
+     Font/Tr2SBit.h
+     Font/Tr2SBit_Blue.cpp
+-    Include/IEveBallpark.h
+-    Include/IEveReferencePoint.h
+-    Include/ITr2AnimationUpdater.h
+-    Include/ITr2BoundingBox.h
+-    Include/ITr2DebugRenderer.h
+-    Include/ITr2GpuBuffer.h
+-    Include/ITr2InstanceData.h
+-    Include/ITr2Interior.h
+-    Include/ITr2MultiPassScene.h
+-    Include/ITr2Scene.h
+-    Include/ITr2Updateable.h
+-    Include/ITr2ValueBinding.h
+-    Include/ITriColor.h
+-    Include/ITriDevice.h
+-    Include/ITriDuration.h
+-    Include/ITriEffectParameter.h
+-    Include/ITriMatrix.h
+-    Include/ITriQuaternion.h
+-    Include/ITriTargetable.h
+-    Include/ITriTextureRes.h
+-    Include/ITriVector.h
+-    Include/Point.h
+-    Include/Rect.h
+-    Include/Tr2Curve.h
+-    Include/Tr2WindowHandle.h
+-    Include/TriColor.h
+-    Include/TriMath.h
+-    Include/TriMath.h
+-    Include/TriQuaternion.h
+-    Include/TriVector.h
++    include/IEveBallpark.h
++    include/IEveReferencePoint.h
++    include/ITr2AnimationUpdater.h
++    include/ITr2BoundingBox.h
++    include/ITr2DebugRenderer.h
++    include/ITr2GpuBuffer.h
++    include/ITr2InstanceData.h
++    include/ITr2Interior.h
++    include/ITr2MultiPassScene.h
++    include/ITr2Scene.h
++    include/ITr2Updateable.h
++    include/ITr2ValueBinding.h
++    include/ITriColor.h
++    include/ITriDevice.h
++    include/ITriDuration.h
++    include/ITriEffectParameter.h
++    include/ITriMatrix.h
++    include/ITriQuaternion.h
++    include/ITriTargetable.h
++    include/ITriTextureRes.h
++    include/ITriVector.h
++    include/Point.h
++    include/Rect.h
++    include/Tr2Curve.h
++    include/Tr2WindowHandle.h
++    include/TriColor.h
++    include/TriMath.h
++    include/TriMath.h
++    include/TriQuaternion.h
++    include/TriVector.h
+     Interior/Tr2InteriorConstantBufferFormats.h
+     Interior/Tr2InteriorLightSet.cpp
+     Interior/Tr2InteriorLightSet.h
+@@ -1788,7 +1788,7 @@ if(BUILD_FOR_PYTHON_2)
+     # This is only needed for py2 as the file now belongs in blue.
+     # Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+     # The file version in the older blue versions had diverged from this one is incompatible.
+-    list(APPEND _SOURCES Include/ITr2DebugRenderer2.h)
++    list(APPEND _SOURCES include/ITr2DebugRenderer2.h)
+ endif()
+ 
+ set(GRANNY_RELATED_SOURCES
+@@ -1955,7 +1955,7 @@ function(set_shared_trinity_properties target package_name)
+         )
+ 
+     endif ()
+-    
++
+     ccp_enable_vs_analizers(${target})
+ 
+     if(${MSVC})
+@@ -2089,7 +2089,7 @@ if (NOT INSTALL_TO_MONOLITH)
+ 
+     include(CMakePackageConfigHelpers)
+ 
+-    configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/carbon-trinityConfig.cmake.in 
++    configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/carbon-trinityConfig.cmake.in
+                                     ${CMAKE_CURRENT_BINARY_DIR}/carbon-trinityConfig.cmake
+                                     INSTALL_DESTINATION share/carbon-trinity)
+ 
+diff --git a/trinity/Controllers/Actions/Tr2ActionAnimateCurveSet.h b/trinity/Controllers/Actions/Tr2ActionAnimateCurveSet.h
+index 70b76aed..e0665885 100644
+--- a/trinity/Controllers/Actions/Tr2ActionAnimateCurveSet.h
++++ b/trinity/Controllers/Actions/Tr2ActionAnimateCurveSet.h
+@@ -2,7 +2,7 @@
+ 
+ #pragma once
+ 
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ #include "ITr2ControllerAction.h"
+ #include "Controllers/Tr2ControllerExpression.h"
+ 
+diff --git a/trinity/Controllers/Actions/Tr2ActionAnimateValue.h b/trinity/Controllers/Actions/Tr2ActionAnimateValue.h
+index ab98045d..e2da82d6 100644
+--- a/trinity/Controllers/Actions/Tr2ActionAnimateValue.h
++++ b/trinity/Controllers/Actions/Tr2ActionAnimateValue.h
+@@ -2,7 +2,7 @@
+ 
+ #pragma once
+ 
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ #include "ITr2ControllerAction.h"
+ #include "Controllers/Tr2BindingPoint.h"
+ #include "Controllers/Tr2ControllerExpression.h"
+diff --git a/trinity/Controllers/Actions/Tr2ActionBindRTPC.h b/trinity/Controllers/Actions/Tr2ActionBindRTPC.h
+index 3ff2588e..4f6b2bdc 100644
+--- a/trinity/Controllers/Actions/Tr2ActionBindRTPC.h
++++ b/trinity/Controllers/Actions/Tr2ActionBindRTPC.h
+@@ -2,7 +2,7 @@
+ 
+ #pragma once
+ 
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ #include "ITr2ControllerAction.h"
+ #include "Controllers/Tr2ControllerExpression.h"
+ 
+diff --git a/trinity/Controllers/Actions/Tr2ActionPlayCurveSet.h b/trinity/Controllers/Actions/Tr2ActionPlayCurveSet.h
+index 9239ad52..4a3a557f 100644
+--- a/trinity/Controllers/Actions/Tr2ActionPlayCurveSet.h
++++ b/trinity/Controllers/Actions/Tr2ActionPlayCurveSet.h
+@@ -3,7 +3,7 @@
+ #pragma once
+ 
+ #include "ITr2ControllerAction.h"
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ 
+ 
+ BLUE_CLASS( Tr2ActionPlayCurveSet ) :
+diff --git a/trinity/Controllers/Actions/Tr2ActionPython.h b/trinity/Controllers/Actions/Tr2ActionPython.h
+index 024fe671..8c6cd10a 100644
+--- a/trinity/Controllers/Actions/Tr2ActionPython.h
++++ b/trinity/Controllers/Actions/Tr2ActionPython.h
+@@ -3,7 +3,7 @@
+ #pragma once
+ 
+ #include "ITr2ControllerAction.h"
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ 
+ 
+ BLUE_CLASS( Tr2ActionPython ) :
+diff --git a/trinity/Controllers/Tr2Controller.cpp b/trinity/Controllers/Tr2Controller.cpp
+index 63b2de9e..6a03f0fd 100644
+--- a/trinity/Controllers/Tr2Controller.cpp
++++ b/trinity/Controllers/Tr2Controller.cpp
+@@ -5,7 +5,7 @@
+ #include "Tr2StateMachine.h"
+ #include "Tr2ControllerFloatVariable.h"
+ #include "Tr2ControllerEventHandler.h"
+-#include "Include/ITr2Updateable.h"
++#include "include/ITr2Updateable.h"
+ #include "../Tr2ExpressionTermInfo.h"
+ #include "ContinueOnMainThread.h"
+ 
+diff --git a/trinity/Controllers/Tr2TimelineController.cpp b/trinity/Controllers/Tr2TimelineController.cpp
+index 884150b1..7e7dc7b9 100644
+--- a/trinity/Controllers/Tr2TimelineController.cpp
++++ b/trinity/Controllers/Tr2TimelineController.cpp
+@@ -4,7 +4,7 @@
+ #include "Tr2TimelineController.h"
+ #include "Tr2ControllerFloatVariable.h"
+ #include "Tr2ControllerEventHandler.h"
+-#include "../Include/ITr2Updateable.h"
++#include "../include/ITr2Updateable.h"
+ #include "../Tr2ExpressionTermInfo.h"
+ #include <ScopedBlockTrap.h>
+ 
+diff --git a/trinity/Curves/Tr2TranslationAdapter.cpp b/trinity/Curves/Tr2TranslationAdapter.cpp
+index d47242fc..bc560332 100644
+--- a/trinity/Curves/Tr2TranslationAdapter.cpp
++++ b/trinity/Curves/Tr2TranslationAdapter.cpp
+@@ -3,7 +3,7 @@
+ #include "StdAfx.h"
+ #include "Tr2TranslationAdapter.h"
+ #include "Utilities/Vector3d.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ 
+ // --------------------------------------------------------------------------------
+diff --git a/trinity/Eve/AudioGameObject.h b/trinity/Eve/AudioGameObject.h
+index 4e69a1d3..63fc9809 100644
+--- a/trinity/Eve/AudioGameObject.h
++++ b/trinity/Eve/AudioGameObject.h
+@@ -13,7 +13,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Eve/EveCamera.cpp b/trinity/Eve/EveCamera.cpp
+index 63e1f260..112a5fb9 100644
+--- a/trinity/Eve/EveCamera.cpp
++++ b/trinity/Eve/EveCamera.cpp
+@@ -5,7 +5,7 @@
+ #include "TriDevice.h"
+ #include "TriProjection.h"
+ #include "TriView.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Curves/Tr2CurveScalar.h"
+ 
+ static const float defFOV = TRI_PIBY2;
+diff --git a/trinity/Eve/EveEffectRoot2.h b/trinity/Eve/EveEffectRoot2.h
+index 2f49183c..456593e8 100644
+--- a/trinity/Eve/EveEffectRoot2.h
++++ b/trinity/Eve/EveEffectRoot2.h
+@@ -12,7 +12,7 @@
+ #include "Eve/SpaceObject/Children/IEveSpaceObjectChild.h"
+ #include "Eve/SpaceObject/Children/IEveEffectChildrenOwner.h"
+ #include "Tr2ShLightingManager.h"
+-#include "Include/ITriTargetable.h"
++#include "include/ITriTargetable.h"
+ #include "Tr2DebugRenderer.h"
+ #include "ITr2CurveSetOwner.h"
+ #include "Shader/IShaderConfigurer.h"
+diff --git a/trinity/Eve/EvePlanet.h b/trinity/Eve/EvePlanet.h
+index e565f6e5..65a3c251 100644
+--- a/trinity/Eve/EvePlanet.h
++++ b/trinity/Eve/EvePlanet.h
+@@ -14,7 +14,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Eve/EveSpaceScene.cpp b/trinity/Eve/EveSpaceScene.cpp
+index 5f37fa15..45884da7 100644
+--- a/trinity/Eve/EveSpaceScene.cpp
++++ b/trinity/Eve/EveSpaceScene.cpp
+@@ -23,7 +23,7 @@
+ #include "Tr2DepthStencil.h"
+ #include "EveTransform.h"
+ #include "TbbStub.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "EveDistanceField.h"
+ #include "Renderable/EveSceneStaticParticles.h"
+ #include "Shader/Utils/Tr2DataTextureManager.h"
+diff --git a/trinity/Eve/EveUpdateContext.h b/trinity/Eve/EveUpdateContext.h
+index 86cd95e2..b01b356f 100644
+--- a/trinity/Eve/EveUpdateContext.h
++++ b/trinity/Eve/EveUpdateContext.h
+@@ -3,7 +3,7 @@
+ #pragma once
+ #ifndef EveUpdateContext_h
+ #define EveUpdateContext_h
+-#include "Include/IEveBallpark.h"
++#include "include/IEveBallpark.h"
+ #include "Utilities/Vector3d.h"
+ #include "../TbbStub.h"
+ #include <TriFrustum.h>
+diff --git a/trinity/Eve/Renderable/EveSceneStaticParticles.cpp b/trinity/Eve/Renderable/EveSceneStaticParticles.cpp
+index 0d1ca0a4..0899cadd 100644
+--- a/trinity/Eve/Renderable/EveSceneStaticParticles.cpp
++++ b/trinity/Eve/Renderable/EveSceneStaticParticles.cpp
+@@ -3,7 +3,7 @@
+ #include "StdAfx.h"
+ #include "EveSceneStaticParticles.h"
+ 
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Utilities/BoundingSphere.h"
+ #include "Tr2RuntimeInstanceData.h"
+ #include "Tr2InstancedMesh.h"
+diff --git a/trinity/Eve/Renderable/Stretch/EveStretch.cpp b/trinity/Eve/Renderable/Stretch/EveStretch.cpp
+index 1a49299f..a12ff746 100644
+--- a/trinity/Eve/Renderable/Stretch/EveStretch.cpp
++++ b/trinity/Eve/Renderable/Stretch/EveStretch.cpp
+@@ -4,7 +4,7 @@
+ #include "EveStretch.h"
+ #include "TriFloat.h"
+ #include "Eve/EveUpdateContext.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Utilities/BoundingSphere.h"
+ #include "Eve/Turret/EveTurretSet.h"
+ #include "Curves/Tr2CurveScalar.h"
+diff --git a/trinity/Eve/Renderable/Stretch/EveStretch3.cpp b/trinity/Eve/Renderable/Stretch/EveStretch3.cpp
+index ef4a5711..35bf6ea2 100644
+--- a/trinity/Eve/Renderable/Stretch/EveStretch3.cpp
++++ b/trinity/Eve/Renderable/Stretch/EveStretch3.cpp
+@@ -5,7 +5,7 @@
+ #include "EveStretch3.h"
+ #include "TriFloat.h"
+ #include "Eve/EveUpdateContext.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Utilities/BoundingSphere.h"
+ #include "Curves/TriCurveSet.h"
+ #include "Tr2DynamicBinding.h"
+diff --git a/trinity/Eve/SpaceObject/Attachments/EveBoosterSet2.cpp b/trinity/Eve/SpaceObject/Attachments/EveBoosterSet2.cpp
+index 0a312e8d..cecb5da2 100644
+--- a/trinity/Eve/SpaceObject/Attachments/EveBoosterSet2.cpp
++++ b/trinity/Eve/SpaceObject/Attachments/EveBoosterSet2.cpp
+@@ -9,7 +9,7 @@
+ #include "TriRenderBatch.h"
+ #include "TriFrustum.h"
+ #include "TriSettingsRegistrar.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Resources/TriGeometryRes.h"
+ 
+ #include "Eve/SpaceObject/Attachments/Sets/EveSpriteSet.h"
+diff --git a/trinity/Eve/SpaceObject/Attachments/EveImpactOverlay.h b/trinity/Eve/SpaceObject/Attachments/EveImpactOverlay.h
+index 57041486..be94d1d2 100644
+--- a/trinity/Eve/SpaceObject/Attachments/EveImpactOverlay.h
++++ b/trinity/Eve/SpaceObject/Attachments/EveImpactOverlay.h
+@@ -6,7 +6,7 @@
+ 
+ //#include "Eve/SpaceObject/EveSpaceObject2.h"
+ #include "ITr2Renderable.h"
+-#include "Include/ITriTargetable.h"
++#include "include/ITriTargetable.h"
+ #include "Resources/Tr2LodResource.h"
+ 
+ class EveUpdateContext;
+diff --git a/trinity/Eve/SpaceObject/Attachments/Sets/EveSpriteLineSet.cpp b/trinity/Eve/SpaceObject/Attachments/Sets/EveSpriteLineSet.cpp
+index 8bb84e66..53760460 100644
+--- a/trinity/Eve/SpaceObject/Attachments/Sets/EveSpriteLineSet.cpp
++++ b/trinity/Eve/SpaceObject/Attachments/Sets/EveSpriteLineSet.cpp
+@@ -4,7 +4,7 @@
+ 
+ #include "EveSpriteLineSet.h"
+ 
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Tr2QuadRenderer.h"
+ #include "Utilities/MatrixUtils.h"
+ #include "Shader/Tr2Effect.h"
+diff --git a/trinity/Eve/SpaceObject/Children/Behaviors/FollowASpline.cpp b/trinity/Eve/SpaceObject/Children/Behaviors/FollowASpline.cpp
+index 278b4494..8b66994d 100644
+--- a/trinity/Eve/SpaceObject/Children/Behaviors/FollowASpline.cpp
++++ b/trinity/Eve/SpaceObject/Children/Behaviors/FollowASpline.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2023 CCP ehf.
+ 
+ #include "StdAfx.h"
+-#include "followASpline.h"
++#include "FollowASpline.h"
+ #include "Formation.h"
+ 
+ FollowASpline::FollowASpline( IRoot* lockobj ) :
+diff --git a/trinity/Eve/SpaceObject/Children/Behaviors/Formation.cpp b/trinity/Eve/SpaceObject/Children/Behaviors/Formation.cpp
+index 31fb6d98..1b35d137 100644
+--- a/trinity/Eve/SpaceObject/Children/Behaviors/Formation.cpp
++++ b/trinity/Eve/SpaceObject/Children/Behaviors/Formation.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "Formation.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ 
+ Formation::Formation( IRoot* lockobj ) :
+diff --git a/trinity/Eve/SpaceObject/Children/Behaviors/Wander.cpp b/trinity/Eve/SpaceObject/Children/Behaviors/Wander.cpp
+index 2fb3f1ba..286a9ca7 100644
+--- a/trinity/Eve/SpaceObject/Children/Behaviors/Wander.cpp
++++ b/trinity/Eve/SpaceObject/Children/Behaviors/Wander.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "Wander.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "include/TriQuaternion.h"
+ 
+ Wander::Wander( IRoot* lockobj ) :
+diff --git a/trinity/Eve/SpaceObject/Children/EveChildAudio.h b/trinity/Eve/SpaceObject/Children/EveChildAudio.h
+index cbabd87c..96fe37b1 100644
+--- a/trinity/Eve/SpaceObject/Children/EveChildAudio.h
++++ b/trinity/Eve/SpaceObject/Children/EveChildAudio.h
+@@ -10,7 +10,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Eve/SpaceObject/Children/EveChildBulletStorm.cpp b/trinity/Eve/SpaceObject/Children/EveChildBulletStorm.cpp
+index ddb989ae..b0b38261 100644
+--- a/trinity/Eve/SpaceObject/Children/EveChildBulletStorm.cpp
++++ b/trinity/Eve/SpaceObject/Children/EveChildBulletStorm.cpp
+@@ -6,7 +6,7 @@
+ #include "Eve/EveUpdateContext.h"
+ #include "TriRenderBatch.h"
+ #include "Shader/Tr2Effect.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ // consts
+ static const size_t BULLETSTORM_MAX_TARGETBLOBS = 10;
+diff --git a/trinity/Eve/SpaceObject/Children/SmartLightSets/EveSmartLightMesh.cpp b/trinity/Eve/SpaceObject/Children/SmartLightSets/EveSmartLightMesh.cpp
+index 8334f4da..4ea930dc 100644
+--- a/trinity/Eve/SpaceObject/Children/SmartLightSets/EveSmartLightMesh.cpp
++++ b/trinity/Eve/SpaceObject/Children/SmartLightSets/EveSmartLightMesh.cpp
+@@ -4,7 +4,7 @@
+ #include "EveSmartLightMesh.h"
+ #include "Shader/Tr2Effect.h"
+ #include "Tr2InstancedMesh.h"
+-#include "trimath.h"
++#include "TriMath.h"
+ 
+ EveSmartLightMesh::EveSmartLightMesh( IRoot* lockobj ) :
+ 	EveChildInstanceMeshRenderer( lockobj ),
+diff --git a/trinity/Eve/SpaceObject/Children/TransformModifiers/EveChildModifierStretch.cpp b/trinity/Eve/SpaceObject/Children/TransformModifiers/EveChildModifierStretch.cpp
+index 17dbd776..97d51b65 100644
+--- a/trinity/Eve/SpaceObject/Children/TransformModifiers/EveChildModifierStretch.cpp
++++ b/trinity/Eve/SpaceObject/Children/TransformModifiers/EveChildModifierStretch.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "EveChildModifierStretch.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ EveChildModifierStretch::EveChildModifierStretch( IRoot* lockobj ) :
+ 	m_destPosition( 0, 0, 0 )
+diff --git a/trinity/Eve/SpaceObject/EveSpaceObject2.cpp b/trinity/Eve/SpaceObject/EveSpaceObject2.cpp
+index c580579b..c93f07fa 100644
+--- a/trinity/Eve/SpaceObject/EveSpaceObject2.cpp
++++ b/trinity/Eve/SpaceObject/EveSpaceObject2.cpp
+@@ -8,7 +8,7 @@
+ 
+ #include "include/ITr2DebugRenderer.h"
+ #include "include/IEveBallpark.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Resources/TriGeometryRes.h"
+ #include "TriFrustumOrtho.h"
+ 
+diff --git a/trinity/Eve/SpaceObjectFactory/EveSOF.cpp b/trinity/Eve/SpaceObjectFactory/EveSOF.cpp
+index b809f11a..8de5b247 100644
+--- a/trinity/Eve/SpaceObjectFactory/EveSOF.cpp
++++ b/trinity/Eve/SpaceObjectFactory/EveSOF.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "Utilities/StringUtils.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "EveSOF.h"
+ #include "EveSOFDNA.h"
+ #include "EveSOFUtils.h"
+diff --git a/trinity/Eve/Turret/EveTurretFiringFX.h b/trinity/Eve/Turret/EveTurretFiringFX.h
+index 01635944..72925911 100644
+--- a/trinity/Eve/Turret/EveTurretFiringFX.h
++++ b/trinity/Eve/Turret/EveTurretFiringFX.h
+@@ -8,7 +8,7 @@
+ #include "TriFrustum.h"
+ #include "Controllers/ITr2ControllerOwner.h"
+ #include "Eve/SpaceObject/Children/IEveEffectChildrenOwner.h"
+-#include "Include/ITriTargetable.h"
++#include "include/ITriTargetable.h"
+ #include "Tr2DebugRenderer.h"
+ 
+ // forwards
+diff --git a/trinity/Eve/Turret/EveTurretTarget.h b/trinity/Eve/Turret/EveTurretTarget.h
+index d4de78f8..03c688fe 100644
+--- a/trinity/Eve/Turret/EveTurretTarget.h
++++ b/trinity/Eve/Turret/EveTurretTarget.h
+@@ -4,7 +4,7 @@
+ #ifndef EveTurretTarget_H
+ #define EveTurretTarget_H
+ 
+-#include "Include/ITriTargetable.h"
++#include "include/ITriTargetable.h"
+ 
+ namespace ImpactBehaviour
+ {
+diff --git a/trinity/Font/Tr2Sbit_Blue.cpp b/trinity/Font/Tr2SBit_Blue.cpp
+similarity index 100%
+rename from trinity/Font/Tr2Sbit_Blue.cpp
+rename to trinity/Font/Tr2SBit_Blue.cpp
+diff --git a/trinity/ITr2PickableScene.cpp b/trinity/ITr2PickableScene.cpp
+index a1c1691c..b091e45f 100644
+--- a/trinity/ITr2PickableScene.cpp
++++ b/trinity/ITr2PickableScene.cpp
+@@ -14,7 +14,7 @@
+ #include "TriView.h"
+ #include "Tr2PerObjectData.h"
+ #include "Tr2PickBuffer.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Tr2Renderer.h"
+ 
+ 
+diff --git a/trinity/Interior/Tr2InteriorLightSource.cpp b/trinity/Interior/Tr2InteriorLightSource.cpp
+index 022837a1..1d92820c 100644
+--- a/trinity/Interior/Tr2InteriorLightSource.cpp
++++ b/trinity/Interior/Tr2InteriorLightSource.cpp
+@@ -10,7 +10,7 @@
+ #include "Tr2AtlasTexture.h"
+ #include "Tr2KelvinColor.h"
+ #include "Curves/TriCurveSet.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Shader/Tr2Effect.h"
+ #include "TriViewport.h"
+ 
+diff --git a/trinity/Interior/Tr2InteriorScene.h b/trinity/Interior/Tr2InteriorScene.h
+index 0e29e2bf..513550ec 100644
+--- a/trinity/Interior/Tr2InteriorScene.h
++++ b/trinity/Interior/Tr2InteriorScene.h
+@@ -12,9 +12,9 @@
+ #include "include/ITr2MultiPassScene.h"
+ #include "ITr2VisualizationModeRenderer.h"
+ #include "Tr2InteriorLightSet.h"
+-#include "Include/ITr2Scene.h"
++#include "include/ITr2Scene.h"
+ #include "Tr2InteriorRenderBatch.h"
+-#include "Include/ITr2Interior.h"
++#include "include/ITr2Interior.h"
+ #include "Tr2DebugRenderer.h"
+ 
+ // Forward declarations
+diff --git a/trinity/Lights/Tr2FactionLight.h b/trinity/Lights/Tr2FactionLight.h
+index f80e4c52..1d0c75b8 100644
+--- a/trinity/Lights/Tr2FactionLight.h
++++ b/trinity/Lights/Tr2FactionLight.h
+@@ -2,7 +2,7 @@
+ 
+ #pragma once
+ #include "Tr2Light.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Eve/SpaceObjectFactory/EveSOFData.h"
+ 
+ class Tr2LightManager;
+diff --git a/trinity/Lights/Tr2Light.cpp b/trinity/Lights/Tr2Light.cpp
+index 20214c93..5355de25 100644
+--- a/trinity/Lights/Tr2Light.cpp
++++ b/trinity/Lights/Tr2Light.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "Tr2Light.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Resources/Tr2LightProfileRes.h"
+ 
+ 
+diff --git a/trinity/Lights/Tr2SpotLight.cpp b/trinity/Lights/Tr2SpotLight.cpp
+index f976c1ba..b5852d9a 100644
+--- a/trinity/Lights/Tr2SpotLight.cpp
++++ b/trinity/Lights/Tr2SpotLight.cpp
+@@ -5,7 +5,7 @@
+ #include "Tr2DebugRenderer.h"
+ 
+ #include "Tr2LightManager.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ Tr2SpotLight::Tr2SpotLight( IRoot* lockobj ) :
+ 	Tr2Light( lockobj )
+diff --git a/trinity/Particle/Tr2ForceSphereVolume.cpp b/trinity/Particle/Tr2ForceSphereVolume.cpp
+index 18ce1e40..f39416e1 100644
+--- a/trinity/Particle/Tr2ForceSphereVolume.cpp
++++ b/trinity/Particle/Tr2ForceSphereVolume.cpp
+@@ -7,7 +7,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2ParticleAttractorForce.cpp b/trinity/Particle/Tr2ParticleAttractorForce.cpp
+index e7bdd098..e02d9020 100644
+--- a/trinity/Particle/Tr2ParticleAttractorForce.cpp
++++ b/trinity/Particle/Tr2ParticleAttractorForce.cpp
+@@ -7,7 +7,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2ParticleDirectForce.cpp b/trinity/Particle/Tr2ParticleDirectForce.cpp
+index 6c5d5b6f..8b08aaee 100644
+--- a/trinity/Particle/Tr2ParticleDirectForce.cpp
++++ b/trinity/Particle/Tr2ParticleDirectForce.cpp
+@@ -7,7 +7,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2ParticleSpring.cpp b/trinity/Particle/Tr2ParticleSpring.cpp
+index b238723c..e3cbcafc 100644
+--- a/trinity/Particle/Tr2ParticleSpring.cpp
++++ b/trinity/Particle/Tr2ParticleSpring.cpp
+@@ -7,7 +7,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2ParticleSystem.h b/trinity/Particle/Tr2ParticleSystem.h
+index e2c98073..6788c99d 100644
+--- a/trinity/Particle/Tr2ParticleSystem.h
++++ b/trinity/Particle/Tr2ParticleSystem.h
+@@ -12,7 +12,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2ParticleVortexForce.cpp b/trinity/Particle/Tr2ParticleVortexForce.cpp
+index 585ea791..11be5f31 100644
+--- a/trinity/Particle/Tr2ParticleVortexForce.cpp
++++ b/trinity/Particle/Tr2ParticleVortexForce.cpp
+@@ -7,7 +7,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2PlaneConstraint.cpp b/trinity/Particle/Tr2PlaneConstraint.cpp
+index 8604c369..fed11e83 100644
+--- a/trinity/Particle/Tr2PlaneConstraint.cpp
++++ b/trinity/Particle/Tr2PlaneConstraint.cpp
+@@ -10,7 +10,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Particle/Tr2SphereConstraint.cpp b/trinity/Particle/Tr2SphereConstraint.cpp
+index 268937b2..8aa33173 100644
+--- a/trinity/Particle/Tr2SphereConstraint.cpp
++++ b/trinity/Particle/Tr2SphereConstraint.cpp
+@@ -11,7 +11,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/PostProcess/Tr2PostProcessRenderer.cpp b/trinity/PostProcess/Tr2PostProcessRenderer.cpp
+index 18f2f1a9..bd95db86 100644
+--- a/trinity/PostProcess/Tr2PostProcessRenderer.cpp
++++ b/trinity/PostProcess/Tr2PostProcessRenderer.cpp
+@@ -4,7 +4,7 @@
+ #include "Tr2PostProcessRenderer.h"
+ #include "PostProcess/Tr2PostProcess2.h"
+ #include "Shader/Parameter/TriTextureParameter.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "TriSettingsRegistrar.h"
+ 
+ // FidelityFX headers
+diff --git a/trinity/RenderJob/TriStepSetVariableStore.h b/trinity/RenderJob/TriStepSetVariableStore.h
+index bc8ed689..8c6aed3d 100644
+--- a/trinity/RenderJob/TriStepSetVariableStore.h
++++ b/trinity/RenderJob/TriStepSetVariableStore.h
+@@ -10,7 +10,7 @@
+ 
+ #include "Tr2DepthStencil.h"
+ #include "Tr2RenderTarget.h"
+-#include "Include/ITriTextureRes.h"
++#include "include/ITriTextureRes.h"
+ 
+ BLUE_DECLARE( TriTextureRes );
+ 
+diff --git a/trinity/RenderJob/TriStepSetVariableStore_Blue.cpp b/trinity/RenderJob/TriStepSetVariableStore_Blue.cpp
+index d18a92a9..f842eb65 100644
+--- a/trinity/RenderJob/TriStepSetVariableStore_Blue.cpp
++++ b/trinity/RenderJob/TriStepSetVariableStore_Blue.cpp
+@@ -5,7 +5,7 @@
+ #include "Resources/TriTextureRes.h"
+ #include "Tr2DepthStencil.h"
+ #include "Tr2RenderTarget.h"
+-#include "Include/ITr2GpuBuffer.h"
++#include "include/ITr2GpuBuffer.h"
+ 
+ BLUE_DEFINE( TriStepSetVariableStore );
+ 
+diff --git a/trinity/Resources/TriGeometryRes.cpp b/trinity/Resources/TriGeometryRes.cpp
+index 1014150f..e68ce5c4 100644
+--- a/trinity/Resources/TriGeometryRes.cpp
++++ b/trinity/Resources/TriGeometryRes.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2023 CCP ehf.
+ 
+ #include "StdAfx.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "TriGeometryRes.h"
+ #include "TriGrannyRes.h"
+ #include "Tr2PerObjectData.h"
+diff --git a/trinity/Shader/Tr2Effect_Blue.cpp b/trinity/Shader/Tr2Effect_Blue.cpp
+index b4198808..4ac78bc9 100644
+--- a/trinity/Shader/Tr2Effect_Blue.cpp
++++ b/trinity/Shader/Tr2Effect_Blue.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "Tr2Effect.h"
+-#include "Include/ITriEffectParameter.h"
++#include "include/ITriEffectParameter.h"
+ #include "Tr2Shader.h"
+ 
+ BLUE_DEFINE( Tr2Effect );
+diff --git a/trinity/Shader/Tr2Material.cpp b/trinity/Shader/Tr2Material.cpp
+index b79f9172..ab9f12fb 100644
+--- a/trinity/Shader/Tr2Material.cpp
++++ b/trinity/Shader/Tr2Material.cpp
+@@ -6,7 +6,7 @@
+ #include "Tr2Shader.h"
+ #include "ITr2EffectValue.h"
+ #include "Tr2VariableStore.h"
+-#include "Include/ITriEffectParameter.h"
++#include "include/ITriEffectParameter.h"
+ 
+ CCP_STATS_DECLARE( effectCBLocks, "Trinity/effectCBLocks", true, CST_COUNTER_LOW, "number of CB locks for effect parameters" );
+ CCP_STATS_DECLARE( effectResourceSetCreated, "Trinity/effectResourceSetCreated", true, CST_COUNTER_LOW, "number of resource sets created" );
+diff --git a/trinity/Sprite2d/Tr2Sprite2dScene.cpp b/trinity/Sprite2d/Tr2Sprite2dScene.cpp
+index 29d9c2f1..6f2289f6 100644
+--- a/trinity/Sprite2d/Tr2Sprite2dScene.cpp
++++ b/trinity/Sprite2d/Tr2Sprite2dScene.cpp
+@@ -17,7 +17,7 @@
+ #include "RenderJob/TriRenderJob.h"
+ #include "TriSettingsRegistrar.h"
+ #include "include/ITr2DebugRenderer.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ 
+ using namespace Tr2RenderContextEnum;
+diff --git a/trinity/Tr2DebugRenderer.h b/trinity/Tr2DebugRenderer.h
+index 292869c8..b900f569 100644
+--- a/trinity/Tr2DebugRenderer.h
++++ b/trinity/Tr2DebugRenderer.h
+@@ -8,7 +8,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/Tr2GStateAnimation.h b/trinity/Tr2GStateAnimation.h
+index b414f21a..84146542 100644
+--- a/trinity/Tr2GStateAnimation.h
++++ b/trinity/Tr2GStateAnimation.h
+@@ -6,7 +6,7 @@
+ 
+ #if GSTATE_ENABLED
+ 
+-#include "Include/ITr2AnimationUpdater.h"
++#include "include/ITr2AnimationUpdater.h"
+ #include "Resources/Tr2GrannyStateRes.h"
+ #if WITH_GRANNY
+ #include "gstate.h"
+diff --git a/trinity/Tr2GrannyAnimation.h b/trinity/Tr2GrannyAnimation.h
+index 90ade926..458ccaf3 100644
+--- a/trinity/Tr2GrannyAnimation.h
++++ b/trinity/Tr2GrannyAnimation.h
+@@ -4,7 +4,7 @@
+ #ifndef Tr2GrannyAnimation_h
+ #define Tr2GrannyAnimation_h
+ 
+-#include "Include/ITr2AnimationUpdater.h"
++#include "include/ITr2AnimationUpdater.h"
+ #include "GrannyBoneOffset.h"
+ #include "Tr2GrannyAnimationLayer.h"
+ 
+diff --git a/trinity/Tr2GrannyAnimationLayer.h b/trinity/Tr2GrannyAnimationLayer.h
+index a4e90286..a034bd13 100644
+--- a/trinity/Tr2GrannyAnimationLayer.h
++++ b/trinity/Tr2GrannyAnimationLayer.h
+@@ -7,7 +7,7 @@
+ #if WITH_GRANNY
+ #include "granny.h"
+ #endif
+-#include "Include/ITr2AnimationUpdater.h"
++#include "include/ITr2AnimationUpdater.h"
+ #include "GrannyBoneOffset.h"
+ #include <BlueAsyncRes.h>
+ 
+diff --git a/trinity/Tr2HostBitmap.cpp b/trinity/Tr2HostBitmap.cpp
+index 6150d91d..aaa9749f 100644
+--- a/trinity/Tr2HostBitmap.cpp
++++ b/trinity/Tr2HostBitmap.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ 
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Tr2RenderTarget.h"
+ #include "Resources/TriTextureRes.h"
+ #include "Tr2HostBitmap.h"
+diff --git a/trinity/Tr2RuntimeGpuBuffer.h b/trinity/Tr2RuntimeGpuBuffer.h
+index 607772a3..d889c3fa 100644
+--- a/trinity/Tr2RuntimeGpuBuffer.h
++++ b/trinity/Tr2RuntimeGpuBuffer.h
+@@ -2,7 +2,7 @@
+ 
+ #pragma once
+ 
+-#include "Include/ITr2GpuBuffer.h"
++#include "include/ITr2GpuBuffer.h"
+ 
+ 
+ BLUE_CLASS( Tr2RuntimeGpuBuffer ) :
+diff --git a/trinity/Tr2SkinnedObject.cpp b/trinity/Tr2SkinnedObject.cpp
+index fbcd22e4..029bce0c 100644
+--- a/trinity/Tr2SkinnedObject.cpp
++++ b/trinity/Tr2SkinnedObject.cpp
+@@ -10,7 +10,7 @@
+ #include "Utilities/Obb.h"
+ #include "Curves/TriCurveSet.h"
+ #include "TriLineSet.h"
+-#include "Include/ITr2AnimationUpdater.h"
++#include "include/ITr2AnimationUpdater.h"
+ #include "ITr2WorldTransformUpdater.h"
+ 
+ Tr2SkinnedObject::Tr2SkinnedObject( IRoot* lockobj ) :
+diff --git a/trinity/Tr2VariableStore_Blue.cpp b/trinity/Tr2VariableStore_Blue.cpp
+index 0e85088b..f19190ca 100644
+--- a/trinity/Tr2VariableStore_Blue.cpp
++++ b/trinity/Tr2VariableStore_Blue.cpp
+@@ -5,7 +5,7 @@
+ #include "Resources/TriTextureRes.h"
+ #include "Tr2RenderTarget.h"
+ #include "Tr2DepthStencil.h"
+-#include "Include/ITr2GpuBuffer.h"
++#include "include/ITr2GpuBuffer.h"
+ 
+ BLUE_DEFINE( Tr2VariableStore );
+ 
+diff --git a/trinity/TriColor_Blue.cpp b/trinity/TriColor_Blue.cpp
+index 2b5884a5..ccd415b3 100644
+--- a/trinity/TriColor_Blue.cpp
++++ b/trinity/TriColor_Blue.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "StdAfx.h"
+ #include "include/TriColor.h"
+-#include "Include/ITriVector.h"
++#include "include/ITriVector.h"
+ 
+ #if BLUE_WITH_PYTHON
+ BLUE_DEFINE( TriColor );
+diff --git a/trinity/TriDebugTextRenderer.h b/trinity/TriDebugTextRenderer.h
+index cbdaf712..9d220598 100644
+--- a/trinity/TriDebugTextRenderer.h
++++ b/trinity/TriDebugTextRenderer.h
+@@ -10,7 +10,7 @@
+ // This is only needed for py2 as the file now belongs in blue.
+ // Unfortunatly the blue py2 branch cannot be updated at present due to security vulnerability work.
+ // The file version in the older blue versions had diverged from this one is incompatible.
+-#include "Include/ITr2DebugRenderer2.h"
++#include "include/ITr2DebugRenderer2.h"
+ #else
+ #include <ITr2DebugRenderer2.h>
+ #endif
+diff --git a/trinity/TriDevice.cpp b/trinity/TriDevice.cpp
+index 76e3c3ef..7ab8d0cc 100644
+--- a/trinity/TriDevice.cpp
++++ b/trinity/TriDevice.cpp
+@@ -9,7 +9,7 @@
+ #include "TriPythonContext.h"
+ #include "RenderJob/Tr2RenderJobs.h"
+ #include "Curves/TriCurveSet.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "Tr2SyncToGpu.h"
+ #include "TriSettingsRegistrar.h"
+ #include "Tr2GpuResourcePool.h"
+diff --git a/trinity/TriMatrix_Blue.cpp b/trinity/TriMatrix_Blue.cpp
+index c9935141..eed77b38 100644
+--- a/trinity/TriMatrix_Blue.cpp
++++ b/trinity/TriMatrix_Blue.cpp
+@@ -2,8 +2,8 @@
+ 
+ #include "StdAfx.h"
+ #include "include/TriMatrix.h"
+-#include "Include/ITriVector.h"
+-#include "Include/ITriQuaternion.h"
++#include "include/ITriVector.h"
++#include "include/ITriQuaternion.h"
+ 
+ BLUE_DEFINE( TriMatrix );
+ 
+diff --git a/trinity/TriQuaternion_Blue.cpp b/trinity/TriQuaternion_Blue.cpp
+index eb5295a3..b1f57ab9 100644
+--- a/trinity/TriQuaternion_Blue.cpp
++++ b/trinity/TriQuaternion_Blue.cpp
+@@ -2,8 +2,8 @@
+ 
+ #include "StdAfx.h"
+ #include "include/TriQuaternion.h"
+-#include "Include/ITriVector.h"
+-#include "Include/ITriMatrix.h"
++#include "include/ITriVector.h"
++#include "include/ITriMatrix.h"
+ 
+ #if BLUE_WITH_PYTHON
+ BLUE_DEFINE( TriQuaternion );
+diff --git a/trinity/TriRigidOrientation.cpp b/trinity/TriRigidOrientation.cpp
+index 430209f1..71ae3689 100644
+--- a/trinity/TriRigidOrientation.cpp
++++ b/trinity/TriRigidOrientation.cpp
+@@ -4,7 +4,7 @@
+ #include "TriRigidOrientation.h"
+ #include "include/TriQuaternion.h"
+ #include "include/TriVector.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ 
+ TriTorque::TriTorque( IRoot* lockobj ) :
+ 	mTime( 0.0f ),
+diff --git a/trinity/TriVector.cpp b/trinity/TriVector.cpp
+index f85f8ebd..f9fc7a3b 100644
+--- a/trinity/TriVector.cpp
++++ b/trinity/TriVector.cpp
+@@ -4,7 +4,7 @@
+ #include "include/TriVector.h"
+ #include "include/TriQuaternion.h"
+ #include "include/TriMatrix.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "TriViewport.h"
+ 
+ void GetNearestPointOnAABB( Vector3& out, const Vector3& p, const Vector3& min, const Vector3& max )
+diff --git a/trinity/TriVector_Blue.cpp b/trinity/TriVector_Blue.cpp
+index 80b8d351..ab0a1036 100644
+--- a/trinity/TriVector_Blue.cpp
++++ b/trinity/TriVector_Blue.cpp
+@@ -3,8 +3,8 @@
+ #include "StdAfx.h"
+ #include "include/TriVector.h"
+ #include "TriViewport.h"
+-#include "Include/ITriMatrix.h"
+-#include "Include/ITriQuaternion.h"
++#include "include/ITriMatrix.h"
++#include "include/ITriQuaternion.h"
+ 
+ BLUE_DEFINE( TriVector );
+ 
+diff --git a/trinity/Utilities/BoundingSphere.cpp b/trinity/Utilities/BoundingSphere.cpp
+index deb7ac2d..a53d0ac7 100644
+--- a/trinity/Utilities/BoundingSphere.cpp
++++ b/trinity/Utilities/BoundingSphere.cpp
+@@ -1,7 +1,7 @@
+ // Copyright © 2023 CCP ehf.
+ 
+ #include "StdAfx.h"
+-#include "Include/TriMath.h"
++#include "include/TriMath.h"
+ #include "BoundingSphere.h"
+ #include "Utilities/Vector3d.h"
+ #include "Utilities/Vector4d.h"
+diff --git a/trinity/Include/IEveBallpark.h b/trinity/include/IEveBallpark.h
+similarity index 100%
+rename from trinity/Include/IEveBallpark.h
+rename to trinity/include/IEveBallpark.h
+diff --git a/trinity/Include/IEveReferencePoint.h b/trinity/include/IEveReferencePoint.h
+similarity index 100%
+rename from trinity/Include/IEveReferencePoint.h
+rename to trinity/include/IEveReferencePoint.h
+diff --git a/trinity/Include/ITr2AnimationUpdater.h b/trinity/include/ITr2AnimationUpdater.h
+similarity index 100%
+rename from trinity/Include/ITr2AnimationUpdater.h
+rename to trinity/include/ITr2AnimationUpdater.h
+diff --git a/trinity/Include/ITr2AudioEmitter.h b/trinity/include/ITr2AudioEmitter.h
+similarity index 100%
+rename from trinity/Include/ITr2AudioEmitter.h
+rename to trinity/include/ITr2AudioEmitter.h
+diff --git a/trinity/Include/ITr2BoundingBox.h b/trinity/include/ITr2BoundingBox.h
+similarity index 100%
+rename from trinity/Include/ITr2BoundingBox.h
+rename to trinity/include/ITr2BoundingBox.h
+diff --git a/trinity/Include/ITr2DebugRenderer.h b/trinity/include/ITr2DebugRenderer.h
+similarity index 100%
+rename from trinity/Include/ITr2DebugRenderer.h
+rename to trinity/include/ITr2DebugRenderer.h
+diff --git a/trinity/Include/ITr2DebugRenderer2.h b/trinity/include/ITr2DebugRenderer2.h
+similarity index 100%
+rename from trinity/Include/ITr2DebugRenderer2.h
+rename to trinity/include/ITr2DebugRenderer2.h
+diff --git a/trinity/Include/ITr2GpuBuffer.h b/trinity/include/ITr2GpuBuffer.h
+similarity index 100%
+rename from trinity/Include/ITr2GpuBuffer.h
+rename to trinity/include/ITr2GpuBuffer.h
+diff --git a/trinity/Include/ITr2InstanceData.h b/trinity/include/ITr2InstanceData.h
+similarity index 100%
+rename from trinity/Include/ITr2InstanceData.h
+rename to trinity/include/ITr2InstanceData.h
+diff --git a/trinity/Include/ITr2Interior.h b/trinity/include/ITr2Interior.h
+similarity index 100%
+rename from trinity/Include/ITr2Interior.h
+rename to trinity/include/ITr2Interior.h
+diff --git a/trinity/Include/ITr2MultiPassScene.h b/trinity/include/ITr2MultiPassScene.h
+similarity index 100%
+rename from trinity/Include/ITr2MultiPassScene.h
+rename to trinity/include/ITr2MultiPassScene.h
+diff --git a/trinity/Include/ITr2Scene.h b/trinity/include/ITr2Scene.h
+similarity index 100%
+rename from trinity/Include/ITr2Scene.h
+rename to trinity/include/ITr2Scene.h
+diff --git a/trinity/Include/ITr2Updateable.h b/trinity/include/ITr2Updateable.h
+similarity index 100%
+rename from trinity/Include/ITr2Updateable.h
+rename to trinity/include/ITr2Updateable.h
+diff --git a/trinity/Include/ITr2ValueBinding.h b/trinity/include/ITr2ValueBinding.h
+similarity index 100%
+rename from trinity/Include/ITr2ValueBinding.h
+rename to trinity/include/ITr2ValueBinding.h
+diff --git a/trinity/Include/ITriColor.h b/trinity/include/ITriColor.h
+similarity index 100%
+rename from trinity/Include/ITriColor.h
+rename to trinity/include/ITriColor.h
+diff --git a/trinity/Include/ITriDevice.h b/trinity/include/ITriDevice.h
+similarity index 100%
+rename from trinity/Include/ITriDevice.h
+rename to trinity/include/ITriDevice.h
+diff --git a/trinity/Include/ITriDuration.h b/trinity/include/ITriDuration.h
+similarity index 100%
+rename from trinity/Include/ITriDuration.h
+rename to trinity/include/ITriDuration.h
+diff --git a/trinity/Include/ITriEffectParameter.h b/trinity/include/ITriEffectParameter.h
+similarity index 100%
+rename from trinity/Include/ITriEffectParameter.h
+rename to trinity/include/ITriEffectParameter.h
+diff --git a/trinity/Include/ITriMatrix.h b/trinity/include/ITriMatrix.h
+similarity index 100%
+rename from trinity/Include/ITriMatrix.h
+rename to trinity/include/ITriMatrix.h
+diff --git a/trinity/Include/ITriQuaternion.h b/trinity/include/ITriQuaternion.h
+similarity index 100%
+rename from trinity/Include/ITriQuaternion.h
+rename to trinity/include/ITriQuaternion.h
+diff --git a/trinity/Include/ITriTargetable.h b/trinity/include/ITriTargetable.h
+similarity index 100%
+rename from trinity/Include/ITriTargetable.h
+rename to trinity/include/ITriTargetable.h
+diff --git a/trinity/Include/ITriTextureRes.h b/trinity/include/ITriTextureRes.h
+similarity index 100%
+rename from trinity/Include/ITriTextureRes.h
+rename to trinity/include/ITriTextureRes.h
+diff --git a/trinity/Include/ITriVector.h b/trinity/include/ITriVector.h
+similarity index 100%
+rename from trinity/Include/ITriVector.h
+rename to trinity/include/ITriVector.h
+diff --git a/trinity/Include/Point.h b/trinity/include/Point.h
+similarity index 100%
+rename from trinity/Include/Point.h
+rename to trinity/include/Point.h
+diff --git a/trinity/Include/Rect.h b/trinity/include/Rect.h
+similarity index 100%
+rename from trinity/Include/Rect.h
+rename to trinity/include/Rect.h
+diff --git a/trinity/Include/Tr2Curve.h b/trinity/include/Tr2Curve.h
+similarity index 100%
+rename from trinity/Include/Tr2Curve.h
+rename to trinity/include/Tr2Curve.h
+diff --git a/trinity/Include/Tr2WindowHandle.h b/trinity/include/Tr2WindowHandle.h
+similarity index 100%
+rename from trinity/Include/Tr2WindowHandle.h
+rename to trinity/include/Tr2WindowHandle.h
+diff --git a/trinity/Include/TriColor.h b/trinity/include/TriColor.h
+similarity index 100%
+rename from trinity/Include/TriColor.h
+rename to trinity/include/TriColor.h
+diff --git a/trinity/Include/TriMath.h b/trinity/include/TriMath.h
+similarity index 100%
+rename from trinity/Include/TriMath.h
+rename to trinity/include/TriMath.h
+diff --git a/trinity/Include/TriMatrix.h b/trinity/include/TriMatrix.h
+similarity index 100%
+rename from trinity/Include/TriMatrix.h
+rename to trinity/include/TriMatrix.h
+diff --git a/trinity/Include/TriQuaternion.h b/trinity/include/TriQuaternion.h
+similarity index 100%
+rename from trinity/Include/TriQuaternion.h
+rename to trinity/include/TriQuaternion.h
+diff --git a/trinity/Include/TriVector.h b/trinity/include/TriVector.h
+similarity index 100%
+rename from trinity/Include/TriVector.h
+rename to trinity/include/TriVector.h

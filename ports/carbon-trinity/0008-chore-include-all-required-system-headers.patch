@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:43:40 +0200
+Subject: [PATCH 08/14] chore: include all required system headers
+
+Linux compilers tend to be more strict in what headers
+they need, where other compilers tend to auto-include
+some.
+---
+ trinity/StdAfx.h                | 1 +
+ trinity/Tr2TextureAnimation.cpp | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/trinity/StdAfx.h b/trinity/StdAfx.h
+index d3e5d32f..cebf191e 100644
+--- a/trinity/StdAfx.h
++++ b/trinity/StdAfx.h
+@@ -41,6 +41,7 @@
+ #include <optional>
+ #include <float.h>
+ #include <math.h>
++#include <memory>
+ // TODO - remove using statements
+ using std::min;
+ using std::max;
+diff --git a/trinity/Tr2TextureAnimation.cpp b/trinity/Tr2TextureAnimation.cpp
+index 1f4f347c..39d9ecf8 100644
+--- a/trinity/Tr2TextureAnimation.cpp
++++ b/trinity/Tr2TextureAnimation.cpp
+@@ -4,6 +4,8 @@
+ #include "Tr2TextureAnimation.h"
+ #include "Resources/Tr2TextureLodManager.h"
+ 
++#include <condition_variable>
++
+ namespace
+ {
+ 

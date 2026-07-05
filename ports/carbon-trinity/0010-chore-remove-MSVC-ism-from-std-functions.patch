@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:46:06 +0200
+Subject: [PATCH 10/14] chore: remove MSVC-ism from std:: functions
+
+MSVC tends to add aliases for the "f" variant. But this is just an
+overload of the non-f.
+---
+ trinity/Eve/SpaceObject/Children/EveChildInstancedMeshes.cpp | 4 ++--
+ trinity/PostProcess/Tr2PostProcessRenderer.cpp               | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/trinity/Eve/SpaceObject/Children/EveChildInstancedMeshes.cpp b/trinity/Eve/SpaceObject/Children/EveChildInstancedMeshes.cpp
+index 4bc9ddbe..5b37e6b3 100644
+--- a/trinity/Eve/SpaceObject/Children/EveChildInstancedMeshes.cpp
++++ b/trinity/Eve/SpaceObject/Children/EveChildInstancedMeshes.cpp
+@@ -237,7 +237,7 @@ void EveChildInstancedMeshes::UpdateAsyncronous( const EveUpdateContext& updateC
+ 	m_perObjectData.customData = vsData.customData;
+ 	std::copy( std::begin( psData.shLightingCoefficients ), std::end( psData.shLightingCoefficients ), std::begin( m_perObjectData.shLighting ) );
+ 
+-	float worldScale = std::sqrtf( std::max( { LengthSq( Vector3( m_worldTransform._11, m_worldTransform._12, m_worldTransform._13 ) ),
++	float worldScale = std::sqrt( std::max( { LengthSq( Vector3( m_worldTransform._11, m_worldTransform._12, m_worldTransform._13 ) ),
+ 											   LengthSq( Vector3( m_worldTransform._21, m_worldTransform._22, m_worldTransform._23 ) ),
+ 											   LengthSq( Vector3( m_worldTransform._31, m_worldTransform._32, m_worldTransform._33 ) ) } ) );
+ 
+@@ -259,7 +259,7 @@ void EveChildInstancedMeshes::UpdateAsyncronous( const EveUpdateContext& updateC
+ 		for( const auto& instance : mesh.instances )
+ 		{
+ 			Vector3 position = Vector3( instance.worldTransform[0].w, instance.worldTransform[1].w, instance.worldTransform[2].w );
+-			float scale = std::sqrtf( std::max( { LengthSq( instance.worldTransform[0].GetXYZ() ),
++			float scale = std::sqrt( std::max( { LengthSq( instance.worldTransform[0].GetXYZ() ),
+ 												  LengthSq( instance.worldTransform[1].GetXYZ() ),
+ 												  LengthSq( instance.worldTransform[2].GetXYZ() ) } ) );
+ 			position = TransformCoord( position, m_worldTransform );
+diff --git a/trinity/PostProcess/Tr2PostProcessRenderer.cpp b/trinity/PostProcess/Tr2PostProcessRenderer.cpp
+index bd95db86..3f5490ef 100644
+--- a/trinity/PostProcess/Tr2PostProcessRenderer.cpp
++++ b/trinity/PostProcess/Tr2PostProcessRenderer.cpp
+@@ -236,7 +236,7 @@ GaussianData CalculateGaussianPassParameters( float radius, float centerWeight,
+ {
+ 
+ 	float clampedRadius = std::clamp( radius, 0.0001f, (float)Bloom::MAX_FILTER_STEPS - 1 );
+-	int integerRadius = (int)std::ceilf( clampedRadius );
++	int integerRadius = (int)std::ceil( clampedRadius );
+ 
+ 	std::vector<std::pair<float, float>> taps;
+ 	taps.reserve( Bloom::MAX_FILTER_STEPS );
+@@ -1046,7 +1046,7 @@ Tr2GpuResourcePool::Texture Tr2PostProcessRenderer::RenderBloom( Tr2GpuResourceP
+ 
+ 		float tintScale = ( 1.0f / Bloom::MAX_BLOOM_STEPS ) * bloom->m_bloomBrightness;
+ 
+-		Vector2 directionalWeight = Vector2( std::max( bloom->m_directionalWeight, 0.0f ), std::fabsf( bloom->m_directionalWeight ) );
++		Vector2 directionalWeight = Vector2( std::max( bloom->m_directionalWeight, 0.0f ), std::fabs( bloom->m_directionalWeight ) );
+ 		for( int i = depth - 1; i >= 0; --i )
+ 		{
+ 			lastRt = i == depth - 1 ? black : lastRt;

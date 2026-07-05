@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 08:50:03 +0200
+Subject: [PATCH 01/14] build: update vcpkg registry to HTTPS
+
+For vcpkg, it is much more common to use HTTPS for public registries.
+Accessing them via SSH isn't always possible, as it requires a key pre-installed.
+---
+ vcpkg-configuration.json | 43 ++++++++++++++++++++--------------------
+ 1 file changed, 22 insertions(+), 21 deletions(-)
+
+diff --git a/vcpkg-configuration.json b/vcpkg-configuration.json
+index c3cd00cc..99f324bb 100644
+--- a/vcpkg-configuration.json
++++ b/vcpkg-configuration.json
+@@ -7,27 +7,28 @@
+   "registries": [
+     {
+       "kind": "git",
+-      "repository": "git@github.com:carbonengine/vcpkg-registry.git",
++      "repository": "https://github.com/carbonengine/vcpkg-registry.git",
+       "baseline": "a83134805f3fa07da6a6add87c4b250d9778bfd1",
+-      "packages": ["python3", 
+-                   "carbon-*", 
+-                   "tracy",
+-                   "greenlet",
+-                   "ccp-debug-info",
+-                   "crashpad",
+-                   "zlib",
+-                   "re2c",
+-                   "amd-fidelityfx",
+-                   "amd-fidelityfx-cacao",
+-                   "amd-fidelityfx-cas",
+-                   "amd-fidelityfx-fsr",
+-                   "fxc",
+-                   "granny",
+-                   "intel-xess",
+-                   "nvidia-aftermath",
+-                   "nvidia-streamline",
+-                   "openvdb"
+-          ]
++      "packages": [
++        "python3",
++        "carbon-*",
++        "tracy",
++        "greenlet",
++        "ccp-debug-info",
++        "crashpad",
++        "zlib",
++        "re2c",
++        "amd-fidelityfx",
++        "amd-fidelityfx-cacao",
++        "amd-fidelityfx-cas",
++        "amd-fidelityfx-fsr",
++        "fxc",
++        "granny",
++        "intel-xess",
++        "nvidia-aftermath",
++        "nvidia-streamline",
++        "openvdb"
++      ]
+     }
+   ]
+-}
++}
+\ No newline at end of file

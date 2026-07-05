@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:49:03 +0200
+Subject: [PATCH 11/14] chore: cast XMVector to Vector properly
+
+---
+ trinity/Particle/Tr2GpuSharedEmitter.cpp | 2 +-
+ trinity/Utilities/BoundingBox.cpp        | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/trinity/Particle/Tr2GpuSharedEmitter.cpp b/trinity/Particle/Tr2GpuSharedEmitter.cpp
+index 2c37f32d..645a9ea3 100644
+--- a/trinity/Particle/Tr2GpuSharedEmitter.cpp
++++ b/trinity/Particle/Tr2GpuSharedEmitter.cpp
+@@ -180,7 +180,7 @@ void Tr2GpuSharedEmitter::SpawnParticles(
+ 	if( velocityStart && velocityEnd )
+ 	{
+ 		velStart = XMVector3TransformNormal( *velocityStart, arguments.parentTransform );
+-		velEnd = XMVector3TransformNormal( *velocityEnd, arguments.parentTransform ) - arguments.originShift;
++		velEnd = Vector3( XMVector3TransformNormal( *velocityEnd, arguments.parentTransform ) ) - arguments.originShift;
+ 	}
+ 	else
+ 	{
+diff --git a/trinity/Utilities/BoundingBox.cpp b/trinity/Utilities/BoundingBox.cpp
+index 209ca0bd..ac27c63f 100644
+--- a/trinity/Utilities/BoundingBox.cpp
++++ b/trinity/Utilities/BoundingBox.cpp
+@@ -367,8 +367,8 @@ bool IntersectAxisAlignedBoxRay( const Vector3& minBounds, const Vector3& maxBou
+ 
+ 	XMVECTOR invRayDir = XMVectorReciprocal( rayDir );
+ 
+-	XMVECTOR t0 = ( minA - rayOrigin ) * invRayDir;
+-	XMVECTOR t1 = ( maxA - rayOrigin ) * invRayDir;
++	XMVECTOR t0 = ( Vector3(minA) - rayOrigin ) * invRayDir;
++	XMVECTOR t1 = ( Vector3(maxA) - rayOrigin ) * invRayDir;
+ 
+ 	XMVECTOR smallerIntersection = XMVectorMin( t0, t1 );
+ 	XMVECTOR biggerIntersection = XMVectorMax( t0, t1 );

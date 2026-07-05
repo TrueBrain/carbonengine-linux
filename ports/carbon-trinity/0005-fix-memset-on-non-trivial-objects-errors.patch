@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 09:33:49 +0200
+Subject: [PATCH 05/14] fix: memset on non-trivial objects errors
+
+It is strongly advised not to use memset on a non-trivial object,
+as it might not do what you expect it to do. Instead, simply
+assign an empty object to it, as with the other instances in the
+same function.
+---
+ trinityal/stub/Tr2TextureALStub.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/trinityal/stub/Tr2TextureALStub.cpp b/trinityal/stub/Tr2TextureALStub.cpp
+index 6c364536..1a3350e8 100644
+--- a/trinityal/stub/Tr2TextureALStub.cpp
++++ b/trinityal/stub/Tr2TextureALStub.cpp
+@@ -101,7 +101,7 @@ ALResult Tr2TextureAL::OpenShared( uintptr_t, Tr2GpuUsage::Type, Tr2PrimaryRende
+ 
+ void Tr2TextureAL::Destroy()
+ {
+-	memset( &m_desc, 0, sizeof( m_desc ) );
++	m_desc = Tr2BitmapDimensions();
+ 	m_msaa = Tr2MsaaDesc();
+ 	m_gpuUsage = Tr2GpuUsage::NONE;
+ 	m_cpuUsage = Tr2CpuUsage::NONE;

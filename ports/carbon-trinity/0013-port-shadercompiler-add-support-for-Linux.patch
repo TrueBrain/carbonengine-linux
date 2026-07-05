@@ -1,0 +1,422 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sun, 5 Jul 2026 11:40:19 +0200
+Subject: [PATCH 13/14] port(shadercompiler): add support for Linux
+
+---
+ shadercompiler/CMakeLists.txt            |  8 +--
+ shadercompiler/CachingIncludeHandler.cpp |  6 +-
+ shadercompiler/EffectCompilerMetal.cpp   |  7 +-
+ shadercompiler/HLSLScanner.re            | 81 ++++++++++++------------
+ shadercompiler/WorkQueue.h               | 21 ++++++
+ shadercompiler/stdafx.h                  |  8 +++
+ 6 files changed, 82 insertions(+), 49 deletions(-)
+
+diff --git a/shadercompiler/CMakeLists.txt b/shadercompiler/CMakeLists.txt
+index a21043de..6953573c 100644
+--- a/shadercompiler/CMakeLists.txt
++++ b/shadercompiler/CMakeLists.txt
+@@ -118,7 +118,7 @@ function(configure_shader_compiler target)
+ 
+     target_sources(${target} PRIVATE ${_SOURCES})
+ 
+-    source_group(Grammar FILES 
++    source_group(Grammar FILES
+         ASTNode.cpp
+         ASTNode.h
+         HLSLParser.c
+@@ -143,7 +143,7 @@ function(configure_shader_compiler target)
+         Type.h
+     )
+ 
+-    configure_file("${PROJECT_SOURCE_DIR}/ShaderCompilerConfig.h.in" "${GENERATED_SOURCES_DIR}/ShaderCompilerConfig.h") 
++    configure_file("${PROJECT_SOURCE_DIR}/ShaderCompilerConfig.h.in" "${GENERATED_SOURCES_DIR}/ShaderCompilerConfig.h")
+ 
+     set(PUBLIC_HEADER_FILES "")
+ 
+@@ -158,7 +158,7 @@ function(configure_shader_compiler target)
+         set(FORCE_ZERO_RETURN_FROM_LEMON "exit /b 0")
+         set(CMD "cmd")
+         set(CMD_ARG "/c")
+-    elseif(APPLE)
++    elseif(APPLE OR LINUX)
+         set(FORCE_ZERO_RETURN_FROM_LEMON "true")
+         set(CMD "bash")
+         set(CMD_ARG "-c")
+@@ -305,7 +305,7 @@ else() # VCPKG install mode
+     PATTERN "*.py")
+ 
+ endif()
+- 
++
+ option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+ message(STATUS " BUILD_TESTING VALUE IS ${BUILD_TESTING}")
+ if(BUILD_TESTING)
+diff --git a/shadercompiler/CachingIncludeHandler.cpp b/shadercompiler/CachingIncludeHandler.cpp
+index 7f215029..492b1a9e 100644
+--- a/shadercompiler/CachingIncludeHandler.cpp
++++ b/shadercompiler/CachingIncludeHandler.cpp
+@@ -26,10 +26,14 @@ std::string GetDirPath( const char* filepath )
+ #if _WIN32
+ 	const char* filename = PathFindFileName( filepath );
+ 	return std::string( filepath, filename - filepath );
+-#else
++#elif defined(__APPLE__)
+ 	char storage[MAXPATHLEN];
+ 	const char* dirName = dirname_r( filepath, storage );
+ 	return dirName;
++#elif defined(__linux__)
++	return dirname( (char *)(filepath) );
++#else
++#error "Unsupported platform"
+ #endif
+ }
+ 
+diff --git a/shadercompiler/EffectCompilerMetal.cpp b/shadercompiler/EffectCompilerMetal.cpp
+index 1c4e2b32..e0bf29ab 100644
+--- a/shadercompiler/EffectCompilerMetal.cpp
++++ b/shadercompiler/EffectCompilerMetal.cpp
+@@ -1754,14 +1754,14 @@ void GetThreadGroupSize( StageInput& stage, ParserState& state, ASTNode* callNod
+ bool AutoAssignRegistersForNode( ParserState& state, ASTNode* functionHeader, const FileLocation& messageLocation )
+ {
+ 	/*
+-		
++
+ 		This function assigns "registers" i.e. Metal input attributes [[buffer(###)]] or [[texture(###)]] to the shader arguments.
+ 		Metal partitions the set off all inputs into "buffers" and "textures", which is somewhat different from DirectX that partitions
+ 		the inputs into "constant buffers", SRVs and UAVs. Since Trinity uses DirectX partitioning for inputs we need to adapt Metal
+ 		to that. This puts some extra limitations on the allocation of registers. For metal we use a single set or "registers" (up to
+ 		31 registers - the limit for min supported macOS): all SRV/UAV buffers and textures go into this set of "registers". Constant
+ 		buffers are in a separate set. We map these to sets to "buffers" and "textures" for Metal.
+-		
++
+ 		Firstly, we reserve 4 first slots in [[buffer(###)]] metal set for IA buffers
+ 		Secondly, we reserve space in [[buffer(###)]] metal set for all constant buffers as they have an explicit register binding. We map
+ 		them with an offset of 4, so for example the Globals constant buffer (cb0) would be mapped to [[buffer(4)]].
+@@ -4634,8 +4634,7 @@ std::vector<uint8_t> CompileCode( const std::string& code, const std::vector<Mac
+ 			}
+ 
+ 			fseek( file, 0, SEEK_END );
+-			fpos_t pos = 0;
+-			fgetpos( file, &pos );
++			long pos = ftell( file );
+ 			fseek( file, 0, SEEK_SET );
+ 
+ 			size_t dataSize = pos;
+diff --git a/shadercompiler/HLSLScanner.re b/shadercompiler/HLSLScanner.re
+index ee976dec..90ad1db1 100644
+--- a/shadercompiler/HLSLScanner.re
++++ b/shadercompiler/HLSLScanner.re
+@@ -4,6 +4,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <cassert>
++#include <climits>
+ #include <vector>
+ #include <map>
+ #define _IN_SCANNER
+@@ -20,15 +21,15 @@
+ 
+ re2c:indent:top = 2;
+ re2c:yyfill:enable = 0;
+-		
+-ANY = [\000-\377]; 
+-LETTER = [a-zA-Z_]; 
+-DECIMAL = [0-9]; 
+-OCTAL = [0-7]; 
+-HEX = [a-fA-F0-9]; 
+-INT_SUFFIX = [uUlL]*; 
+-ESC	= [\\] ([abfnrtv?'"\\] | "x" HEX+ | OCTAL+); 
+-EXPONENT	= [Ee] [+-]? DECIMAL+; 
++
++ANY = [\000-\377];
++LETTER = [a-zA-Z_];
++DECIMAL = [0-9];
++OCTAL = [0-7];
++HEX = [a-fA-F0-9];
++INT_SUFFIX = [uUlL]*;
++ESC	= [\\] ([abfnrtv?'"\\] | "x" HEX+ | OCTAL+);
++EXPONENT	= [Ee] [+-]? DECIMAL+;
+ FLOAT_SUFFIX	= [fFlL];
+ SPACE = [ \t\v\f\r]+;
+ PP = "\n" SPACE* "#" [ \t]*;
+@@ -114,7 +115,7 @@ std:
+ 		const char* start = YYCURSOR;
+ 
+ 		/*!re2c
+-		LETTER(LETTER|DECIMAL)*	
++		LETTER(LETTER|DECIMAL)*
+ 		{
+ 			RETURN_PPT( PPT_ID );
+ 		}
+@@ -124,7 +125,7 @@ std:
+ 			RETURN_PPT( PPT_INT_CONST );
+ 		}
+ 
+-		(DECIMAL+ EXPONENT FLOAT_SUFFIX?) | (DECIMAL* "." DECIMAL+ EXPONENT? FLOAT_SUFFIX?) | (DECIMAL+ "." DECIMAL* EXPONENT? FLOAT_SUFFIX?) 
++		(DECIMAL+ EXPONENT FLOAT_SUFFIX?) | (DECIMAL* "." DECIMAL+ EXPONENT? FLOAT_SUFFIX?) | (DECIMAL+ "." DECIMAL* EXPONENT? FLOAT_SUFFIX?)
+ 		{
+ 			RETURN_PPT( PPT_FLOAT_CONST );
+ 		}
+@@ -137,7 +138,7 @@ std:
+ 		"//" { goto cppComment; }
+ 		"/*" { goto comment; }
+ 
+-		PP "include" SPACE+ 
++		PP "include" SPACE+
+ 		{
+ 			state.GetCurrentLocation().lineNumber++;
+ 			InlineString path;
+@@ -155,7 +156,7 @@ std:
+ 		}
+ 
+ 		PP "define" SPACE+
+-		{ 
++		{
+ 			state.GetCurrentLocation().lineNumber++;
+ 			if( state.InSkipMode() )
+ 			{
+@@ -614,7 +615,7 @@ std:
+ 			continue;
+ 		}
+ 
+-		PP "undef" 
++		PP "undef"
+ 		{
+ 			state.GetCurrentLocation().lineNumber++;
+ 			if( !state.InSkipMode() )
+@@ -627,7 +628,7 @@ std:
+ 					return PPSR_ERROR;
+ 				}
+ 				state.m_expandMacros = true;
+-				
++
+ 				auto found = state.m_defines.find( name );
+ 				if( found != state.m_defines.end() )
+ 				{
+@@ -724,21 +725,21 @@ std:
+ 			{
+ 				state.ShowMessage( EC_UNEXPECTED_CHARACTER, *start );
+ 				return PPSR_ERROR;
+-			} 			
++			}
+ 		}
+-		"\n" 
+-		{ 
+-			state.GetCurrentLocation().lineNumber++; 
+-			start = YYCURSOR; 
+-			state.m_newLine = true; 
+-			continue; 
++		"\n"
++		{
++			state.GetCurrentLocation().lineNumber++;
++			start = YYCURSOR;
++			state.m_newLine = true;
++			continue;
+ 		}
+ 		"\000" { return PPSR_EOF; }
+-		[^] 
++		[^]
+ 	    {
+ 			state.ShowMessage( EC_UNEXPECTED_CHARACTER, *start );
+ 			return PPSR_ERROR;
+-	    } 			
++	    }
+ 		*/
+ 	}
+ 
+@@ -749,12 +750,12 @@ comment:
+ 		"*/" { goto std; }
+ 		"\n"
+ 		{
+-			state.GetCurrentLocation().lineNumber++; 
++			state.GetCurrentLocation().lineNumber++;
+ 			continue;
+ 		}
+ 		"\000" { return PPSR_EOF; }
+ 		[^]	{ continue; }
+-		*/ 
++		*/
+ 	}
+ 	return PPSR_EOF;
+ 
+@@ -770,7 +771,7 @@ cppComment:
+ 		}
+ 		"\000" { return PPSR_EOF; }
+ 		[^]	{ continue; }
+-		*/ 
++		*/
+ 	}
+ 
+ 	return PPSR_EOF;
+@@ -784,7 +785,7 @@ cppComment:
+ 
+ 
+ 
+-bool ConvertToScannerToken( ParserState &state, const PreprocessorToken& ppToken, ScannerToken& token ) 
++bool ConvertToScannerToken( ParserState &state, const PreprocessorToken& ppToken, ScannerToken& token )
+ {
+ #define YYCTYPE char
+ #define YYCURSOR (start)
+@@ -1091,15 +1092,15 @@ bool ConvertToScannerToken( ParserState &state, const PreprocessorToken& ppToken
+ 		"{" { RETURN( OP_LEFT_BRACE ); }
+ 		"}" { RETURN( OP_RIGHT_BRACE ); }
+ 
+-		LETTER(LETTER|DECIMAL)*	
++		LETTER(LETTER|DECIMAL)*
+ 		{
+ 			const Symbol* symbol = state.GetSymbolTable().LookupType( ppToken.string );
+ 			if( symbol && symbol->isTypeName )
+ 			{
+-				RETURN( OP_TYPE_NAME ); 
++				RETURN( OP_TYPE_NAME );
+ 			}
+-			RETURN( OP_ID ); 
+-		} 
++			RETURN( OP_ID );
++		}
+ 		*/
+ 	}
+ 	return false;
+@@ -1159,7 +1160,7 @@ std::optional<std::string> PreprocessString( const InlineString& input )
+ 
+ 	while( cur < input.end )
+ 	{
+-		for( char u = *cur;; out += u ) 
++		for( char u = *cur;; out += u )
+ 		{
+ 			tok = cur;
+ 			unsigned long v;
+@@ -1214,28 +1215,28 @@ std::optional<std::vector<InlineString>> TokenizeGlobalInput( const InlineString
+ 			re2c:define:YYCURSOR = cur;
+ 			re2c:define:YYMARKER = mar;
+ 			re2c:define:YYLIMIT = input.end;
+-			* { 
+-				return {}; 
++			* {
++				return {};
+ 			}
+ 			SPACE {
+-				continue; 
++				continue;
+ 			}
+-			ID { 
++			ID {
+ 				if( !expectID )
+ 				{
+ 					return {};
+ 				}
+ 				expectID = false;
+-				result.push_back( { start, cur } ); 
++				result.push_back( { start, cur } );
+ 				continue;
+ 			}
+-			";" { 
++			";" {
+ 				if( expectID )
+ 				{
+ 					return {};
+ 				}
+ 				expectID = true;
+-				continue; 
++				continue;
+ 			}
+ 		*/
+ 	}
+diff --git a/shadercompiler/WorkQueue.h b/shadercompiler/WorkQueue.h
+index fcd97ceb..5fba0af4 100644
+--- a/shadercompiler/WorkQueue.h
++++ b/shadercompiler/WorkQueue.h
+@@ -5,6 +5,8 @@
+ #ifdef __APPLE__
+ #include <mach/semaphore.h>
+ #include <mach/mach.h>
++#elif defined( __linux__ )
++#include <semaphore.h>
+ #endif
+ 
+ #include "CompileMessageQueue.h"
+@@ -130,6 +132,11 @@ public:
+ 
+ #ifdef __APPLE__
+ 		semaphore_create( current_task(), &m_activeWorkersSemaphore, SYNC_POLICY_FIFO, (int32_t)activeWorkersCount );
++#elif defined( __linux__ )
++		if( sem_init( &m_activeWorkersSemaphore, 0, (unsigned)activeWorkersCount ) != 0 )
++		{
++			g_messages.AddMessage( "WorkQueue2: Creating m_activeWorkersSemaphore failed! Error: %d", errno );
++		}
+ #else
+ 		m_activeWorkersSemaphore = CreateSemaphore( NULL, (long)activeWorkersCount, (long)activeWorkersCount, NULL );
+ 		if( m_activeWorkersSemaphore == NULL )
+@@ -158,6 +165,8 @@ public:
+ 		Join();
+ #ifdef __APPLE__
+ 		semaphore_destroy( current_task(), m_activeWorkersSemaphore );
++#elif defined( __linux__ )
++		sem_destroy( &m_activeWorkersSemaphore );
+ #else
+ 		CloseHandle( m_activeWorkersSemaphore );
+ #endif
+@@ -206,6 +215,11 @@ private:
+ 		{
+ 			g_messages.AddMessage( "WorkQueue2: Waiting on m_activeWorkersSemaphore failed! Error: %d", waitResult );
+ 		}
++#elif defined( __linux__ )
++		if( sem_wait( &m_activeWorkersSemaphore ) != 0 )
++		{
++			g_messages.AddMessage( "WorkQueue2: Waiting on m_activeWorkersSemaphore failed! Error: %d", errno );
++		}
+ #else
+ 		DWORD waitResult = WaitForSingleObject( m_activeWorkersSemaphore, INFINITE );
+ 		if( waitResult != WAIT_OBJECT_0 )
+@@ -226,6 +240,11 @@ private:
+ 	{
+ #ifdef __APPLE__
+ 		semaphore_signal( m_activeWorkersSemaphore );
++#elif defined( __linux__ )
++		if( sem_post( &m_activeWorkersSemaphore ) != 0 )
++		{
++			g_messages.AddMessage( "WorkQueue2::OnBlocked: sem_post m_activeWorkersSemaphore error: %d", errno );
++		}
+ #else
+ 		if( !ReleaseSemaphore( m_activeWorkersSemaphore, 1, NULL ) )
+ 		{
+@@ -286,6 +305,8 @@ private:
+ 	size_t m_activeWorkersCount;
+ #ifdef __APPLE__
+ 	semaphore_t m_activeWorkersSemaphore;
++#elif defined( __linux__ )
++	sem_t m_activeWorkersSemaphore;
+ #else
+ 	HANDLE m_activeWorkersSemaphore;
+ #endif
+diff --git a/shadercompiler/stdafx.h b/shadercompiler/stdafx.h
+index 7c7c94d1..44b6f6a8 100644
+--- a/shadercompiler/stdafx.h
++++ b/shadercompiler/stdafx.h
+@@ -234,10 +234,14 @@ enum D3D11_FILL_MODE
+ #endif
+ 
+ #include <cassert>
++#include <cmath>
++#include <cstdarg>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdio>
++#include <cstring>
+ #include <map>
++#include <memory>
+ #include <unordered_map>
+ #include <queue>
+ #include <set>
+@@ -267,6 +271,10 @@ enum D3D11_FILL_MODE
+ 
+ #ifndef _WIN32
+ 
++#if defined(__linux__)
++using errno_t = int;
++#endif
++
+ inline errno_t fopen_s( FILE** stream, char const* fileName, char const* mode )
+ {
+ 	*stream = fopen( fileName, mode );
