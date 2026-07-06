@@ -11,10 +11,10 @@ This is fully written by Claude's Fable.
  3 files changed, 1015 insertions(+), 2 deletions(-)
 
 diff --git a/trinity/CMakeLists.txt b/trinity/CMakeLists.txt
-index 175b0575..29153c57 100644
+index 24b3d543..16e9bc6b 100644
 --- a/trinity/CMakeLists.txt
 +++ b/trinity/CMakeLists.txt
-@@ -2035,6 +2035,11 @@ elseif(LINUX)
+@@ -2036,6 +2036,11 @@ elseif(LINUX)
                  TRINITYNAME=_trinity_vulkan
          )
          target_link_libraries(${TRINITY_VULKAN_TARGET_NAME} PRIVATE TrinityAL_vulkan)
