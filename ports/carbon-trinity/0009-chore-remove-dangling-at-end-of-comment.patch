@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 11:45:40 +0200
-Subject: [PATCH 09/16] chore: remove dangling >\ at end of comment
+Subject: [PATCH 09/17] chore: remove dangling >\ at end of comment
 
 ---
  trinity/Tr2DynamicRingBuffer.h | 2 +-

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 11:46:06 +0200
-Subject: [PATCH 10/16] chore: remove MSVC-ism from std:: functions
+Subject: [PATCH 10/17] chore: remove MSVC-ism from std:: functions
 
 MSVC tends to add aliases for the "f" variant. But this is just an
 overload of the non-f.

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 09:27:51 +0200
-Subject: [PATCH 04/16] fix: spurious spaces in TRINITY_AL_PLATFORM_INCLUDE
+Subject: [PATCH 04/17] fix: spurious spaces in TRINITY_AL_PLATFORM_INCLUDE
 
 On GCC/Clang, a spurious space is added to includes using
 TRINITY_AL_PLATFORM_INCLUDE. This caused because CCP_CONCATENATE()

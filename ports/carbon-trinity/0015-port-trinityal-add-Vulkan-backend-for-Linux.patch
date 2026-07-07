@@ -1,55 +1,70 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 12:10:25 +0200
-Subject: [PATCH 15/16] port(trinityal): add Vulkan backend for Linux
+Subject: [PATCH 15/17] port(trinityal): add Vulkan backend for Linux
 
-This is fully written by Claude's Fable.
-It was asked to write one that works identical to the other backends,
-rather than to build for performance.
+This is fully written by Claude's Fable + Opus 4.8.
 
-Vulkan requires shaders to be exported in SPIR-V format; this is fully
-supported by dxc. See VulkanBindingModel.h for specification.
-For tests, the SPIR-V shaders are compiled from the DX12 shaders.
+The backend is far from done: not all functionality is supported,
+and performance might be lacking. Use at your own risk.
+
+Vulkan requires shaders to be exported in SPIR-V format. See
+VulkanBindingModel.h for specification.
+Your GPU needs to support dynamic rendering (either via Vulkan 1.3 or
+via the extension). Dynamic rendering closest matches DX11/DX12/Metal,
+making the port easier. A fallback is possible, but not implemented.
+
+Missing components:
+- Upscaling
 ---
  CMakeLists.txt                                |    2 +
  trinity/CMakeLists.txt                        |   16 +
  trinity/Tr2VirtualAllocator.cpp               |    4 +-
  trinity/TriDeviceVulkan.cpp                   |   88 +
- trinityal/CMakeLists.txt                      |   63 +-
+ trinityal/CMakeLists.txt                      |   71 +-
  trinityal/include/TrinityALForward.h          |    7 +
  .../include/upscaling/Tr2Fsr1Upscaling.h      |    2 +-
  trinityal/src/upscaling/Tr2Fsr1Upscaling.cpp  |    2 +-
- trinityal/tests/CMakeLists.txt                |   85 +-
+ trinityal/tests/CMakeLists.txt                |   93 +-
  trinityal/tests/RenderWindow_Stub.cpp         |    4 +
  trinityal/tests/RenderWindow_X11.cpp          |   91 +
+ .../Shaders.DX12/ClosestHitWithMaterial.rsh   |    3 +
  trinityal/tests/StdAfx.h                      |    6 +
  trinityal/tests/VmaImplementation_Vulkan.cpp  |   10 +
  trinityal/tests/WithWindowFixture_X11.cpp     |   60 +
- trinityal/vulkan/Tr2BufferALVulkan.cpp        |  358 +++
- trinityal/vulkan/Tr2BufferALVulkan.h          |   72 +
- trinityal/vulkan/Tr2CapsALVulkan.cpp          |   39 +
+ trinityal/vulkan/Tr2BufferALVulkan.cpp        |  388 +++
+ trinityal/vulkan/Tr2BufferALVulkan.h          |   91 +
+ trinityal/vulkan/Tr2CapsALVulkan.cpp          |   41 +
  trinityal/vulkan/Tr2CapsALVulkan.h            |   33 +
  .../vulkan/Tr2ConstantBufferALVulkan.cpp      |  214 ++
- trinityal/vulkan/Tr2ConstantBufferALVulkan.h  |   75 +
+ trinityal/vulkan/Tr2ConstantBufferALVulkan.h  |   83 +
  trinityal/vulkan/Tr2FenceALVulkan.cpp         |  137 ++
  trinityal/vulkan/Tr2FenceALVulkan.h           |   41 +
- trinityal/vulkan/Tr2GpuTimerALVulkan.cpp      |  129 ++
+ trinityal/vulkan/Tr2GpuTimerALVulkan.cpp      |  129 +
  trinityal/vulkan/Tr2GpuTimerALVulkan.h        |   47 +
  .../vulkan/Tr2OcclusionQueryALVulkan.cpp      |  152 ++
  trinityal/vulkan/Tr2OcclusionQueryALVulkan.h  |   43 +
  .../vulkan/Tr2PipelineStatsQueryALVulkan.cpp  |  192 ++
  .../vulkan/Tr2PipelineStatsQueryALVulkan.h    |   61 +
  .../vulkan/Tr2PrimaryRenderContextVulkan.h    |    6 +
- trinityal/vulkan/Tr2RenderContextVulkan.cpp   | 1973 +++++++++++++++++
- trinityal/vulkan/Tr2RenderContextVulkan.h     |  330 +++
- trinityal/vulkan/Tr2ResourceSetALVulkan.cpp   |  165 ++
- trinityal/vulkan/Tr2ResourceSetALVulkan.h     |   47 +
+ trinityal/vulkan/Tr2RenderContextVulkan.cpp   | 2107 +++++++++++++++++
+ trinityal/vulkan/Tr2RenderContextVulkan.h     |  332 +++
+ trinityal/vulkan/Tr2ResourceSetALVulkan.cpp   |  184 ++
+ trinityal/vulkan/Tr2ResourceSetALVulkan.h     |   48 +
+ ...ttomLevelAccelerationStructureALVulkan.cpp |  367 +++
+ ...BottomLevelAccelerationStructureALVulkan.h |   73 +
+ .../vulkan/Tr2RtPipelineStateALVulkan.cpp     |  573 +++++
+ trinityal/vulkan/Tr2RtPipelineStateALVulkan.h |  101 +
+ trinityal/vulkan/Tr2RtShaderTableALVulkan.cpp |  280 +++
+ trinityal/vulkan/Tr2RtShaderTableALVulkan.h   |   52 +
+ ...tTopLevelAccelerationStructureALVulkan.cpp |  338 +++
+ ...2RtTopLevelAccelerationStructureALVulkan.h |   68 +
  trinityal/vulkan/Tr2SamplerStateALVulkan.cpp  |  143 ++
  trinityal/vulkan/Tr2SamplerStateALVulkan.h    |   44 +
  trinityal/vulkan/Tr2ShaderALVulkan.cpp        |  134 ++
  trinityal/vulkan/Tr2ShaderALVulkan.h          |   60 +
- trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp |  311 +++
- trinityal/vulkan/Tr2ShaderProgramALVulkan.h   |   87 +
+ trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp |  341 +++
+ trinityal/vulkan/Tr2ShaderProgramALVulkan.h   |   91 +
  trinityal/vulkan/Tr2SwapChainALVulkan.cpp     |  295 +++
  trinityal/vulkan/Tr2SwapChainALVulkan.h       |   59 +
  trinityal/vulkan/Tr2TextureALVulkan.cpp       |  791 +++++++
@@ -58,15 +73,15 @@ For tests, the SPIR-V shaders are compiled from the DX12 shaders.
  trinityal/vulkan/Tr2VertexLayoutALVulkan.h    |   57 +
  .../vulkan/Tr2VideoAdapterInfoALVulkan.cpp    |  164 ++
  .../vulkan/Tr2VideoAdapterInfoALVulkan.h      |   48 +
- trinityal/vulkan/VulkanBindingModel.h         |   70 +
+ trinityal/vulkan/VulkanBindingModel.h         |   72 +
  trinityal/vulkan/VulkanCommon.cpp             |  319 +++
  trinityal/vulkan/VulkanCommon.h               |   66 +
- trinityal/vulkan/VulkanContext.cpp            |  883 ++++++++
- trinityal/vulkan/VulkanContext.h              |  267 +++
+ trinityal/vulkan/VulkanContext.cpp            | 1106 +++++++++
+ trinityal/vulkan/VulkanContext.h              |  319 +++
  .../vulkan/upscaling/Tr2UpscalingALVulkan.cpp |   14 +
  .../vulkan/upscaling/Tr2UpscalingALVulkan.h   |   15 +
  vcpkg.json                                    |   12 +-
- 55 files changed, 8533 insertions(+), 12 deletions(-)
+ 64 files changed, 10930 insertions(+), 12 deletions(-)
  create mode 100644 trinity/TriDeviceVulkan.cpp
  create mode 100644 trinityal/tests/RenderWindow_X11.cpp
  create mode 100644 trinityal/tests/VmaImplementation_Vulkan.cpp
@@ -90,6 +105,14 @@ For tests, the SPIR-V shaders are compiled from the DX12 shaders.
  create mode 100644 trinityal/vulkan/Tr2RenderContextVulkan.h
  create mode 100644 trinityal/vulkan/Tr2ResourceSetALVulkan.cpp
  create mode 100644 trinityal/vulkan/Tr2ResourceSetALVulkan.h
+ create mode 100644 trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.cpp
+ create mode 100644 trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.h
+ create mode 100644 trinityal/vulkan/Tr2RtPipelineStateALVulkan.cpp
+ create mode 100644 trinityal/vulkan/Tr2RtPipelineStateALVulkan.h
+ create mode 100644 trinityal/vulkan/Tr2RtShaderTableALVulkan.cpp
+ create mode 100644 trinityal/vulkan/Tr2RtShaderTableALVulkan.h
+ create mode 100644 trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.cpp
+ create mode 100644 trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.h
  create mode 100644 trinityal/vulkan/Tr2SamplerStateALVulkan.cpp
  create mode 100644 trinityal/vulkan/Tr2SamplerStateALVulkan.h
  create mode 100644 trinityal/vulkan/Tr2ShaderALVulkan.cpp
@@ -270,10 +293,10 @@ index 00000000..6668fafd
 +
 +#endif
 diff --git a/trinityal/CMakeLists.txt b/trinityal/CMakeLists.txt
-index 00a368b8..5f4b12ee 100644
+index 00a368b8..4a6bd837 100644
 --- a/trinityal/CMakeLists.txt
 +++ b/trinityal/CMakeLists.txt
-@@ -267,6 +267,50 @@ set(_SOURCES
+@@ -267,6 +267,58 @@ set(_SOURCES
      stub/upscaling/Tr2UpscalingALStub.h
  )
  
@@ -298,6 +321,14 @@ index 00a368b8..5f4b12ee 100644
 +        vulkan/Tr2RenderContextVulkan.h
 +        vulkan/Tr2ResourceSetALVulkan.cpp
 +        vulkan/Tr2ResourceSetALVulkan.h
++        vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.cpp
++        vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.h
++        vulkan/Tr2RtPipelineStateALVulkan.cpp
++        vulkan/Tr2RtPipelineStateALVulkan.h
++        vulkan/Tr2RtShaderTableALVulkan.cpp
++        vulkan/Tr2RtShaderTableALVulkan.h
++        vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.cpp
++        vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.h
 +        vulkan/Tr2SamplerStateALVulkan.cpp
 +        vulkan/Tr2SamplerStateALVulkan.h
 +        vulkan/Tr2ShaderALVulkan.cpp
@@ -324,7 +355,7 @@ index 00a368b8..5f4b12ee 100644
  if(APPLE)
      list(APPEND _SOURCES
          metal/MetalContext.h
-@@ -514,7 +558,24 @@ elseif(APPLE)
+@@ -514,7 +566,24 @@ elseif(APPLE)
      endif()
  elseif(LINUX)
  
@@ -401,7 +432,7 @@ index 8611290a..26734cc1 100644
  #include "StdAfx.h"
  #include "include/upscaling/Tr2Fsr1Upscaling.h"
 diff --git a/trinityal/tests/CMakeLists.txt b/trinityal/tests/CMakeLists.txt
-index 105ff0a6..7ce16f01 100644
+index 105ff0a6..fdcecb8f 100644
 --- a/trinityal/tests/CMakeLists.txt
 +++ b/trinityal/tests/CMakeLists.txt
 @@ -2,7 +2,7 @@
@@ -474,7 +505,7 @@ index 105ff0a6..7ce16f01 100644
                  COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/bin2h.cmd ${GENERATED_SOURCES_DIR}/${shaderSource}.bin ${GENERATED_SOURCES_DIR}/${shaderOutput}
                  MAIN_DEPENDENCY ${shaderSource}
              )
-@@ -262,6 +264,77 @@ if(WIN32)
+@@ -262,6 +264,85 @@ if(WIN32)
  
      endif()
  
@@ -510,18 +541,26 @@ index 105ff0a6..7ce16f01 100644
 +            endif()
 +
 +            set(_SHADERS_SPIRV ${_SHADERS_DX12})
-+            list(FILTER _SHADERS_SPIRV EXCLUDE REGEX "\\.rsh$") # no raytracing support
 +
 +            foreach(shaderSource ${_SHADERS_SPIRV})
 +                string(REGEX REPLACE "^Shaders.DX12/" "Shaders.SPIRV/" shaderOutput ${shaderSource})
 +                string(REGEX REPLACE "h$" ".h" shaderOutput ${shaderOutput})
 +                # Stage index from Tr2RenderContextEnum::ShaderType: VS=0, PS=1, CS=2.
++                # Ray tracing libraries share the compute stage's bindings (see
++                # trinityal/vulkan/Tr2RtPipelineStateALVulkan.h) and need SPIR-V 1.4+.
++                set(SHADER_ENTRY "-Emain")
++                set(SHADER_EXTRA_ARGS "")
 +                if(${shaderSource} MATCHES ".*psh$")
 +                    set(SHADER_TARGET "-Tps_6_0")
 +                    set(STAGE_BASE 128)
 +                elseif(${shaderSource} MATCHES ".*vsh$")
 +                    set(SHADER_TARGET "-Tvs_6_0")
 +                    set(STAGE_BASE 0)
++                elseif(${shaderSource} MATCHES ".*rsh$")
++                    set(SHADER_TARGET "-Tlib_6_3")
++                    set(SHADER_ENTRY "")
++                    set(SHADER_EXTRA_ARGS "-fspv-target-env=vulkan1.2")
++                    set(STAGE_BASE 256)
 +                else()
 +                    set(SHADER_TARGET "-Tcs_6_0")
 +                    set(STAGE_BASE 256)
@@ -533,7 +572,7 @@ index 105ff0a6..7ce16f01 100644
 +                add_custom_command(
 +                    OUTPUT ${GENERATED_SOURCES_DIR}/${shaderOutput}
 +                    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_SOURCES_DIR}/Shaders.SPIRV ${GENERATED_SOURCES_DIR}/Shaders.DX12
-+                    COMMAND ${DIRECTX_DXC_TOOL} -spirv ${SHADER_TARGET} -Emain
++                    COMMAND ${DIRECTX_DXC_TOOL} -spirv ${SHADER_TARGET} ${SHADER_ENTRY} ${SHADER_EXTRA_ARGS}
 +                            -fvk-b-shift ${SHIFT_B} 0
 +                            -fvk-t-shift ${SHIFT_T} 0
 +                            -fvk-s-shift ${SHIFT_S} 0
@@ -665,6 +704,20 @@ index 00000000..672592e3
 +}
 +
 +#endif
+diff --git a/trinityal/tests/Shaders.DX12/ClosestHitWithMaterial.rsh b/trinityal/tests/Shaders.DX12/ClosestHitWithMaterial.rsh
+index 2e8030d0..73c035e5 100644
+--- a/trinityal/tests/Shaders.DX12/ClosestHitWithMaterial.rsh
++++ b/trinityal/tests/Shaders.DX12/ClosestHitWithMaterial.rsh
+@@ -9,6 +9,9 @@ struct Attributes
+ 	float2 uv;
+ };
+ 
++// On Vulkan local (per shader record) constants live in the shader binding
++// table record itself; the attribute is ignored when compiling to DXIL.
++[[vk::shader_record_ext]]
+ cbuffer PerObject: register(b1)
+ {
+   float4 material;
 diff --git a/trinityal/tests/StdAfx.h b/trinityal/tests/StdAfx.h
 index fed14fbe..262925eb 100644
 --- a/trinityal/tests/StdAfx.h
@@ -773,10 +826,10 @@ index 00000000..e2208f42
 +#endif
 diff --git a/trinityal/vulkan/Tr2BufferALVulkan.cpp b/trinityal/vulkan/Tr2BufferALVulkan.cpp
 new file mode 100644
-index 00000000..785b80c1
+index 00000000..0d235afd
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2BufferALVulkan.cpp
-@@ -0,0 +1,358 @@
+@@ -0,0 +1,388 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -797,6 +850,9 @@ index 00000000..785b80c1
 +
 +VkBufferUsageFlags GetBufferUsageFlags( const Tr2BufferDescriptionAL& desc )
 +{
++	VulkanContext* context = GetVulkanContext();
++	const bool rayTracing = context && context->SupportsRayTracing();
++
 +	VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 +	if( Tr2GpuUsage::HasFlag( desc.gpuUsage, Tr2GpuUsage::VERTEX_BUFFER ) )
 +	{
@@ -816,12 +872,24 @@ index 00000000..785b80c1
 +		usage |= ( desc.format != Tr2RenderContextEnum::PIXEL_FORMAT_UNKNOWN )
 +			? VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT
 +			: VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
++		if( rayTracing )
++		{
++			// Any shader-visible buffer may feed an acceleration structure
++			// build, which reads geometry through device addresses.
++			usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
++				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++		}
 +	}
 +	if( Tr2GpuUsage::HasFlag( desc.gpuUsage, Tr2GpuUsage::UNORDERED_ACCESS ) )
 +	{
 +		usage |= ( desc.format != Tr2RenderContextEnum::PIXEL_FORMAT_UNKNOWN )
 +			? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT
 +			: VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
++	}
++	if( Tr2GpuUsage::HasFlag( desc.gpuUsage, Tr2GpuUsage::ACCELERATION_STRUCTURE ) && rayTracing )
++	{
++		usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
++			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 +	}
 +	return usage;
 +}
@@ -833,9 +901,23 @@ index 00000000..785b80c1
 +	m_allocation( VK_NULL_HANDLE ),
 +	m_mappedData( nullptr ),
 +	m_bufferView( VK_NULL_HANDLE ),
++	m_accelerationStructure( VK_NULL_HANDLE ),
 +	m_readbackBuffer( VK_NULL_HANDLE ),
 +	m_readbackAllocation( VK_NULL_HANDLE )
 +{
++}
++
++VkDeviceAddress Tr2BufferAL::GetDeviceAddress() const
++{
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->SupportsRayTracing() || m_buffer == VK_NULL_HANDLE )
++	{
++		return 0;
++	}
++	VkBufferDeviceAddressInfo addressInfo = {};
++	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
++	addressInfo.buffer = m_buffer;
++	return vkGetBufferDeviceAddress( context->GetDevice(), &addressInfo );
 +}
 +
 +VkBufferView Tr2BufferAL::GetVkBufferView()
@@ -956,6 +1038,7 @@ index 00000000..785b80c1
 +	m_buffer = VK_NULL_HANDLE;
 +	m_allocation = VK_NULL_HANDLE;
 +	m_mappedData = nullptr;
++	m_accelerationStructure = VK_NULL_HANDLE;
 +	m_readbackBuffer = VK_NULL_HANDLE;
 +	m_readbackAllocation = VK_NULL_HANDLE;
 +	m_desc.count = 0;
@@ -1137,10 +1220,10 @@ index 00000000..785b80c1
 +#endif
 diff --git a/trinityal/vulkan/Tr2BufferALVulkan.h b/trinityal/vulkan/Tr2BufferALVulkan.h
 new file mode 100644
-index 00000000..653ffc77
+index 00000000..923f4807
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2BufferALVulkan.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,91 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -1190,6 +1273,24 @@ index 00000000..653ffc77
 +	// Only valid for buffers created with a pixel format.
 +	VkBufferView GetVkBufferView();
 +
++	// Only valid on ray-tracing capable devices for buffers created with
++	// device-address usage (shader resources and acceleration structures).
++	VkDeviceAddress GetDeviceAddress() const;
++
++	// A top level acceleration structure exposes itself to descriptor binding
++	// through its backing Tr2BufferAL (see Tr2ResourceSetDescriptionAL::SetSrv).
++	// The handle is owned by the acceleration structure, which clears it again
++	// on destruction.
++	void SetAccelerationStructure( VkAccelerationStructureKHR accelerationStructure )
++	{
++		m_accelerationStructure = accelerationStructure;
++	}
++
++	VkAccelerationStructureKHR GetAccelerationStructure() const
++	{
++		return m_accelerationStructure;
++	}
++
 +	uint32_t GetSize() const
 +	{
 +		return m_desc.count * m_desc.stride;
@@ -1203,6 +1304,7 @@ index 00000000..653ffc77
 +	VmaAllocation m_allocation;
 +	void* m_mappedData;
 +	VkBufferView m_bufferView;
++	VkAccelerationStructureKHR m_accelerationStructure;
 +
 +	// Staging buffer used to read back device-local buffers.
 +	VkBuffer m_readbackBuffer;
@@ -1215,10 +1317,10 @@ index 00000000..653ffc77
 +#endif
 diff --git a/trinityal/vulkan/Tr2CapsALVulkan.cpp b/trinityal/vulkan/Tr2CapsALVulkan.cpp
 new file mode 100644
-index 00000000..a9c111ba
+index 00000000..e4837ee0
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2CapsALVulkan.cpp
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,41 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -1226,6 +1328,7 @@ index 00000000..a9c111ba
 +#if TRINITY_PLATFORM == TRINITY_VULKAN
 +
 +#include "Tr2CapsALVulkan.h"
++#include "VulkanContext.h"
 +
 +bool Tr2CapsAL::SupportsFloat16() const
 +{
@@ -1254,13 +1357,14 @@ index 00000000..a9c111ba
 +
 +bool Tr2CapsAL::SupportsRaytracing() const
 +{
-+	return false;
++	TrinityALImpl::VulkanContext* context = TrinityALImpl::GetVulkanContext();
++	return context && context->IsValid() && context->SupportsRayTracing();
 +}
 +
 +#endif
 diff --git a/trinityal/vulkan/Tr2CapsALVulkan.h b/trinityal/vulkan/Tr2CapsALVulkan.h
 new file mode 100644
-index 00000000..d34f9c76
+index 00000000..9eeb112f
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2CapsALVulkan.h
 @@ -0,0 +1,33 @@
@@ -1281,7 +1385,7 @@ index 00000000..d34f9c76
 +#define TRINITY_PLATFORM_SUPPORTS_RENDER_PASS_HINTS 0
 +#define TRINITY_PLATFORM_IS_LOW_PERFORMACE 0
 +#define TRINITY_PLATFORM_MAX_CONSTANT_BUFFER_SIZE ( 64 * 1024 )
-+#define TRINITY_PLATFORM_SUPPORTS_RAY_TRACING 0
++#define TRINITY_PLATFORM_SUPPORTS_RAY_TRACING 1
 +
 +class Tr2CapsAL
 +{
@@ -1519,10 +1623,10 @@ index 00000000..5748f510
 +#endif
 diff --git a/trinityal/vulkan/Tr2ConstantBufferALVulkan.h b/trinityal/vulkan/Tr2ConstantBufferALVulkan.h
 new file mode 100644
-index 00000000..d2629d3f
+index 00000000..5d05e95d
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ConstantBufferALVulkan.h
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,83 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -1572,6 +1676,14 @@ index 00000000..d2629d3f
 +	const void* GetMirrorData() const
 +	{
 +		return m_mirror.get();
++	}
++
++	// The current contents as visible to the CPU: the mirror for ONE_SHOT
++	// buffers, the persistently mapped memory otherwise. Used when embedding
++	// local materials into shader binding table records.
++	const void* GetContents() const
++	{
++		return IsOneShot() ? m_mirror.get() : m_mappedData;
 +	}
 +
 +	VkBuffer GetVkBuffer() const
@@ -2462,10 +2574,10 @@ index 00000000..3d3aec31
 +#include "Tr2RenderContextVulkan.h"
 diff --git a/trinityal/vulkan/Tr2RenderContextVulkan.cpp b/trinityal/vulkan/Tr2RenderContextVulkan.cpp
 new file mode 100644
-index 00000000..4afae1f6
+index 00000000..ee544950
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2RenderContextVulkan.cpp
-@@ -0,0 +1,1973 @@
+@@ -0,0 +1,2107 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -2481,6 +2593,8 @@ index 00000000..4afae1f6
 +#include "Tr2ShaderProgramALVulkan.h"
 +#include "Tr2VertexLayoutALVulkan.h"
 +#include "Tr2ResourceSetALVulkan.h"
++#include "Tr2RtPipelineStateALVulkan.h"
++#include "Tr2RtShaderTableALVulkan.h"
 +#include "VulkanBindingModel.h"
 +#include "VulkanContext.h"
 +#include "ITr2RenderContextEvents.h"
@@ -3374,15 +3488,25 @@ index 00000000..4afae1f6
 +	return S_OK;
 +}
 +
-+ALResult Tr2RenderContextAL::BuildDescriptorSet( TrinityALImpl::Tr2ShaderProgramAL& program, VkDescriptorSet& descriptorSet )
++ALResult Tr2RenderContextAL::BuildDescriptorSet( TrinityALImpl::Tr2ShaderProgramAL& program, std::vector<VkDescriptorSet>& descriptorSets )
 +{
-+	descriptorSet = m_vulkanContext->AllocateDescriptorSet( program.GetDescriptorSetLayout() );
-+	if( descriptorSet == VK_NULL_HANDLE )
++	return BuildDescriptorSet( program.GetDescriptorSetLayouts(), program.GetBindings(), descriptorSets );
++}
++
++ALResult Tr2RenderContextAL::BuildDescriptorSet( const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<TrinityALImpl::Tr2ShaderProgramAL::BindingInfo>& bindings, std::vector<VkDescriptorSet>& descriptorSets )
++{
++	// One descriptor set per layout; a binding names its set via descriptorSet
++	// (== HLSL register space, see VulkanBindingModel.h).
++	descriptorSets.assign( layouts.size(), VK_NULL_HANDLE );
++	for( size_t set = 0; set < layouts.size(); ++set )
 +	{
-+		return E_OUTOFMEMORY;
++		descriptorSets[set] = m_vulkanContext->AllocateDescriptorSet( layouts[set] );
++		if( descriptorSets[set] == VK_NULL_HANDLE )
++		{
++			return E_OUTOFMEMORY;
++		}
 +	}
 +
-+	const auto& bindings = program.GetBindings();
 +	if( bindings.empty() )
 +	{
 +		return S_OK;
@@ -3390,10 +3514,15 @@ index 00000000..4afae1f6
 +
 +	TrinityALImpl::Tr2ResourceSetAL* resourceSet = m_resourceSet.IsValid() ? m_resourceSet.m_resourceSet.get() : nullptr;
 +
-+	// deques keep the info pointers stable while the write list grows.
-+	std::deque<VkDescriptorBufferInfo> bufferInfos;
-+	std::deque<VkDescriptorImageInfo> imageInfos;
-+	std::deque<VkBufferView> bufferViews;
++	// deques of per-binding contiguous arrays: the array storage must stay
++	// contiguous (VkWriteDescriptorSet points at it) and stable while the write
++	// list grows. A resource array of count N occupies registers
++	// registerIndex .. registerIndex + N - 1.
++	std::deque<std::vector<VkDescriptorBufferInfo>> bufferInfos;
++	std::deque<std::vector<VkDescriptorImageInfo>> imageInfos;
++	std::deque<std::vector<VkBufferView>> bufferViews;
++	std::deque<VkWriteDescriptorSetAccelerationStructureKHR> accelerationStructureInfos;
++	std::deque<VkAccelerationStructureKHR> accelerationStructures;
 +	std::vector<VkWriteDescriptorSet> writes;
 +
 +	for( const auto& binding : bindings )
@@ -3403,160 +3532,222 @@ index 00000000..4afae1f6
 +			continue; // immutable in the layout
 +		}
 +
++		const uint32_t count = std::max<uint32_t>( binding.descriptorCount, 1 );
++
 +		VkWriteDescriptorSet write = {};
 +		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-+		write.dstSet = descriptorSet;
++		write.dstSet = descriptorSets[binding.descriptorSet];
 +		write.dstBinding = binding.binding;
-+		write.descriptorCount = 1;
++		write.dstArrayElement = 0;
++		write.descriptorCount = count;
 +		write.descriptorType = binding.descriptorType;
 +
 +		switch( binding.descriptorType )
 +		{
 +		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 +		{
-+			VkDescriptorBufferInfo info = {};
-+			TrinityALImpl::Tr2ConstantBufferAL* impl = binding.registerIndex < MAX_CONSTANT_BUFFER_SLOTS
-+				? m_constantBuffers[binding.stage][binding.registerIndex].TrinityALImpl_GetObject()
-+				: nullptr;
-+			if( impl && impl->IsValid() && impl->IsOneShot() )
++			bufferInfos.push_back( {} );
++			std::vector<VkDescriptorBufferInfo>& infos = bufferInfos.back();
++			infos.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
 +			{
-+				// Snapshot the CPU mirror so this draw sees the contents as
-+				// they are right now, regardless of later Locks.
-+				const VkDeviceSize alignment = std::max<VkDeviceSize>(
-+					m_vulkanContext->GetDeviceProperties().limits.minUniformBufferOffsetAlignment, 16 );
-+				void* snapshot = nullptr;
-+				CR_RETURN_HR( m_vulkanContext->AllocateTransientData( impl->GetSize(), alignment, info.buffer, info.offset, snapshot ) );
-+				memcpy( snapshot, impl->GetMirrorData(), impl->GetSize() );
-+				info.range = impl->GetSize();
++				VkDescriptorBufferInfo& info = infos[i];
++				const uint32_t registerIndex = binding.registerIndex + i;
++				TrinityALImpl::Tr2ConstantBufferAL* impl = registerIndex < MAX_CONSTANT_BUFFER_SLOTS
++					? m_constantBuffers[binding.stage][registerIndex].TrinityALImpl_GetObject()
++					: nullptr;
++				if( impl && impl->IsValid() && impl->IsOneShot() )
++				{
++					// Snapshot the CPU mirror so this draw sees the contents as
++					// they are right now, regardless of later Locks.
++					const VkDeviceSize alignment = std::max<VkDeviceSize>(
++						m_vulkanContext->GetDeviceProperties().limits.minUniformBufferOffsetAlignment, 16 );
++					void* snapshot = nullptr;
++					CR_RETURN_HR( m_vulkanContext->AllocateTransientData( impl->GetSize(), alignment, info.buffer, info.offset, snapshot ) );
++					memcpy( snapshot, impl->GetMirrorData(), impl->GetSize() );
++					info.range = impl->GetSize();
++				}
++				else if( impl && impl->IsValid() )
++				{
++					info.buffer = impl->GetVkBuffer();
++					info.range = impl->GetSize();
++				}
++				else
++				{
++					info.buffer = m_vulkanContext->GetDummyUniformBuffer();
++					info.range = VK_WHOLE_SIZE;
++				}
 +			}
-+			else if( impl && impl->IsValid() )
-+			{
-+				info.buffer = impl->GetVkBuffer();
-+				info.range = impl->GetSize();
-+			}
-+			else
-+			{
-+				info.buffer = m_vulkanContext->GetDummyUniformBuffer();
-+				info.range = VK_WHOLE_SIZE;
-+			}
-+			bufferInfos.push_back( info );
-+			write.pBufferInfo = &bufferInfos.back();
++			write.pBufferInfo = infos.data();
 +			break;
 +		}
 +		case VK_DESCRIPTOR_TYPE_SAMPLER:
 +		{
-+			VkDescriptorImageInfo info = {};
-+			::Tr2SamplerStateAL sampler;
-+			if( resourceSet && resourceSet->GetSampler( binding.stage, binding.registerIndex, sampler ) && sampler.IsValid() )
++			imageInfos.push_back( {} );
++			std::vector<VkDescriptorImageInfo>& infos = imageInfos.back();
++			infos.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
 +			{
-+				info.sampler = sampler.TrinityALImpl_GetObject()->GetVkSampler();
++				VkDescriptorImageInfo& info = infos[i];
++				::Tr2SamplerStateAL sampler;
++				if( resourceSet && resourceSet->GetSampler( binding.stage, binding.registerIndex + i, sampler ) && sampler.IsValid() )
++				{
++					info.sampler = sampler.TrinityALImpl_GetObject()->GetVkSampler();
++				}
++				else
++				{
++					info.sampler = m_vulkanContext->GetDummySampler();
++				}
 +			}
-+			else
-+			{
-+				info.sampler = m_vulkanContext->GetDummySampler();
-+			}
-+			imageInfos.push_back( info );
-+			write.pImageInfo = &imageInfos.back();
++			write.pImageInfo = infos.data();
 +			break;
 +		}
 +		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 +		{
-+			VkDescriptorImageInfo info = {};
-+			info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-+			::Tr2TextureAL texture;
-+			if( resourceSet && resourceSet->GetSrvTexture( binding.stage, binding.registerIndex, texture ) && texture.IsValid() )
++			imageInfos.push_back( {} );
++			std::vector<VkDescriptorImageInfo>& infos = imageInfos.back();
++			infos.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
 +			{
-+				info.imageView = GetTextureImpl( texture )->GetVkImageView();
++				VkDescriptorImageInfo& info = infos[i];
++				info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
++				::Tr2TextureAL texture;
++				if( resourceSet && resourceSet->GetSrvTexture( binding.stage, binding.registerIndex + i, texture ) && texture.IsValid() )
++				{
++					info.imageView = GetTextureImpl( texture )->GetVkImageView();
++				}
++				else
++				{
++					VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D;
++					if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE3D )
++					{
++						viewType = VK_IMAGE_VIEW_TYPE_3D;
++					}
++					else if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURECUBE || binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURECUBEARRAY )
++					{
++						viewType = VK_IMAGE_VIEW_TYPE_CUBE;
++					}
++					else if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE2DARRAY || binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE2DMSARRAY )
++					{
++						viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
++					}
++					info.imageView = m_vulkanContext->GetDummyImageView( viewType );
++				}
 +			}
-+			else
-+			{
-+				VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D;
-+				if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE3D )
-+				{
-+					viewType = VK_IMAGE_VIEW_TYPE_3D;
-+				}
-+				else if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURECUBE || binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURECUBEARRAY )
-+				{
-+					viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-+				}
-+				else if( binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE2DARRAY || binding.registerType == Tr2ShaderRegisterAL::SRV_TEXTURE2DMSARRAY )
-+				{
-+					viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-+				}
-+				info.imageView = m_vulkanContext->GetDummyImageView( viewType );
-+			}
-+			imageInfos.push_back( info );
-+			write.pImageInfo = &imageInfos.back();
++			write.pImageInfo = infos.data();
 +			break;
 +		}
 +		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
 +		{
-+			VkDescriptorImageInfo info = {};
-+			info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-+			::Tr2TextureAL texture;
-+			uint32_t mip = 0;
-+			if( resourceSet && resourceSet->GetUavTexture( binding.stage, binding.registerIndex, texture, mip ) && texture.IsValid() )
++			imageInfos.push_back( {} );
++			std::vector<VkDescriptorImageInfo>& infos = imageInfos.back();
++			infos.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
 +			{
-+				info.imageView = GetTextureImpl( texture )->GetVkStorageView( mip );
++				VkDescriptorImageInfo& info = infos[i];
++				info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
++				::Tr2TextureAL texture;
++				uint32_t mip = 0;
++				if( resourceSet && resourceSet->GetUavTexture( binding.stage, binding.registerIndex + i, texture, mip ) && texture.IsValid() )
++				{
++					info.imageView = GetTextureImpl( texture )->GetVkStorageView( mip );
++				}
++				else
++				{
++					info.imageView = m_vulkanContext->GetDummyImageView(
++						binding.registerType == Tr2ShaderRegisterAL::UAV_TEXTURE3D ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D );
++				}
 +			}
-+			else
-+			{
-+				info.imageView = m_vulkanContext->GetDummyImageView(
-+					binding.registerType == Tr2ShaderRegisterAL::UAV_TEXTURE3D ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D );
-+			}
-+			imageInfos.push_back( info );
-+			write.pImageInfo = &imageInfos.back();
++			write.pImageInfo = infos.data();
 +			break;
 +		}
 +		case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 +		{
-+			VkDescriptorBufferInfo info = {};
-+			::Tr2BufferAL buffer;
-+			bool found = false;
-+			if( resourceSet )
++			bufferInfos.push_back( {} );
++			std::vector<VkDescriptorBufferInfo>& infos = bufferInfos.back();
++			infos.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
 +			{
-+				found = ( binding.registerType == Tr2ShaderRegisterAL::SRV_STRUCTURED_BUFFER )
-+					? resourceSet->GetSrvBuffer( binding.stage, binding.registerIndex, buffer )
-+					: resourceSet->GetUavBuffer( binding.stage, binding.registerIndex, buffer );
++				VkDescriptorBufferInfo& info = infos[i];
++				::Tr2BufferAL buffer;
++				bool found = false;
++				if( resourceSet )
++				{
++					found = ( binding.registerType == Tr2ShaderRegisterAL::SRV_STRUCTURED_BUFFER )
++						? resourceSet->GetSrvBuffer( binding.stage, binding.registerIndex + i, buffer )
++						: resourceSet->GetUavBuffer( binding.stage, binding.registerIndex + i, buffer );
++				}
++				if( found && buffer.IsValid() )
++				{
++					info.buffer = buffer.TrinityALImpl_GetObject()->GetVkBuffer();
++					info.range = VK_WHOLE_SIZE;
++				}
++				else
++				{
++					info.buffer = m_vulkanContext->GetDummyStorageBuffer();
++					info.range = VK_WHOLE_SIZE;
++				}
 +			}
-+			if( found && buffer.IsValid() )
-+			{
-+				info.buffer = buffer.TrinityALImpl_GetObject()->GetVkBuffer();
-+				info.range = VK_WHOLE_SIZE;
-+			}
-+			else
-+			{
-+				info.buffer = m_vulkanContext->GetDummyStorageBuffer();
-+				info.range = VK_WHOLE_SIZE;
-+			}
-+			bufferInfos.push_back( info );
-+			write.pBufferInfo = &bufferInfos.back();
++			write.pBufferInfo = infos.data();
 +			break;
 +		}
 +		case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
 +		case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
 +		{
-+			VkBufferView view = VK_NULL_HANDLE;
++			bufferViews.push_back( {} );
++			std::vector<VkBufferView>& views = bufferViews.back();
++			views.resize( count );
++			for( uint32_t i = 0; i < count; ++i )
++			{
++				VkBufferView view = VK_NULL_HANDLE;
++				::Tr2BufferAL buffer;
++				bool found = false;
++				if( resourceSet )
++				{
++					found = ( binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER )
++						? resourceSet->GetSrvBuffer( binding.stage, binding.registerIndex + i, buffer )
++						: resourceSet->GetUavBuffer( binding.stage, binding.registerIndex + i, buffer );
++				}
++				if( found && buffer.IsValid() )
++				{
++					view = buffer.TrinityALImpl_GetObject()->GetVkBufferView();
++				}
++				if( view == VK_NULL_HANDLE )
++				{
++					view = binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
++						? m_vulkanContext->GetDummyUniformTexelBufferView()
++						: m_vulkanContext->GetDummyStorageTexelBufferView();
++				}
++				views[i] = view;
++			}
++			write.pTexelBufferView = views.data();
++			break;
++		}
++		case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
++		{
++			// A top level acceleration structure bound through its backing
++			// buffer (Tr2RtTopLevelAccelerationStructureAL::GetBuffer()). Arrays
++			// of acceleration structures are not supported.
 +			::Tr2BufferAL buffer;
-+			bool found = false;
-+			if( resourceSet )
++			VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
++			if( resourceSet && resourceSet->GetSrvBuffer( binding.stage, binding.registerIndex, buffer ) && buffer.IsValid() )
 +			{
-+				found = ( binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER )
-+					? resourceSet->GetSrvBuffer( binding.stage, binding.registerIndex, buffer )
-+					: resourceSet->GetUavBuffer( binding.stage, binding.registerIndex, buffer );
++				accelerationStructure = buffer.TrinityALImpl_GetObject()->GetAccelerationStructure();
 +			}
-+			if( found && buffer.IsValid() )
++			if( accelerationStructure == VK_NULL_HANDLE )
 +			{
-+				view = buffer.TrinityALImpl_GetObject()->GetVkBufferView();
++				// There is no dummy acceleration structure to fall back on.
++				return E_INVALIDARG;
 +			}
-+			if( view == VK_NULL_HANDLE )
-+			{
-+				view = binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
-+					? m_vulkanContext->GetDummyUniformTexelBufferView()
-+					: m_vulkanContext->GetDummyStorageTexelBufferView();
-+			}
-+			bufferViews.push_back( view );
-+			write.pTexelBufferView = &bufferViews.back();
++			accelerationStructures.push_back( accelerationStructure );
++
++			VkWriteDescriptorSetAccelerationStructureKHR info = {};
++			info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
++			info.accelerationStructureCount = 1;
++			info.pAccelerationStructures = &accelerationStructures.back();
++			accelerationStructureInfos.push_back( info );
++			write.descriptorCount = 1;
++			write.pNext = &accelerationStructureInfos.back();
 +			break;
 +		}
 +		default:
@@ -3593,8 +3784,8 @@ index 00000000..4afae1f6
 +	VkPipeline pipeline = VK_NULL_HANDLE;
 +	CR_RETURN_HR( GetOrCreateGraphicsPipeline( stream0StrideOverride, pipeline ) );
 +
-+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-+	CR_RETURN_HR( BuildDescriptorSet( *program, descriptorSet ) );
++	std::vector<VkDescriptorSet> descriptorSets;
++	CR_RETURN_HR( BuildDescriptorSet( *program, descriptorSets ) );
 +
 +	// Assemble the dynamic rendering info for the currently bound targets.
 +	VkRenderingAttachmentInfo colorAttachments[MAX_RENDER_TARGET] = {};
@@ -3655,7 +3846,7 @@ index 00000000..4afae1f6
 +	commandBuffer = m_vulkanContext->BeginRenderingScope( renderingInfo, targetsHash );
 +
 +	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program->GetPipelineLayout(), VulkanBindingModel::DESCRIPTOR_SET, 1, &descriptorSet, 0, nullptr );
++	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program->GetPipelineLayout(), VulkanBindingModel::DESCRIPTOR_SET, (uint32_t)descriptorSets.size(), descriptorSets.data(), 0, nullptr );
 +
 +	// Flipped viewport to match the Direct3D coordinate system.
 +	VkViewport viewport = {};
@@ -4008,8 +4199,8 @@ index 00000000..4afae1f6
 +		pipeline = m_vulkanContext->AddPipelineToCache( hash, newPipeline );
 +	}
 +
-+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-+	CR_RETURN_HR( BuildDescriptorSet( *program, descriptorSet ) );
++	std::vector<VkDescriptorSet> descriptorSets;
++	CR_RETURN_HR( BuildDescriptorSet( *program, descriptorSets ) );
 +
 +	commandBuffer = m_vulkanContext->GetCommandBuffer();
 +
@@ -4020,7 +4211,7 @@ index 00000000..4afae1f6
 +	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 1, &before, 0, nullptr, 0, nullptr );
 +
 +	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline );
-+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, program->GetPipelineLayout(), VulkanBindingModel::DESCRIPTOR_SET, 1, &descriptorSet, 0, nullptr );
++	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, program->GetPipelineLayout(), VulkanBindingModel::DESCRIPTOR_SET, (uint32_t)descriptorSets.size(), descriptorSets.data(), 0, nullptr );
 +	return S_OK;
 +}
 +
@@ -4057,6 +4248,61 @@ index 00000000..4afae1f6
 +	CR_RETURN_HR( SetupCompute( commandBuffer ) );
 +	vkCmdDispatchIndirect( commandBuffer, argsBuffer.TrinityALImpl_GetObject()->GetVkBuffer(), offset );
 +	EmitPostDispatchBarrier( commandBuffer );
++	return S_OK;
++}
++
++ALResult Tr2RenderContextAL::DispatchRays( Tr2RtPipelineStateAL& pipeline, Tr2RtShaderTableAL& shaderTable, const wchar_t* rayGenShader, uint32_t width, uint32_t height, uint32_t depth )
++{
++	if( !IsValid() || !m_caps.SupportsRaytracing() )
++	{
++		return E_FAIL;
++	}
++	if( !pipeline.IsValid() || !shaderTable.IsValid() )
++	{
++		return E_INVALIDARG;
++	}
++
++	TrinityALImpl::Tr2RtPipelineStateAL* pipelineImpl = pipeline.TrinityALImpl_GetObject();
++	TrinityALImpl::Tr2RtShaderTableAL* shaderTableImpl = shaderTable.TrinityALImpl_GetObject();
++
++	const VkStridedDeviceAddressRegionKHR rayGenRegion = shaderTableImpl->GetRayGenRegion( rayGenShader );
++	if( rayGenRegion.deviceAddress == 0 )
++	{
++		return E_INVALIDARG;
++	}
++	const VkStridedDeviceAddressRegionKHR missRegion = shaderTableImpl->GetMissRegion();
++	const VkStridedDeviceAddressRegionKHR hitGroupRegion = shaderTableImpl->GetHitGroupRegion();
++	const VkStridedDeviceAddressRegionKHR callableRegion = {};
++
++	// Ray tracing uses a single descriptor set (space0 only); wrap it to reuse
++	// the shared multi-set builder.
++	std::vector<VkDescriptorSetLayout> rtLayouts = { pipelineImpl->GetDescriptorSetLayout() };
++	std::vector<VkDescriptorSet> descriptorSets;
++	CR_RETURN_HR( BuildDescriptorSet( rtLayouts, pipelineImpl->GetBindings(), descriptorSets ) );
++
++	VkCommandBuffer commandBuffer = m_vulkanContext->GetCommandBuffer();
++
++	// Make preceding writes (acceleration structure builds, UAV clears,
++	// constant uploads) visible to the trace.
++	VkMemoryBarrier before = {};
++	before.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	before.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
++	before.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &before, 0, nullptr, 0, nullptr );
++
++	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineImpl->GetPipeline() );
++	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineImpl->GetPipelineLayout(), VulkanBindingModel::DESCRIPTOR_SET, (uint32_t)descriptorSets.size(), descriptorSets.data(), 0, nullptr );
++
++	m_vulkanContext->GetRayTracingFunctions().vkCmdTraceRaysKHR( commandBuffer, &rayGenRegion, &missRegion, &hitGroupRegion, &callableRegion, width, height, depth );
++
++	// Make the trace's writes (typically to UAV textures) visible to
++	// whatever consumes them next.
++	VkMemoryBarrier after = {};
++	after.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	after.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
++	after.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &after, 0, nullptr, 0, nullptr );
++
 +	return S_OK;
 +}
 +
@@ -4441,10 +4687,10 @@ index 00000000..4afae1f6
 +#endif
 diff --git a/trinityal/vulkan/Tr2RenderContextVulkan.h b/trinityal/vulkan/Tr2RenderContextVulkan.h
 new file mode 100644
-index 00000000..0607a8cd
+index 00000000..4692a483
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2RenderContextVulkan.h
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,332 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -4468,8 +4714,10 @@ index 00000000..0607a8cd
 +#include "../include/upscaling/Tr2UpscalingAL.h"
 +
 +#include "VulkanCommon.h"
++#include "Tr2ShaderProgramALVulkan.h"
 +
 +#include <memory>
++#include <vector>
 +
 +class Tr2ConstantBufferAL;
 +class Tr2VertexLayoutAL;
@@ -4620,10 +4868,7 @@ index 00000000..0607a8cd
 +	ALResult RunComputeShader( unsigned groupCountX, unsigned groupCountY, unsigned groupCountZ );
 +	ALResult RunComputeShaderIndirect( Tr2BufferAL& argsBuffer, unsigned offset );
 +
-+	ALResult DispatchRays( Tr2RtPipelineStateAL&, Tr2RtShaderTableAL&, const wchar_t*, uint32_t, uint32_t, uint32_t )
-+	{
-+		return E_FAIL;
-+	}
++	ALResult DispatchRays( Tr2RtPipelineStateAL& pipeline, Tr2RtShaderTableAL& shaderTable, const wchar_t* rayGenShader, uint32_t width, uint32_t height, uint32_t depth );
 +
 +	ALResult SetVertexLayout( const Tr2VertexLayoutAL& layout );
 +
@@ -4738,7 +4983,10 @@ index 00000000..0607a8cd
 +	};
 +
 +	// Descriptor set construction and graphics/compute pipeline creation.
-+	ALResult BuildDescriptorSet( TrinityALImpl::Tr2ShaderProgramAL& program, VkDescriptorSet& descriptorSet );
++	// The generic overload is shared with ray tracing dispatch, which has its
++	// own layout and bindings on the pipeline state instead of a program.
++	ALResult BuildDescriptorSet( TrinityALImpl::Tr2ShaderProgramAL& program, std::vector<VkDescriptorSet>& descriptorSets );
++	ALResult BuildDescriptorSet( const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<TrinityALImpl::Tr2ShaderProgramAL::BindingInfo>& bindings, std::vector<VkDescriptorSet>& descriptorSets );
 +	ALResult GetOrCreateGraphicsPipeline( uint32_t stream0StrideOverride, VkPipeline& pipeline );
 +	uint64_t ComputeGraphicsPipelineHash( uint32_t stream0StrideOverride ) const;
 +	ALResult SetupDraw( uint32_t stream0StrideOverride, VkBuffer stream0Override, VkDeviceSize stream0Offset, VkCommandBuffer& commandBuffer );
@@ -4777,10 +5025,10 @@ index 00000000..0607a8cd
 +#endif // Tr2RenderContextVulkan_h_
 diff --git a/trinityal/vulkan/Tr2ResourceSetALVulkan.cpp b/trinityal/vulkan/Tr2ResourceSetALVulkan.cpp
 new file mode 100644
-index 00000000..64b7aebd
+index 00000000..78557daf
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ResourceSetALVulkan.cpp
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,184 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -4790,6 +5038,7 @@ index 00000000..64b7aebd
 +#include "Tr2ResourceSetALVulkan.h"
 +#include "Tr2RenderContextVulkan.h"
 +#include "../include/Tr2ShaderProgramAL.h"
++#include "../include/Tr2RtPipelineStateAL.h"
 +
 +namespace TrinityALImpl
 +{
@@ -4808,6 +5057,24 @@ index 00000000..64b7aebd
 +		return E_INVALIDCALL;
 +	}
 +	if( !program.IsValid() )
++	{
++		return E_INVALIDARG;
++	}
++
++	m_description = description;
++	m_isValid = true;
++	return S_OK;
++}
++
++ALResult Tr2ResourceSetAL::Create( const Tr2ResourceSetDescriptionAL& description, const ::Tr2RtPipelineStateAL& pipeline, Tr2PrimaryRenderContextAL& renderContext )
++{
++	Destroy();
++
++	if( !renderContext.IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !pipeline.IsValid() )
 +	{
 +		return E_INVALIDARG;
 +	}
@@ -4948,10 +5215,10 @@ index 00000000..64b7aebd
 +#endif
 diff --git a/trinityal/vulkan/Tr2ResourceSetALVulkan.h b/trinityal/vulkan/Tr2ResourceSetALVulkan.h
 new file mode 100644
-index 00000000..4a5930bf
+index 00000000..6ffdf7ce
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ResourceSetALVulkan.h
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,48 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -4969,6 +5236,7 @@ index 00000000..4a5930bf
 +	Tr2ResourceSetAL();
 +
 +	ALResult Create( const Tr2ResourceSetDescriptionAL& description, const ::Tr2ShaderProgramAL& program, Tr2PrimaryRenderContextAL& renderContext );
++	ALResult Create( const Tr2ResourceSetDescriptionAL& description, const ::Tr2RtPipelineStateAL& pipeline, Tr2PrimaryRenderContextAL& renderContext );
 +	bool IsValid() const;
 +
 +	void Destroy();
@@ -4996,6 +5264,1906 @@ index 00000000..4a5930bf
 +	Tr2ResourceSetDescriptionAL m_description;
 +	bool m_isValid;
 +};
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.cpp b/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.cpp
+new file mode 100644
+index 00000000..f86a9066
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.cpp
+@@ -0,0 +1,367 @@
++// Copyright © 2026 CCP ehf.
++
++#include "StdAfx.h"
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "Tr2RtBottomLevelAccelerationStructureALVulkan.h"
++#include "Tr2RenderContextVulkan.h"
++#include "Tr2BufferALVulkan.h"
++#include "VulkanContext.h"
++
++namespace TrinityALImpl
++{
++
++VkBuildAccelerationStructureFlagsKHR ToVkBuildFlags( Tr2RtBuildFlags::Type buildFlags )
++{
++	VkBuildAccelerationStructureFlagsKHR result = 0;
++	if( HasFlag( buildFlags, Tr2RtBuildFlags::ALLOW_UPDATE ) )
++	{
++		result |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
++	}
++	if( HasFlag( buildFlags, Tr2RtBuildFlags::ALLOW_COMPACTION ) )
++	{
++		result |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
++	}
++	if( HasFlag( buildFlags, Tr2RtBuildFlags::PREFER_FAST_TRACE ) )
++	{
++		result |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
++	}
++	if( HasFlag( buildFlags, Tr2RtBuildFlags::PREFER_FAST_BUILD ) )
++	{
++		result |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
++	}
++	if( HasFlag( buildFlags, Tr2RtBuildFlags::MINIMIZE_MEMORY ) )
++	{
++		result |= VK_BUILD_ACCELERATION_STRUCTURE_LOW_MEMORY_BIT_KHR;
++	}
++	return result;
++}
++
++namespace
++{
++
++VkDeviceSize Align( VkDeviceSize offset, VkDeviceSize alignment )
++{
++	return ( offset + ( alignment - 1 ) ) & ~( alignment - 1 );
++}
++
++VkIndexType GetIndexType( const Tr2RtIndicesStreamAL& indices )
++{
++	return indices.m_stride == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
++}
++
++// Triangle geometry description used both for size queries (where the device
++// addresses are ignored) and for the actual build.
++VkAccelerationStructureGeometryKHR MakeGeometry( const Tr2RtGeometryAL& geometry, Tr2RtBlasGeometryFlags::Type geometryFlags )
++{
++	const Tr2RtPositionStreamAL& positions = geometry.positions;
++	const Tr2RtIndicesStreamAL& indices = geometry.indices;
++
++	VkAccelerationStructureGeometryKHR result = {};
++	result.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
++	result.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
++	result.flags = geometryFlags ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
++
++	VkAccelerationStructureGeometryTrianglesDataKHR& triangles = result.geometry.triangles;
++	triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
++	triangles.vertexFormat = ToVkFormat( positions.m_positionFormat );
++	triangles.vertexStride = positions.m_stride;
++	triangles.maxVertex = positions.m_vertexCount ? positions.m_vertexCount - 1 : 0;
++	triangles.indexType = GetIndexType( indices );
++
++	if( positions.m_vertexBuffer.IsValid() )
++	{
++		triangles.vertexData.deviceAddress = positions.m_vertexBuffer.TrinityALImpl_GetObject()->GetDeviceAddress() +
++			(VkDeviceSize)positions.m_vertexOffset * positions.m_stride + positions.m_positionOffset;
++	}
++	if( indices.m_indexBuffer.IsValid() )
++	{
++		triangles.indexData.deviceAddress = indices.m_indexBuffer.TrinityALImpl_GetObject()->GetDeviceAddress() +
++			(VkDeviceSize)indices.m_indexOffset * indices.m_stride;
++	}
++	return result;
++}
++
++bool ValidGeometryInput( const Tr2RtGeometryAL& geometry )
++{
++	return geometry.positions.IsValid() &&
++		Tr2GpuUsage::HasFlag( geometry.positions.m_vertexBuffer.GetDesc().gpuUsage, Tr2GpuUsage::SHADER_RESOURCE ) &&
++		geometry.indices.IsValid() &&
++		Tr2GpuUsage::HasFlag( geometry.indices.m_indexBuffer.GetDesc().gpuUsage, Tr2GpuUsage::SHADER_RESOURCE );
++}
++
++}
++
++Tr2RtBottomLevelAccelerationStructureAL::Tr2RtBottomLevelAccelerationStructureAL() :
++	m_accelerationStructure( VK_NULL_HANDLE ),
++	m_buffer( VK_NULL_HANDLE ),
++	m_bufferAllocation( VK_NULL_HANDLE ),
++	m_scratch( VK_NULL_HANDLE ),
++	m_scratchAllocation( VK_NULL_HANDLE ),
++	m_address( 0 ),
++	m_scratchAddress( 0 ),
++	m_bufferSize( 0 ),
++	m_scratchSize( 0 ),
++	m_geometryFlags{},
++	m_buildFlags{}
++{
++}
++
++Tr2RtBottomLevelAccelerationStructureAL::~Tr2RtBottomLevelAccelerationStructureAL()
++{
++	Destroy();
++}
++
++ALResult Tr2RtBottomLevelAccelerationStructureAL::Create( const Tr2RtGeometryAL& geometry, const Tr2RtGeometryAL& capacity, Tr2RtBlasGeometryFlags::Type geometryFlags, Tr2RtBuildFlags::Type buildFlags, Tr2PrimaryRenderContextAL& renderContext )
++{
++	Destroy();
++
++	if( !renderContext.IsValid() || !renderContext.GetCaps().SupportsRaytracing() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !ValidGeometryInput( geometry ) || !ValidGeometryInput( capacity ) )
++	{
++		return E_INVALIDARG;
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	const VulkanRayTracingFunctions& functions = context->GetRayTracingFunctions();
++
++	// Size the structure for the capacity geometry so later updates with up to
++	// that many primitives fit.
++	VkAccelerationStructureGeometryKHR sizingGeometry = MakeGeometry( capacity, geometryFlags );
++
++	VkAccelerationStructureBuildGeometryInfoKHR sizingInfo = {};
++	sizingInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
++	sizingInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
++	sizingInfo.flags = ToVkBuildFlags( buildFlags );
++	sizingInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
++	sizingInfo.geometryCount = 1;
++	sizingInfo.pGeometries = &sizingGeometry;
++
++	const uint32_t maxPrimitiveCount = capacity.indices.m_indexCount / 3;
++	VkAccelerationStructureBuildSizesInfoKHR sizes = {};
++	sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
++	functions.vkGetAccelerationStructureBuildSizesKHR( context->GetDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &sizingInfo, &maxPrimitiveCount, &sizes );
++
++	if( sizes.accelerationStructureSize == 0 )
++	{
++		return E_INVALIDCALL;
++	}
++
++	// The backing buffer holding the acceleration structure data.
++	{
++		VkBufferCreateInfo bufferCreateInfo = {};
++		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
++		bufferCreateInfo.size = Align( sizes.accelerationStructureSize, 256 );
++		bufferCreateInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++
++		VmaAllocationCreateInfo allocationCreateInfo = {};
++		allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++		VK_CR_RETURN_HR( vmaCreateBufferWithAlignment( context->GetAllocator(), &bufferCreateInfo, &allocationCreateInfo, 256, &m_buffer, &m_bufferAllocation, nullptr ) );
++		m_bufferSize = bufferCreateInfo.size;
++	}
++
++	VkAccelerationStructureCreateInfoKHR createInfo = {};
++	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
++	createInfo.buffer = m_buffer;
++	createInfo.size = m_bufferSize;
++	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
++	VK_CR_RETURN_HR( functions.vkCreateAccelerationStructureKHR( context->GetDevice(), &createInfo, nullptr, &m_accelerationStructure ) );
++
++	VkAccelerationStructureDeviceAddressInfoKHR addressInfo = {};
++	addressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
++	addressInfo.accelerationStructure = m_accelerationStructure;
++	m_address = functions.vkGetAccelerationStructureDeviceAddressKHR( context->GetDevice(), &addressInfo );
++
++	// Scratch memory for the build; kept alive for refits when updates are allowed.
++	{
++		const VkDeviceSize scratchAlignment = std::max<VkDeviceSize>( context->GetAccelerationStructureProperties().minAccelerationStructureScratchOffsetAlignment, 1 );
++		VkBufferCreateInfo bufferCreateInfo = {};
++		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
++		bufferCreateInfo.size = Align( std::max( sizes.buildScratchSize, sizes.updateScratchSize ), scratchAlignment );
++		bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++
++		VmaAllocationCreateInfo allocationCreateInfo = {};
++		allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++		VK_CR_RETURN_HR( vmaCreateBufferWithAlignment( context->GetAllocator(), &bufferCreateInfo, &allocationCreateInfo, scratchAlignment, &m_scratch, &m_scratchAllocation, nullptr ) );
++		m_scratchSize = bufferCreateInfo.size;
++
++		VkBufferDeviceAddressInfo scratchAddressInfo = {};
++		scratchAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
++		scratchAddressInfo.buffer = m_scratch;
++		m_scratchAddress = vkGetBufferDeviceAddress( context->GetDevice(), &scratchAddressInfo );
++	}
++
++	m_geometryFlags = geometryFlags;
++	m_buildFlags = buildFlags;
++
++	CR_RETURN_HR( Build( geometry, VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR ) );
++
++	if( !HasFlag( buildFlags, Tr2RtBuildFlags::ALLOW_UPDATE ) )
++	{
++		// The scratch buffer is only needed while the recorded build executes.
++		context->DestroyBufferLater( m_scratch, m_scratchAllocation );
++		m_scratch = VK_NULL_HANDLE;
++		m_scratchAllocation = VK_NULL_HANDLE;
++		m_scratchSize = 0;
++	}
++
++	return S_OK;
++}
++
++ALResult Tr2RtBottomLevelAccelerationStructureAL::Build( const Tr2RtGeometryAL& geometry, VkBuildAccelerationStructureModeKHR mode )
++{
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	const VulkanRayTracingFunctions& functions = context->GetRayTracingFunctions();
++
++	VkAccelerationStructureGeometryKHR buildGeometry = MakeGeometry( geometry, m_geometryFlags );
++
++	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
++	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
++	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
++	buildInfo.flags = ToVkBuildFlags( m_buildFlags );
++	buildInfo.mode = mode;
++	buildInfo.srcAccelerationStructure = mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR ? m_accelerationStructure : VK_NULL_HANDLE;
++	buildInfo.dstAccelerationStructure = m_accelerationStructure;
++	buildInfo.geometryCount = 1;
++	buildInfo.pGeometries = &buildGeometry;
++	buildInfo.scratchData.deviceAddress = m_scratchAddress;
++
++	VkAccelerationStructureBuildRangeInfoKHR range = {};
++	range.primitiveCount = geometry.indices.m_indexCount / 3;
++	const VkAccelerationStructureBuildRangeInfoKHR* ranges[] = { &range };
++
++	VkCommandBuffer commandBuffer = context->GetCommandBuffer();
++
++	// Make preceding writes to the vertex/index data visible to the build.
++	VkMemoryBarrier before = {};
++	before.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	before.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
++	before.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &before, 0, nullptr, 0, nullptr );
++
++	functions.vkCmdBuildAccelerationStructuresKHR( commandBuffer, 1, &buildInfo, ranges );
++
++	// Make the built structure visible to top level builds and ray traversal.
++	VkMemoryBarrier after = {};
++	after.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	after.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	after.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &after, 0, nullptr, 0, nullptr );
++
++	m_shape.vertexCount = geometry.positions.m_vertexCount;
++	m_shape.vertexStride = geometry.positions.m_stride;
++	m_shape.vertexFormat = ToVkFormat( geometry.positions.m_positionFormat );
++	m_shape.indexCount = geometry.indices.m_indexCount;
++	m_shape.indexType = GetIndexType( geometry.indices );
++	return S_OK;
++}
++
++ALResult Tr2RtBottomLevelAccelerationStructureAL::Update( const Tr2RtGeometryAL& geometry, Tr2RenderContextAL& renderContext )
++{
++	if( !IsValid() || m_scratch == VK_NULL_HANDLE )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !renderContext.IsValid() || !ValidGeometryInput( geometry ) )
++	{
++		return E_INVALIDARG;
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++
++	const bool rebuild = m_shape.vertexCount != geometry.positions.m_vertexCount ||
++		m_shape.vertexStride != geometry.positions.m_stride ||
++		m_shape.vertexFormat != ToVkFormat( geometry.positions.m_positionFormat ) ||
++		m_shape.indexCount != geometry.indices.m_indexCount ||
++		m_shape.indexType != GetIndexType( geometry.indices );
++
++	if( rebuild )
++	{
++		// The new shape must fit within the buffers sized at creation.
++		VkAccelerationStructureGeometryKHR sizingGeometry = MakeGeometry( geometry, m_geometryFlags );
++		VkAccelerationStructureBuildGeometryInfoKHR sizingInfo = {};
++		sizingInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
++		sizingInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
++		sizingInfo.flags = ToVkBuildFlags( m_buildFlags );
++		sizingInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
++		sizingInfo.geometryCount = 1;
++		sizingInfo.pGeometries = &sizingGeometry;
++
++		const uint32_t primitiveCount = geometry.indices.m_indexCount / 3;
++		VkAccelerationStructureBuildSizesInfoKHR sizes = {};
++		sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
++		context->GetRayTracingFunctions().vkGetAccelerationStructureBuildSizesKHR( context->GetDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &sizingInfo, &primitiveCount, &sizes );
++
++		if( sizes.accelerationStructureSize == 0 || sizes.accelerationStructureSize > m_bufferSize || sizes.buildScratchSize > m_scratchSize )
++		{
++			return E_INVALIDARG;
++		}
++	}
++
++	return Build( geometry, rebuild ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR );
++}
++
++ALResult Tr2RtBottomLevelAccelerationStructureAL::CompactBlas( Tr2PrimaryRenderContextAL& )
++{
++	// Compaction is not implemented (the DX12 backend does not implement it
++	// either); the uncompacted structure remains fully functional.
++	return S_OK;
++}
++
++void Tr2RtBottomLevelAccelerationStructureAL::Destroy()
++{
++	VulkanContext* context = GetVulkanContext();
++	if( context && context->IsValid() )
++	{
++		context->DestroyAccelerationStructureLater( m_accelerationStructure );
++		context->DestroyBufferLater( m_buffer, m_bufferAllocation );
++		context->DestroyBufferLater( m_scratch, m_scratchAllocation );
++	}
++	m_accelerationStructure = VK_NULL_HANDLE;
++	m_buffer = VK_NULL_HANDLE;
++	m_bufferAllocation = VK_NULL_HANDLE;
++	m_scratch = VK_NULL_HANDLE;
++	m_scratchAllocation = VK_NULL_HANDLE;
++	m_address = 0;
++	m_scratchAddress = 0;
++	m_bufferSize = 0;
++	m_scratchSize = 0;
++	m_shape = GeometryShape();
++}
++
++bool Tr2RtBottomLevelAccelerationStructureAL::IsValid() const
++{
++	return m_accelerationStructure != VK_NULL_HANDLE;
++}
++
++Tr2ALMemoryType Tr2RtBottomLevelAccelerationStructureAL::GetMemoryClass() const
++{
++	return AL_MEMORY_MANAGED;
++}
++
++void Tr2RtBottomLevelAccelerationStructureAL::Describe( Tr2DeviceResourceDescriptionAL& description ) const
++{
++	description["type"] = "Tr2RtBottomLevelAccelerationStructureAL";
++}
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.h b/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.h
+new file mode 100644
+index 00000000..c67c17ec
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtBottomLevelAccelerationStructureALVulkan.h
+@@ -0,0 +1,73 @@
++// Copyright © 2026 CCP ehf.
++
++#pragma once
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "../include/Tr2RtBottomLevelAccelerationStructureAL.h"
++#include "VulkanCommon.h"
++
++namespace TrinityALImpl
++{
++
++// Shared by the bottom and top level implementations; the flag values match
++// VkBuildAccelerationStructureFlagBitsKHR bit for bit, but are mapped
++// explicitly so a divergence fails loudly instead of silently.
++VkBuildAccelerationStructureFlagsKHR ToVkBuildFlags( Tr2RtBuildFlags::Type buildFlags );
++
++class Tr2RtBottomLevelAccelerationStructureAL : public Tr2DeviceResourceAL<Tr2RtBottomLevelAccelerationStructureAL>
++{
++public:
++	Tr2RtBottomLevelAccelerationStructureAL();
++	~Tr2RtBottomLevelAccelerationStructureAL();
++
++	ALResult Create( const Tr2RtGeometryAL& geometry, const Tr2RtGeometryAL& capacity, Tr2RtBlasGeometryFlags::Type geometryFlags, Tr2RtBuildFlags::Type buildFlags, Tr2PrimaryRenderContextAL& renderContext );
++	ALResult Update( const Tr2RtGeometryAL& geometry, Tr2RenderContextAL& renderContext );
++	ALResult CompactBlas( Tr2PrimaryRenderContextAL& renderContext );
++	bool IsValid() const;
++
++	void Destroy();
++	Tr2ALMemoryType GetMemoryClass() const;
++	void Describe( Tr2DeviceResourceDescriptionAL& description ) const;
++
++	VkAccelerationStructureKHR GetAccelerationStructure() const
++	{
++		return m_accelerationStructure;
++	}
++
++	VkDeviceAddress GetDeviceAddress() const
++	{
++		return m_address;
++	}
++
++private:
++	// The geometry shape the structure was last built with; a mismatch on
++	// Update() forces a full rebuild instead of a refit.
++	struct GeometryShape
++	{
++		uint32_t vertexCount = 0;
++		uint32_t vertexStride = 0;
++		VkFormat vertexFormat = VK_FORMAT_UNDEFINED;
++		uint32_t indexCount = 0;
++		VkIndexType indexType = VK_INDEX_TYPE_UINT32;
++	};
++
++	ALResult Build( const Tr2RtGeometryAL& geometry, VkBuildAccelerationStructureModeKHR mode );
++
++	VkAccelerationStructureKHR m_accelerationStructure;
++	VkBuffer m_buffer;
++	VmaAllocation m_bufferAllocation;
++	VkBuffer m_scratch;
++	VmaAllocation m_scratchAllocation;
++	VkDeviceAddress m_address;
++	VkDeviceAddress m_scratchAddress;
++	VkDeviceSize m_bufferSize;
++	VkDeviceSize m_scratchSize;
++	GeometryShape m_shape;
++	Tr2RtBlasGeometryFlags::Type m_geometryFlags;
++	Tr2RtBuildFlags::Type m_buildFlags;
++};
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtPipelineStateALVulkan.cpp b/trinityal/vulkan/Tr2RtPipelineStateALVulkan.cpp
+new file mode 100644
+index 00000000..14235c00
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtPipelineStateALVulkan.cpp
+@@ -0,0 +1,573 @@
++// Copyright © 2026 CCP ehf.
++
++#include "StdAfx.h"
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "Tr2RtPipelineStateALVulkan.h"
++#include "Tr2RenderContextVulkan.h"
++#include "VulkanBindingModel.h"
++#include "VulkanContext.h"
++#include "../ALLog.h"
++
++#include <deque>
++#include <string>
++
++namespace TrinityALImpl
++{
++
++namespace
++{
++
++const VkShaderStageFlags RAY_TRACING_STAGES = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR |
++	VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
++	VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CALLABLE_BIT_KHR;
++
++std::string ToUtf8( const std::wstring& name )
++{
++	// Entry point names are plain identifiers; a narrowing copy suffices.
++	std::string result;
++	result.reserve( name.size() );
++	for( wchar_t c : name )
++	{
++		result.push_back( char( c ) );
++	}
++	return result;
++}
++
++// ------------------------------------------------------------------
++// Minimal SPIR-V introspection: entry point execution models (to classify
++// exports as raygen/miss/hit shaders) and the descriptor bindings holding
++// acceleration structures (to type the descriptor set layout correctly).
++// ------------------------------------------------------------------
++
++struct SpirvEntryPoint
++{
++	uint32_t executionModel;
++	std::string name;
++};
++
++struct SpirvModuleInfo
++{
++	std::vector<SpirvEntryPoint> entryPoints;
++	std::vector<uint32_t> accelerationStructureBindings;
++};
++
++const uint32_t SPIRV_MAGIC = 0x07230203;
++const uint16_t OP_ENTRY_POINT = 15;
++const uint16_t OP_TYPE_ARRAY = 28;
++const uint16_t OP_TYPE_POINTER = 32;
++const uint16_t OP_VARIABLE = 59;
++const uint16_t OP_DECORATE = 71;
++const uint16_t OP_TYPE_ACCELERATION_STRUCTURE_KHR = 5341;
++const uint32_t DECORATION_BINDING = 33;
++
++const uint32_t EXECUTION_MODEL_RAY_GENERATION_KHR = 5313;
++const uint32_t EXECUTION_MODEL_INTERSECTION_KHR = 5314;
++const uint32_t EXECUTION_MODEL_ANY_HIT_KHR = 5315;
++const uint32_t EXECUTION_MODEL_CLOSEST_HIT_KHR = 5316;
++const uint32_t EXECUTION_MODEL_MISS_KHR = 5317;
++const uint32_t EXECUTION_MODEL_CALLABLE_KHR = 5318;
++
++bool ParseSpirv( const void* bytecode, size_t size, SpirvModuleInfo& info )
++{
++	if( !bytecode || size < 20 || ( size % 4 ) != 0 )
++	{
++		return false;
++	}
++	const uint32_t* words = static_cast<const uint32_t*>( bytecode );
++	const size_t wordCount = size / 4;
++	if( words[0] != SPIRV_MAGIC )
++	{
++		return false;
++	}
++
++	std::vector<uint32_t> accelerationStructureTypes;
++	std::vector<uint32_t> accelerationStructurePointers;
++	std::vector<uint32_t> accelerationStructureVariables;
++	std::vector<std::pair<uint32_t, uint32_t>> bindings; // id -> binding
++
++	for( size_t at = 5; at < wordCount; )
++	{
++		const uint32_t instruction = words[at];
++		const uint16_t opcode = uint16_t( instruction & 0xffff );
++		const uint16_t length = uint16_t( instruction >> 16 );
++		if( length == 0 || at + length > wordCount )
++		{
++			return false;
++		}
++
++		switch( opcode )
++		{
++		case OP_ENTRY_POINT:
++			if( length >= 4 )
++			{
++				SpirvEntryPoint entryPoint;
++				entryPoint.executionModel = words[at + 1];
++				entryPoint.name = reinterpret_cast<const char*>( &words[at + 3] );
++				info.entryPoints.push_back( entryPoint );
++			}
++			break;
++		case OP_DECORATE:
++			if( length >= 4 && words[at + 2] == DECORATION_BINDING )
++			{
++				bindings.push_back( { words[at + 1], words[at + 3] } );
++			}
++			break;
++		case OP_TYPE_ACCELERATION_STRUCTURE_KHR:
++			if( length >= 2 )
++			{
++				accelerationStructureTypes.push_back( words[at + 1] );
++			}
++			break;
++		case OP_TYPE_ARRAY:
++			// Treat arrays of acceleration structures as the element type.
++			if( length >= 3 &&
++				std::find( accelerationStructureTypes.begin(), accelerationStructureTypes.end(), words[at + 2] ) != accelerationStructureTypes.end() )
++			{
++				accelerationStructureTypes.push_back( words[at + 1] );
++			}
++			break;
++		case OP_TYPE_POINTER:
++			if( length >= 4 &&
++				std::find( accelerationStructureTypes.begin(), accelerationStructureTypes.end(), words[at + 3] ) != accelerationStructureTypes.end() )
++			{
++				accelerationStructurePointers.push_back( words[at + 1] );
++			}
++			break;
++		case OP_VARIABLE:
++			if( length >= 4 &&
++				std::find( accelerationStructurePointers.begin(), accelerationStructurePointers.end(), words[at + 1] ) != accelerationStructurePointers.end() )
++			{
++				accelerationStructureVariables.push_back( words[at + 2] );
++			}
++			break;
++		default:
++			break;
++		}
++		at += length;
++	}
++
++	for( const auto& binding : bindings )
++	{
++		if( std::find( accelerationStructureVariables.begin(), accelerationStructureVariables.end(), binding.first ) != accelerationStructureVariables.end() )
++		{
++			info.accelerationStructureBindings.push_back( binding.second );
++		}
++	}
++	return !info.entryPoints.empty();
++}
++
++VkShaderStageFlagBits ToStageFlag( uint32_t executionModel )
++{
++	switch( executionModel )
++	{
++	case EXECUTION_MODEL_RAY_GENERATION_KHR:
++		return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
++	case EXECUTION_MODEL_INTERSECTION_KHR:
++		return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
++	case EXECUTION_MODEL_ANY_HIT_KHR:
++		return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
++	case EXECUTION_MODEL_CLOSEST_HIT_KHR:
++		return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
++	case EXECUTION_MODEL_MISS_KHR:
++		return VK_SHADER_STAGE_MISS_BIT_KHR;
++	case EXECUTION_MODEL_CALLABLE_KHR:
++		return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
++	default:
++		return VkShaderStageFlagBits( 0 );
++	}
++}
++
++VkDescriptorType GetSrvDescriptorType( Tr2ShaderRegisterAL::RegisterType registerType )
++{
++	switch( registerType )
++	{
++	case Tr2ShaderRegisterAL::SRV_BUFFER:
++		return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
++	case Tr2ShaderRegisterAL::SRV_STRUCTURED_BUFFER:
++		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
++	default:
++		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
++	}
++}
++
++VkDescriptorType GetUavDescriptorType( Tr2ShaderRegisterAL::RegisterType registerType )
++{
++	switch( registerType )
++	{
++	case Tr2ShaderRegisterAL::UAV_BUFFER:
++		return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
++	case Tr2ShaderRegisterAL::UAV_STRUCTURED_BUFFER:
++		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
++	default:
++		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
++	}
++}
++
++}
++
++Tr2RtPipelineStateAL::Tr2RtPipelineStateAL() :
++	m_pipeline( VK_NULL_HANDLE ),
++	m_pipelineLayout( VK_NULL_HANDLE ),
++	m_descriptorSetLayout( VK_NULL_HANDLE ),
++	m_groupHandleSize( 0 )
++{
++}
++
++Tr2RtPipelineStateAL::~Tr2RtPipelineStateAL()
++{
++	Destroy();
++}
++
++ALResult Tr2RtPipelineStateAL::CreateLayouts( const Tr2ShaderSignatureAL& globalSignature, const std::vector<uint32_t>& accelerationStructureBindings )
++{
++	VulkanContext* context = GetVulkanContext();
++
++	// The global signature is bound with the compute stage's slice of the
++	// binding model: DispatchRays consumes constants and resources the caller
++	// registered for Tr2RenderContextEnum::COMPUTE_SHADER.
++	const Tr2RenderContextEnum::ShaderType stage = Tr2RenderContextEnum::COMPUTE_SHADER;
++
++	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
++	std::vector<size_t> staticSamplerBindingIndex;
++
++	for( const Tr2ShaderRegisterAL& reg : globalSignature.registers )
++	{
++		Tr2ShaderProgramAL::BindingInfo info = {};
++		info.stage = stage;
++		info.registerType = reg.registerType;
++		info.registerIndex = reg.registerIndex;
++		info.isStaticSampler = false;
++
++		if( reg.registerType == Tr2ShaderRegisterAL::CONSTANT_BUFFER )
++		{
++			info.binding = VulkanBindingModel::GetCbvBinding( stage, reg.registerIndex );
++			info.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
++		}
++		else if( reg.registerType == Tr2ShaderRegisterAL::SAMPLER )
++		{
++			info.binding = VulkanBindingModel::GetSamplerBinding( stage, reg.registerIndex );
++			info.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
++		}
++		else if( reg.IsSrv() )
++		{
++			info.binding = VulkanBindingModel::GetSrvBinding( stage, reg.registerIndex );
++			info.descriptorType = GetSrvDescriptorType( reg.registerType );
++			// RaytracingAccelerationStructure registers look like plain SRV
++			// buffers in the signature; the SPIR-V knows the real type.
++			if( std::find( accelerationStructureBindings.begin(), accelerationStructureBindings.end(), info.binding ) != accelerationStructureBindings.end() )
++			{
++				info.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
++			}
++		}
++		else if( reg.IsUav() )
++		{
++			info.binding = VulkanBindingModel::GetUavBinding( stage, reg.registerIndex );
++			info.descriptorType = GetUavDescriptorType( reg.registerType );
++		}
++		else
++		{
++			continue;
++		}
++
++		VkDescriptorSetLayoutBinding layoutBinding = {};
++		layoutBinding.binding = info.binding;
++		layoutBinding.descriptorType = info.descriptorType;
++		layoutBinding.descriptorCount = 1;
++		layoutBinding.stageFlags = RAY_TRACING_STAGES;
++		layoutBindings.push_back( layoutBinding );
++		m_bindings.push_back( info );
++	}
++
++	for( const Tr2StaticSamplerAL& staticSampler : globalSignature.samplers )
++	{
++		VkSampler sampler = VK_NULL_HANDLE;
++		CR_RETURN_HR( CreateVkSampler( staticSampler.sampler, sampler ) );
++		m_staticSamplers.push_back( sampler );
++
++		Tr2ShaderProgramAL::BindingInfo info = {};
++		info.stage = stage;
++		info.registerType = Tr2ShaderRegisterAL::SAMPLER;
++		info.registerIndex = staticSampler.registerIndex;
++		info.isStaticSampler = true;
++		info.binding = VulkanBindingModel::GetSamplerBinding( stage, staticSampler.registerIndex );
++		info.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
++
++		VkDescriptorSetLayoutBinding layoutBinding = {};
++		layoutBinding.binding = info.binding;
++		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
++		layoutBinding.descriptorCount = 1;
++		layoutBinding.stageFlags = RAY_TRACING_STAGES;
++		staticSamplerBindingIndex.push_back( layoutBindings.size() );
++		layoutBindings.push_back( layoutBinding );
++		m_bindings.push_back( info );
++	}
++
++	for( size_t i = 0; i < staticSamplerBindingIndex.size(); ++i )
++	{
++		layoutBindings[staticSamplerBindingIndex[i]].pImmutableSamplers = &m_staticSamplers[i];
++	}
++
++	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
++	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
++	layoutCreateInfo.bindingCount = (uint32_t)layoutBindings.size();
++	layoutCreateInfo.pBindings = layoutBindings.data();
++	VK_CR_RETURN_HR( vkCreateDescriptorSetLayout( context->GetDevice(), &layoutCreateInfo, nullptr, &m_descriptorSetLayout ) );
++
++	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
++	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
++	pipelineLayoutCreateInfo.setLayoutCount = 1;
++	pipelineLayoutCreateInfo.pSetLayouts = &m_descriptorSetLayout;
++	VK_CR_RETURN_HR( vkCreatePipelineLayout( context->GetDevice(), &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout ) );
++
++	return S_OK;
++}
++
++ALResult Tr2RtPipelineStateAL::CreateRtPipelineState( const Tr2RtPipelineStateDescriptionAL& desc, Tr2PrimaryRenderContextAL& renderContext )
++{
++	Destroy();
++
++	if( !renderContext.IsValid() || !renderContext.GetCaps().SupportsRaytracing() )
++	{
++		return E_INVALIDCALL;
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	const VulkanRayTracingFunctions& functions = context->GetRayTracingFunctions();
++
++	m_localSignatures = desc.m_localSignatures;
++
++	// One stage per export; pName storage must stay stable until creation.
++	std::deque<std::string> entryPointNames;
++	std::vector<VkPipelineShaderStageCreateInfo> stages;
++	std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
++	std::vector<uint32_t> accelerationStructureBindings;
++
++	// exportName -> stage index + execution model, for hit group resolution.
++	struct ExportedStage
++	{
++		uint32_t stageIndex;
++		VkShaderStageFlagBits stage;
++		uint32_t localSignature;
++	};
++	std::map<std::wstring, ExportedStage> exportedStages;
++
++	for( const auto& shader : desc.m_shaders )
++	{
++		if( !shader.bytecode.bytecode || shader.bytecode.size == 0 )
++		{
++			return E_INVALIDARG;
++		}
++
++		SpirvModuleInfo moduleInfo;
++		if( !ParseSpirv( shader.bytecode.bytecode, shader.bytecode.size, moduleInfo ) )
++		{
++			CCP_AL_LOGERR( "Tr2RtPipelineStateAL: shader bytecode is not a SPIR-V library" );
++			return E_INVALIDARG;
++		}
++		accelerationStructureBindings.insert( accelerationStructureBindings.end(),
++											  moduleInfo.accelerationStructureBindings.begin(),
++											  moduleInfo.accelerationStructureBindings.end() );
++
++		VkShaderModuleCreateInfo moduleCreateInfo = {};
++		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
++		moduleCreateInfo.codeSize = shader.bytecode.size;
++		moduleCreateInfo.pCode = static_cast<const uint32_t*>( shader.bytecode.bytecode );
++		VkShaderModule module = VK_NULL_HANDLE;
++		VK_CR_RETURN_HR( vkCreateShaderModule( context->GetDevice(), &moduleCreateInfo, nullptr, &module ) );
++		m_modules.push_back( module );
++
++		for( const auto& name : shader.names )
++		{
++			const std::string entryPoint = ToUtf8( name.name );
++			uint32_t executionModel = 0;
++			for( const auto& moduleEntryPoint : moduleInfo.entryPoints )
++			{
++				if( moduleEntryPoint.name == entryPoint )
++				{
++					executionModel = moduleEntryPoint.executionModel;
++					break;
++				}
++			}
++			const VkShaderStageFlagBits stageFlag = ToStageFlag( executionModel );
++			if( stageFlag == 0 )
++			{
++				CCP_AL_LOGERR( "Tr2RtPipelineStateAL: entry point \"%s\" not found or not a ray tracing shader", entryPoint.c_str() );
++				return E_INVALIDARG;
++			}
++
++			entryPointNames.push_back( entryPoint );
++
++			VkPipelineShaderStageCreateInfo stage = {};
++			stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
++			stage.stage = stageFlag;
++			stage.module = module;
++			stage.pName = entryPointNames.back().c_str();
++			exportedStages[name.exportName] = { uint32_t( stages.size() ), stageFlag, shader.localSignature };
++			stages.push_back( stage );
++
++			// Ray generation, miss and callable shaders get their own group;
++			// hit shaders are only reachable through hit groups.
++			if( stageFlag == VK_SHADER_STAGE_RAYGEN_BIT_KHR || stageFlag == VK_SHADER_STAGE_MISS_BIT_KHR || stageFlag == VK_SHADER_STAGE_CALLABLE_BIT_KHR )
++			{
++				VkRayTracingShaderGroupCreateInfoKHR group = {};
++				group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
++				group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
++				group.generalShader = uint32_t( stages.size() - 1 );
++				group.closestHitShader = VK_SHADER_UNUSED_KHR;
++				group.anyHitShader = VK_SHADER_UNUSED_KHR;
++				group.intersectionShader = VK_SHADER_UNUSED_KHR;
++
++				m_shaderInfoForName[name.exportName] = { uint32_t( groups.size() ), shader.localSignature };
++				groups.push_back( group );
++			}
++		}
++	}
++
++	for( const auto& hitGroup : desc.m_hitGroups )
++	{
++		auto resolve = [&exportedStages]( const std::wstring& name, VkShaderStageFlagBits expected, uint32_t& stageIndex ) {
++			if( name.empty() )
++			{
++				stageIndex = VK_SHADER_UNUSED_KHR;
++				return true;
++			}
++			auto found = exportedStages.find( name );
++			if( found == exportedStages.end() || found->second.stage != expected )
++			{
++				return false;
++			}
++			stageIndex = found->second.stageIndex;
++			return true;
++		};
++
++		VkRayTracingShaderGroupCreateInfoKHR group = {};
++		group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
++		group.generalShader = VK_SHADER_UNUSED_KHR;
++		if( !resolve( hitGroup.closestHit, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, group.closestHitShader ) ||
++			!resolve( hitGroup.anyHit, VK_SHADER_STAGE_ANY_HIT_BIT_KHR, group.anyHitShader ) ||
++			!resolve( hitGroup.intersection, VK_SHADER_STAGE_INTERSECTION_BIT_KHR, group.intersectionShader ) )
++		{
++			CCP_AL_LOGERR( "Tr2RtPipelineStateAL: hit group references an unknown shader export" );
++			return E_INVALIDARG;
++		}
++		group.type = group.intersectionShader != VK_SHADER_UNUSED_KHR
++			? VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR
++			: VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
++
++		m_shaderInfoForName[hitGroup.exportName] = { uint32_t( groups.size() ), hitGroup.localSignature };
++		groups.push_back( group );
++	}
++
++	if( stages.empty() || groups.empty() )
++	{
++		return E_INVALIDARG;
++	}
++
++	CR_RETURN_HR( CreateLayouts( desc.m_globalSignature, accelerationStructureBindings ) );
++
++	VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo = {};
++	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
++	pipelineCreateInfo.stageCount = (uint32_t)stages.size();
++	pipelineCreateInfo.pStages = stages.data();
++	pipelineCreateInfo.groupCount = (uint32_t)groups.size();
++	pipelineCreateInfo.pGroups = groups.data();
++	pipelineCreateInfo.maxPipelineRayRecursionDepth = 1;
++	pipelineCreateInfo.layout = m_pipelineLayout;
++	VK_CR_RETURN_HR( functions.vkCreateRayTracingPipelinesKHR( context->GetDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline ) );
++
++	// The shader modules are compiled into the pipeline and no longer needed.
++	for( VkShaderModule module : m_modules )
++	{
++		vkDestroyShaderModule( context->GetDevice(), module, nullptr );
++	}
++	m_modules.clear();
++
++	m_groupHandleSize = context->GetRayTracingProperties().shaderGroupHandleSize;
++	m_groupHandles.resize( size_t( groups.size() ) * m_groupHandleSize );
++	VK_CR_RETURN_HR( functions.vkGetRayTracingShaderGroupHandlesKHR( context->GetDevice(), m_pipeline, 0, (uint32_t)groups.size(), m_groupHandles.size(), m_groupHandles.data() ) );
++
++	return S_OK;
++}
++
++void Tr2RtPipelineStateAL::Destroy()
++{
++	VulkanContext* context = GetVulkanContext();
++	if( context && context->IsValid() )
++	{
++		for( VkShaderModule module : m_modules )
++		{
++			vkDestroyShaderModule( context->GetDevice(), module, nullptr );
++		}
++		if( m_pipeline != VK_NULL_HANDLE )
++		{
++			vkDestroyPipeline( context->GetDevice(), m_pipeline, nullptr );
++		}
++		if( m_pipelineLayout != VK_NULL_HANDLE )
++		{
++			vkDestroyPipelineLayout( context->GetDevice(), m_pipelineLayout, nullptr );
++		}
++		if( m_descriptorSetLayout != VK_NULL_HANDLE )
++		{
++			vkDestroyDescriptorSetLayout( context->GetDevice(), m_descriptorSetLayout, nullptr );
++		}
++		for( VkSampler sampler : m_staticSamplers )
++		{
++			vkDestroySampler( context->GetDevice(), sampler, nullptr );
++		}
++	}
++	m_modules.clear();
++	m_pipeline = VK_NULL_HANDLE;
++	m_pipelineLayout = VK_NULL_HANDLE;
++	m_descriptorSetLayout = VK_NULL_HANDLE;
++	m_staticSamplers.clear();
++	m_bindings.clear();
++	m_groupHandles.clear();
++	m_groupHandleSize = 0;
++	m_shaderInfoForName.clear();
++	m_localSignatures.clear();
++}
++
++bool Tr2RtPipelineStateAL::IsValid() const
++{
++	return m_pipeline != VK_NULL_HANDLE;
++}
++
++Tr2ALMemoryType Tr2RtPipelineStateAL::GetMemoryClass() const
++{
++	return AL_MEMORY_MANAGED;
++}
++
++void Tr2RtPipelineStateAL::Describe( Tr2DeviceResourceDescriptionAL& description ) const
++{
++	description["type"] = "Tr2RtPipelineStateAL";
++}
++
++const Tr2RtPipelineStateAL::ShaderInfo* Tr2RtPipelineStateAL::GetShaderInfo( const wchar_t* name ) const
++{
++	auto found = m_shaderInfoForName.find( name );
++	if( found == m_shaderInfoForName.end() )
++	{
++		return nullptr;
++	}
++	return &found->second;
++}
++
++const uint8_t* Tr2RtPipelineStateAL::GetGroupHandle( uint32_t groupIndex ) const
++{
++	const size_t offset = size_t( groupIndex ) * m_groupHandleSize;
++	if( m_groupHandleSize == 0 || offset + m_groupHandleSize > m_groupHandles.size() )
++	{
++		return nullptr;
++	}
++	return m_groupHandles.data() + offset;
++}
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtPipelineStateALVulkan.h b/trinityal/vulkan/Tr2RtPipelineStateALVulkan.h
+new file mode 100644
+index 00000000..35e2872f
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtPipelineStateALVulkan.h
+@@ -0,0 +1,101 @@
++// Copyright © 2026 CCP ehf.
++
++#pragma once
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "../include/Tr2RtPipelineStateAL.h"
++#include "Tr2ShaderProgramALVulkan.h"
++#include "VulkanCommon.h"
++
++#include <map>
++#include <vector>
++
++namespace TrinityALImpl
++{
++
++/*
++  Ray tracing pipeline built from SPIR-V libraries (dxc -T lib_6_3 -spirv).
++
++  Shader stages are classified by parsing the modules' OpEntryPoint execution
++  models, so the caller only provides export/entry point names like on DX12.
++  Ray generation, miss and callable exports each become a GENERAL shader
++  group; the description's hit groups become TRIANGLES/PROCEDURAL groups.
++
++  The global signature is laid out with the compute stage's bindings of
++  VulkanBindingModel (matching how DispatchRays sources constants and
++  resources bound for Tr2RenderContextEnum::COMPUTE_SHADER). Local signatures
++  have no Vulkan equivalent of DX12 local root signatures; their constant
++  buffers are embedded into the shader binding table records instead (see
++  Tr2RtShaderTableAL), which shaders access as shaderRecordEXT data.
++ */
++class Tr2RtPipelineStateAL : public Tr2DeviceResourceAL<Tr2RtPipelineStateAL>
++{
++public:
++	static const uint32_t NO_SIGNATURE = 0xffffffff;
++
++	struct ShaderInfo
++	{
++		uint32_t groupIndex;
++		uint32_t localSignature; // index into GetLocalSignatures(), or NO_SIGNATURE
++	};
++
++	Tr2RtPipelineStateAL();
++	~Tr2RtPipelineStateAL();
++
++	ALResult CreateRtPipelineState( const Tr2RtPipelineStateDescriptionAL& desc, Tr2PrimaryRenderContextAL& renderContext );
++	void Destroy();
++	bool IsValid() const;
++
++	Tr2ALMemoryType GetMemoryClass() const;
++	void Describe( Tr2DeviceResourceDescriptionAL& description ) const;
++
++	const ShaderInfo* GetShaderInfo( const wchar_t* name ) const;
++	const std::vector<Tr2ShaderSignatureAL>& GetLocalSignatures() const
++	{
++		return m_localSignatures;
++	}
++
++	// The shader group handle to copy into a shader binding table record.
++	const uint8_t* GetGroupHandle( uint32_t groupIndex ) const;
++
++	VkPipeline GetPipeline() const
++	{
++		return m_pipeline;
++	}
++
++	VkPipelineLayout GetPipelineLayout() const
++	{
++		return m_pipelineLayout;
++	}
++
++	VkDescriptorSetLayout GetDescriptorSetLayout() const
++	{
++		return m_descriptorSetLayout;
++	}
++
++	// Global signature bindings, in the same form the graphics/compute
++	// programs use so descriptor set construction can be shared.
++	const std::vector<Tr2ShaderProgramAL::BindingInfo>& GetBindings() const
++	{
++		return m_bindings;
++	}
++
++private:
++	ALResult CreateLayouts( const Tr2ShaderSignatureAL& globalSignature, const std::vector<uint32_t>& accelerationStructureBindings );
++
++	VkPipeline m_pipeline;
++	VkPipelineLayout m_pipelineLayout;
++	VkDescriptorSetLayout m_descriptorSetLayout;
++	std::vector<VkShaderModule> m_modules;
++	std::vector<VkSampler> m_staticSamplers;
++	std::vector<Tr2ShaderProgramAL::BindingInfo> m_bindings;
++	std::vector<uint8_t> m_groupHandles;
++	uint32_t m_groupHandleSize;
++	std::map<std::wstring, ShaderInfo> m_shaderInfoForName;
++	std::vector<Tr2ShaderSignatureAL> m_localSignatures;
++};
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtShaderTableALVulkan.cpp b/trinityal/vulkan/Tr2RtShaderTableALVulkan.cpp
+new file mode 100644
+index 00000000..30f5daf1
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtShaderTableALVulkan.cpp
+@@ -0,0 +1,280 @@
++// Copyright © 2026 CCP ehf.
++
++#include "StdAfx.h"
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "Tr2RtShaderTableALVulkan.h"
++#include "Tr2RtPipelineStateALVulkan.h"
++#include "Tr2ConstantBufferALVulkan.h"
++#include "Tr2RenderContextVulkan.h"
++#include "VulkanContext.h"
++#include "../ALLog.h"
++
++#include <algorithm>
++
++namespace TrinityALImpl
++{
++
++namespace
++{
++
++VkDeviceSize Align( VkDeviceSize offset, VkDeviceSize alignment )
++{
++	return ( offset + ( alignment - 1 ) ) & ~( alignment - 1 );
++}
++
++// Registers of a local signature that carry constant buffers, in ascending
++// register order; this fixes the layout of the record's embedded data.
++std::vector<uint32_t> LocalConstantBufferRegisters( const Tr2ShaderSignatureAL& signature )
++{
++	std::vector<uint32_t> registers;
++	for( const auto& reg : signature.registers )
++	{
++		if( reg.registerType == Tr2ShaderRegisterAL::CONSTANT_BUFFER )
++		{
++			registers.push_back( reg.registerIndex );
++		}
++	}
++	std::sort( registers.begin(), registers.end() );
++	return registers;
++}
++
++}
++
++Tr2RtShaderTableAL::Tr2RtShaderTableAL() :
++	m_table( VK_NULL_HANDLE ),
++	m_tableAllocation( VK_NULL_HANDLE ),
++	m_tableAddress( 0 ),
++	m_entrySize( 0 )
++{
++}
++
++Tr2RtShaderTableAL::~Tr2RtShaderTableAL()
++{
++	Destroy();
++}
++
++ALResult Tr2RtShaderTableAL::Create( const Tr2RtShaderTableDescriptionAL& desc, const ::Tr2RtPipelineStateAL& pipeline, Tr2PrimaryRenderContextAL& renderContext )
++{
++	Destroy();
++
++	if( !renderContext.IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !pipeline.IsValid() )
++	{
++		return E_INVALIDARG;
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() || !context->SupportsRayTracing() )
++	{
++		return E_INVALIDCALL;
++	}
++	const Tr2RtPipelineStateAL* pipelineImpl = pipeline.TrinityALImpl_GetObject();
++
++	const uint32_t handleSize = context->GetRayTracingProperties().shaderGroupHandleSize;
++	const uint32_t baseAlignment = std::max( context->GetRayTracingProperties().shaderGroupBaseAlignment, 1u );
++
++	const auto& localSignatures = pipelineImpl->GetLocalSignatures();
++
++	// The record's local data: the signature's constant buffers embedded in
++	// ascending register order, each 16-byte aligned. Sizes come from the
++	// materials, so scan every record to find the table-wide entry stride.
++	auto recordDataSize = [&]( const wchar_t* name, const Tr2RtLocalMaterialDescriptionAL& material, VkDeviceSize& size ) -> ALResult {
++		size = 0;
++		auto shaderInfo = pipelineImpl->GetShaderInfo( name );
++		if( !shaderInfo )
++		{
++			return E_INVALIDARG;
++		}
++		if( shaderInfo->localSignature == Tr2RtPipelineStateAL::NO_SIGNATURE )
++		{
++			return S_OK;
++		}
++		for( uint32_t registerIndex : LocalConstantBufferRegisters( localSignatures[shaderInfo->localSignature] ) )
++		{
++			if( registerIndex >= sizeof( material.m_constants ) / sizeof( material.m_constants[0] ) )
++			{
++				return E_INVALIDARG;
++			}
++			const Tr2ConstantBufferAL* cb = material.m_constants[registerIndex] ? material.m_constants[registerIndex]->TrinityALImpl_GetObject() : nullptr;
++			if( cb && cb->IsValid() )
++			{
++				size = Align( size, 16 ) + cb->GetSize();
++			}
++		}
++		return S_OK;
++	};
++
++	VkDeviceSize maxDataSize = 0;
++	auto scanRecords = [&]( const auto& records ) -> ALResult {
++		for( const auto& record : records )
++		{
++			VkDeviceSize size = 0;
++			CR_RETURN_HR( recordDataSize( record.name, record.material, size ) );
++			maxDataSize = std::max( maxDataSize, size );
++		}
++		return S_OK;
++	};
++	CR_RETURN_HR( scanRecords( desc.m_rayGenNames ) );
++	CR_RETURN_HR( scanRecords( desc.m_missNames ) );
++	CR_RETURN_HR( scanRecords( desc.m_hitGroupNames ) );
++
++	// A stride that is a multiple of the base alignment keeps every region
++	// start aligned with records laid out back to back.
++	m_entrySize = Align( handleSize + maxDataSize, baseAlignment );
++	const size_t recordCount = desc.m_rayGenNames.size() + desc.m_missNames.size() + desc.m_hitGroupNames.size();
++	const VkDeviceSize tableSize = m_entrySize * recordCount;
++	if( tableSize == 0 )
++	{
++		return E_INVALIDARG;
++	}
++
++	VkBufferCreateInfo bufferCreateInfo = {};
++	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
++	bufferCreateInfo.size = tableSize;
++	bufferCreateInfo.usage = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++
++	VmaAllocationCreateInfo allocationCreateInfo = {};
++	allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++	allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
++
++	VmaAllocationInfo allocationInfo = {};
++	VK_CR_RETURN_HR( vmaCreateBufferWithAlignment( context->GetAllocator(), &bufferCreateInfo, &allocationCreateInfo, baseAlignment, &m_table, &m_tableAllocation, &allocationInfo ) );
++
++	VkBufferDeviceAddressInfo addressInfo = {};
++	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
++	addressInfo.buffer = m_table;
++	m_tableAddress = vkGetBufferDeviceAddress( context->GetDevice(), &addressInfo );
++
++	uint8_t* tableData = static_cast<uint8_t*>( allocationInfo.pMappedData );
++	memset( tableData, 0, tableSize );
++
++	auto fillRecord = [&]( uint8_t* recordData, const wchar_t* name, const Tr2RtLocalMaterialDescriptionAL& material ) -> ALResult {
++		auto shaderInfo = pipelineImpl->GetShaderInfo( name );
++		if( !shaderInfo )
++		{
++			return E_INVALIDARG;
++		}
++		const uint8_t* handle = pipelineImpl->GetGroupHandle( shaderInfo->groupIndex );
++		if( !handle )
++		{
++			return E_INVALIDARG;
++		}
++		memcpy( recordData, handle, handleSize );
++
++		if( shaderInfo->localSignature == Tr2RtPipelineStateAL::NO_SIGNATURE )
++		{
++			return S_OK;
++		}
++		VkDeviceSize offset = 0;
++		for( uint32_t registerIndex : LocalConstantBufferRegisters( localSignatures[shaderInfo->localSignature] ) )
++		{
++			const Tr2ConstantBufferAL* cb = material.m_constants[registerIndex] ? material.m_constants[registerIndex]->TrinityALImpl_GetObject() : nullptr;
++			if( cb && cb->IsValid() && cb->GetContents() )
++			{
++				offset = Align( offset, 16 );
++				memcpy( recordData + handleSize + offset, cb->GetContents(), cb->GetSize() );
++				offset += cb->GetSize();
++			}
++		}
++		return S_OK;
++	};
++
++	for( const auto& record : desc.m_rayGenNames )
++	{
++		CR_RETURN_HR( fillRecord( tableData, record.name, record.material ) );
++		tableData += m_entrySize;
++	}
++	for( const auto& record : desc.m_missNames )
++	{
++		CR_RETURN_HR( fillRecord( tableData, record.name, record.material ) );
++		tableData += m_entrySize;
++	}
++	for( const auto& record : desc.m_hitGroupNames )
++	{
++		CR_RETURN_HR( fillRecord( tableData, record.name, record.material ) );
++		tableData += m_entrySize;
++	}
++	vmaFlushAllocation( context->GetAllocator(), m_tableAllocation, 0, tableSize );
++
++	m_desc = desc;
++	return S_OK;
++}
++
++void Tr2RtShaderTableAL::Destroy()
++{
++	VulkanContext* context = GetVulkanContext();
++	if( context && context->IsValid() )
++	{
++		context->DestroyBufferLater( m_table, m_tableAllocation );
++	}
++	m_table = VK_NULL_HANDLE;
++	m_tableAllocation = VK_NULL_HANDLE;
++	m_tableAddress = 0;
++	m_entrySize = 0;
++	m_desc = Tr2RtShaderTableDescriptionAL();
++}
++
++bool Tr2RtShaderTableAL::IsValid() const
++{
++	return m_table != VK_NULL_HANDLE;
++}
++
++Tr2ALMemoryType Tr2RtShaderTableAL::GetMemoryClass() const
++{
++	return AL_MEMORY_MANAGED;
++}
++
++void Tr2RtShaderTableAL::Describe( Tr2DeviceResourceDescriptionAL& description ) const
++{
++	description["type"] = "Tr2RtShaderTableAL";
++}
++
++VkStridedDeviceAddressRegionKHR Tr2RtShaderTableAL::GetRayGenRegion( const wchar_t* name ) const
++{
++	VkStridedDeviceAddressRegionKHR region = {};
++	for( size_t i = 0; i < m_desc.m_rayGenNames.size(); ++i )
++	{
++		if( wcscmp( m_desc.m_rayGenNames[i].name, name ) == 0 )
++		{
++			region.deviceAddress = m_tableAddress + i * m_entrySize;
++			region.stride = m_entrySize;
++			region.size = m_entrySize;
++			break;
++		}
++	}
++	return region;
++}
++
++VkStridedDeviceAddressRegionKHR Tr2RtShaderTableAL::GetMissRegion() const
++{
++	VkStridedDeviceAddressRegionKHR region = {};
++	if( !m_desc.m_missNames.empty() )
++	{
++		region.deviceAddress = m_tableAddress + m_desc.m_rayGenNames.size() * m_entrySize;
++		region.stride = m_entrySize;
++		region.size = m_entrySize * m_desc.m_missNames.size();
++	}
++	return region;
++}
++
++VkStridedDeviceAddressRegionKHR Tr2RtShaderTableAL::GetHitGroupRegion() const
++{
++	VkStridedDeviceAddressRegionKHR region = {};
++	if( !m_desc.m_hitGroupNames.empty() )
++	{
++		region.deviceAddress = m_tableAddress + ( m_desc.m_rayGenNames.size() + m_desc.m_missNames.size() ) * m_entrySize;
++		region.stride = m_entrySize;
++		region.size = m_entrySize * m_desc.m_hitGroupNames.size();
++	}
++	return region;
++}
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtShaderTableALVulkan.h b/trinityal/vulkan/Tr2RtShaderTableALVulkan.h
+new file mode 100644
+index 00000000..f01d6d8e
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtShaderTableALVulkan.h
+@@ -0,0 +1,52 @@
++// Copyright © 2026 CCP ehf.
++
++#pragma once
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "../include/Tr2RtShaderTableAL.h"
++#include "VulkanCommon.h"
++
++namespace TrinityALImpl
++{
++
++/*
++  Shader binding table: one buffer holding the ray generation, miss and hit
++  group records back to back, each region aligned to shaderGroupBaseAlignment.
++
++  A record is the shader group handle followed by the record's local material
++  data. Vulkan has no local root signatures, so unlike DX12 (which stores
++  descriptor GPU addresses) the local constant buffers' contents are copied
++  into the record itself; shaders read them as shaderRecordEXT data. The
++  contents are captured when the table is created.
++ */
++class Tr2RtShaderTableAL : public Tr2DeviceResourceAL<Tr2RtShaderTableAL>
++{
++public:
++	Tr2RtShaderTableAL();
++	~Tr2RtShaderTableAL();
++
++	ALResult Create( const Tr2RtShaderTableDescriptionAL& desc, const ::Tr2RtPipelineStateAL& pipeline, Tr2PrimaryRenderContextAL& renderContext );
++	void Destroy();
++	bool IsValid() const;
++
++	Tr2ALMemoryType GetMemoryClass() const;
++	void Describe( Tr2DeviceResourceDescriptionAL& description ) const;
++
++	// Regions for vkCmdTraceRaysKHR. The ray generation region addresses the
++	// single record matching `name` (zero address when the name is unknown).
++	VkStridedDeviceAddressRegionKHR GetRayGenRegion( const wchar_t* name ) const;
++	VkStridedDeviceAddressRegionKHR GetMissRegion() const;
++	VkStridedDeviceAddressRegionKHR GetHitGroupRegion() const;
++
++private:
++	VkBuffer m_table;
++	VmaAllocation m_tableAllocation;
++	VkDeviceAddress m_tableAddress;
++	VkDeviceSize m_entrySize;
++	Tr2RtShaderTableDescriptionAL m_desc;
++};
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.cpp b/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.cpp
+new file mode 100644
+index 00000000..9cb44641
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.cpp
+@@ -0,0 +1,338 @@
++// Copyright © 2026 CCP ehf.
++
++#include "StdAfx.h"
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "Tr2RtTopLevelAccelerationStructureALVulkan.h"
++#include "Tr2RtBottomLevelAccelerationStructureALVulkan.h"
++#include "Tr2RenderContextVulkan.h"
++#include "Tr2BufferALVulkan.h"
++#include "VulkanContext.h"
++
++namespace TrinityALImpl
++{
++
++namespace
++{
++
++VkDeviceSize Align( VkDeviceSize offset, VkDeviceSize alignment )
++{
++	return ( offset + ( alignment - 1 ) ) & ~( alignment - 1 );
++}
++
++VkAccelerationStructureGeometryKHR MakeInstanceGeometry( VkDeviceAddress instanceData )
++{
++	VkAccelerationStructureGeometryKHR geometry = {};
++	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
++	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
++	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
++	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
++	geometry.geometry.instances.data.deviceAddress = instanceData;
++	return geometry;
++}
++
++}
++
++Tr2RtTopLevelAccelerationStructureAL::Tr2RtTopLevelAccelerationStructureAL() :
++	m_accelerationStructure( VK_NULL_HANDLE ),
++	m_scratch( VK_NULL_HANDLE ),
++	m_scratchAllocation( VK_NULL_HANDLE ),
++	m_scratchAddress( 0 ),
++	m_capacity( 0 ),
++	m_buildFlags( Tr2RtBuildFlags::NONE )
++{
++}
++
++Tr2RtTopLevelAccelerationStructureAL::~Tr2RtTopLevelAccelerationStructureAL()
++{
++	Destroy();
++}
++
++ALResult Tr2RtTopLevelAccelerationStructureAL::GetFreeInstanceBuffer( InstanceBuffer*& instanceBuffer )
++{
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++
++	const uint64_t completed = context->GetRenderedFrameNumber();
++	for( auto& entry : m_instanceBuffers )
++	{
++		if( completed >= entry.frameIndex )
++		{
++			entry.frameIndex = context->GetRecordingFrameNumber();
++			instanceBuffer = &entry;
++			return S_OK;
++		}
++	}
++
++	VkBufferCreateInfo bufferCreateInfo = {};
++	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
++	bufferCreateInfo.size = sizeof( VkAccelerationStructureInstanceKHR ) * m_capacity;
++	bufferCreateInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++
++	VmaAllocationCreateInfo allocationCreateInfo = {};
++	allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++	allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
++
++	InstanceBuffer entry = {};
++	VmaAllocationInfo allocationInfo = {};
++	VK_CR_RETURN_HR( vmaCreateBuffer( context->GetAllocator(), &bufferCreateInfo, &allocationCreateInfo, &entry.buffer, &entry.allocation, &allocationInfo ) );
++	entry.mappedData = allocationInfo.pMappedData;
++	entry.frameIndex = context->GetRecordingFrameNumber();
++
++	VkBufferDeviceAddressInfo addressInfo = {};
++	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
++	addressInfo.buffer = entry.buffer;
++	entry.address = vkGetBufferDeviceAddress( context->GetDevice(), &addressInfo );
++
++	m_instanceBuffers.push_back( entry );
++	instanceBuffer = &m_instanceBuffers.back();
++	return S_OK;
++}
++
++ALResult Tr2RtTopLevelAccelerationStructureAL::UploadInstanceData( const InstanceBuffer& instanceBuffer, const size_t count, const Tr2RtInstanceAL* instances )
++{
++	VulkanContext* context = GetVulkanContext();
++	auto* data = static_cast<VkAccelerationStructureInstanceKHR*>( instanceBuffer.mappedData );
++	for( size_t i = 0; i < count; ++i )
++	{
++		if( !instances[i].blas || !instances[i].blas->IsValid() )
++		{
++			return E_INVALIDARG;
++		}
++		VkAccelerationStructureInstanceKHR instance = {};
++		memcpy( instance.transform.matrix, instances[i].transform, sizeof( instance.transform.matrix ) );
++		instance.instanceCustomIndex = uint32_t( i );
++		instance.mask = 0xff;
++		instance.instanceShaderBindingTableRecordOffset = instances[i].materialIndex;
++		// Front faces are counter-clockwise, matching the other backends; the
++		// FORCE_NON_OPAQUE AL flag has the same encoding as its Vulkan bit.
++		instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FRONT_COUNTERCLOCKWISE_BIT_KHR | VkGeometryInstanceFlagsKHR( instances[i].flags );
++		instance.accelerationStructureReference = instances[i].blas->GetDeviceAddress();
++		memcpy( data + i, &instance, sizeof( instance ) );
++	}
++	vmaFlushAllocation( context->GetAllocator(), instanceBuffer.allocation, 0, sizeof( VkAccelerationStructureInstanceKHR ) * count );
++	return S_OK;
++}
++
++ALResult Tr2RtTopLevelAccelerationStructureAL::Build( const InstanceBuffer& instanceBuffer, const size_t count, VkBuildAccelerationStructureModeKHR mode )
++{
++	VulkanContext* context = GetVulkanContext();
++	const VulkanRayTracingFunctions& functions = context->GetRayTracingFunctions();
++
++	VkAccelerationStructureGeometryKHR geometry = MakeInstanceGeometry( instanceBuffer.address );
++
++	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
++	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
++	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
++	buildInfo.flags = ToVkBuildFlags( m_buildFlags );
++	buildInfo.mode = mode;
++	buildInfo.srcAccelerationStructure = mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR ? m_accelerationStructure : VK_NULL_HANDLE;
++	buildInfo.dstAccelerationStructure = m_accelerationStructure;
++	buildInfo.geometryCount = 1;
++	buildInfo.pGeometries = &geometry;
++	buildInfo.scratchData.deviceAddress = m_scratchAddress;
++
++	VkAccelerationStructureBuildRangeInfoKHR range = {};
++	range.primitiveCount = uint32_t( count );
++	const VkAccelerationStructureBuildRangeInfoKHR* ranges[] = { &range };
++
++	VkCommandBuffer commandBuffer = context->GetCommandBuffer();
++
++	// The referenced bottom level structures (and the host-written instance
++	// data) must be complete before this build consumes them.
++	VkMemoryBarrier before = {};
++	before.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	before.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	before.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &before, 0, nullptr, 0, nullptr );
++
++	functions.vkCmdBuildAccelerationStructuresKHR( commandBuffer, 1, &buildInfo, ranges );
++
++	VkMemoryBarrier after = {};
++	after.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
++	after.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
++	after.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &after, 0, nullptr, 0, nullptr );
++
++	return S_OK;
++}
++
++ALResult Tr2RtTopLevelAccelerationStructureAL::Create( const size_t count, const Tr2RtInstanceAL* instances, Tr2RtBuildFlags::Type buildFlags, Tr2PrimaryRenderContextAL& renderContext )
++{
++	Destroy();
++
++	if( !renderContext.IsValid() || !renderContext.GetCaps().SupportsRaytracing() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( count == 0 )
++	{
++		return E_INVALIDARG;
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context || !context->IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	const VulkanRayTracingFunctions& functions = context->GetRayTracingFunctions();
++
++	m_capacity = Align( count, 128 );
++	m_buildFlags = buildFlags;
++
++	InstanceBuffer* instanceBuffer = nullptr;
++	CR_RETURN_HR( GetFreeInstanceBuffer( instanceBuffer ) );
++	CR_RETURN_HR( UploadInstanceData( *instanceBuffer, count, instances ) );
++
++	// Size the structure for the full capacity so updates with more instances
++	// (up to the capacity) never outgrow it.
++	VkAccelerationStructureGeometryKHR sizingGeometry = MakeInstanceGeometry( instanceBuffer->address );
++	VkAccelerationStructureBuildGeometryInfoKHR sizingInfo = {};
++	sizingInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
++	sizingInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
++	sizingInfo.flags = ToVkBuildFlags( buildFlags );
++	sizingInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
++	sizingInfo.geometryCount = 1;
++	sizingInfo.pGeometries = &sizingGeometry;
++
++	const uint32_t maxInstanceCount = uint32_t( m_capacity );
++	VkAccelerationStructureBuildSizesInfoKHR sizes = {};
++	sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
++	functions.vkGetAccelerationStructureBuildSizesKHR( context->GetDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &sizingInfo, &maxInstanceCount, &sizes );
++
++	if( sizes.accelerationStructureSize == 0 )
++	{
++		Destroy();
++		return E_INVALIDCALL;
++	}
++
++	// The structure lives in a Tr2BufferAL so it can be bound as a shader
++	// resource through Tr2ResourceSetDescriptionAL::SetSrv.
++	ALResult hr = m_buffer.Create(
++		Tr2BufferDescriptionAL( 1,
++								uint32_t( Align( sizes.accelerationStructureSize, 256 ) ),
++								Tr2GpuUsage::ACCELERATION_STRUCTURE | Tr2GpuUsage::SHADER_RESOURCE | Tr2GpuUsage::UNORDERED_ACCESS,
++								Tr2CpuUsage::NONE ),
++		nullptr,
++		renderContext );
++	if( FAILED( hr ) || !m_buffer.IsValid() )
++	{
++		Destroy();
++		return FAILED( hr ) ? int(hr) : E_INVALIDCALL;
++	}
++
++	VkAccelerationStructureCreateInfoKHR createInfo = {};
++	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
++	createInfo.buffer = m_buffer.TrinityALImpl_GetObject()->GetVkBuffer();
++	createInfo.size = m_buffer.TrinityALImpl_GetObject()->GetSize();
++	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
++	VK_CR_RETURN_HR( functions.vkCreateAccelerationStructureKHR( context->GetDevice(), &createInfo, nullptr, &m_accelerationStructure ) );
++	m_buffer.TrinityALImpl_GetObject()->SetAccelerationStructure( m_accelerationStructure );
++
++	{
++		const VkDeviceSize scratchAlignment = std::max<VkDeviceSize>( context->GetAccelerationStructureProperties().minAccelerationStructureScratchOffsetAlignment, 1 );
++		VkBufferCreateInfo bufferCreateInfo = {};
++		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
++		bufferCreateInfo.size = Align( std::max( sizes.buildScratchSize, sizes.updateScratchSize ), scratchAlignment );
++		bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
++		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++
++		VmaAllocationCreateInfo allocationCreateInfo = {};
++		allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++		VK_CR_RETURN_HR( vmaCreateBufferWithAlignment( context->GetAllocator(), &bufferCreateInfo, &allocationCreateInfo, scratchAlignment, &m_scratch, &m_scratchAllocation, nullptr ) );
++
++		VkBufferDeviceAddressInfo addressInfo = {};
++		addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
++		addressInfo.buffer = m_scratch;
++		m_scratchAddress = vkGetBufferDeviceAddress( context->GetDevice(), &addressInfo );
++	}
++
++	return Build( *instanceBuffer, count, VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR );
++}
++
++// Like on DX12, updates rebuild by default; a refit is only done when the
++// structure was created with ALLOW_UPDATE.
++ALResult Tr2RtTopLevelAccelerationStructureAL::Update( const size_t count, const Tr2RtInstanceAL* instances, Tr2RenderContextAL& renderContext )
++{
++	if( !IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !renderContext.IsValid() )
++	{
++		return E_INVALIDARG;
++	}
++	if( m_capacity < count )
++	{
++		return E_INVALIDARG;
++	}
++
++	InstanceBuffer* instanceBuffer = nullptr;
++	CR_RETURN_HR( GetFreeInstanceBuffer( instanceBuffer ) );
++	CR_RETURN_HR( UploadInstanceData( *instanceBuffer, count, instances ) );
++
++	const VkBuildAccelerationStructureModeKHR mode = HasFlag( m_buildFlags, Tr2RtBuildFlags::ALLOW_UPDATE )
++		? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR
++		: VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
++	return Build( *instanceBuffer, count, mode );
++}
++
++bool Tr2RtTopLevelAccelerationStructureAL::IsValid() const
++{
++	return m_accelerationStructure != VK_NULL_HANDLE;
++}
++
++void Tr2RtTopLevelAccelerationStructureAL::Destroy()
++{
++	VulkanContext* context = GetVulkanContext();
++	if( context && context->IsValid() )
++	{
++		context->DestroyAccelerationStructureLater( m_accelerationStructure );
++		context->DestroyBufferLater( m_scratch, m_scratchAllocation );
++		for( auto& entry : m_instanceBuffers )
++		{
++			context->DestroyBufferLater( entry.buffer, entry.allocation );
++		}
++	}
++	if( m_buffer.IsValid() )
++	{
++		m_buffer.TrinityALImpl_GetObject()->SetAccelerationStructure( VK_NULL_HANDLE );
++	}
++	m_buffer = ::Tr2BufferAL();
++	m_accelerationStructure = VK_NULL_HANDLE;
++	m_scratch = VK_NULL_HANDLE;
++	m_scratchAllocation = VK_NULL_HANDLE;
++	m_scratchAddress = 0;
++	m_instanceBuffers.clear();
++	m_capacity = 0;
++	m_buildFlags = Tr2RtBuildFlags::NONE;
++}
++
++Tr2ALMemoryType Tr2RtTopLevelAccelerationStructureAL::GetMemoryClass() const
++{
++	return AL_MEMORY_MANAGED;
++}
++
++void Tr2RtTopLevelAccelerationStructureAL::Describe( Tr2DeviceResourceDescriptionAL& description ) const
++{
++	description["type"] = "Tr2RtTopLevelAccelerationStructureAL";
++}
++
++const ::Tr2BufferAL& Tr2RtTopLevelAccelerationStructureAL::GetBuffer() const
++{
++	return m_buffer;
++}
++
++size_t Tr2RtTopLevelAccelerationStructureAL::GetCapacity() const
++{
++	return m_capacity;
++}
++
++}
++
++#endif
+diff --git a/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.h b/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.h
+new file mode 100644
+index 00000000..bf979a38
+--- /dev/null
++++ b/trinityal/vulkan/Tr2RtTopLevelAccelerationStructureALVulkan.h
+@@ -0,0 +1,68 @@
++// Copyright © 2026 CCP ehf.
++
++#pragma once
++
++#if TRINITY_PLATFORM == TRINITY_VULKAN
++
++#include "../include/Tr2RtTopLevelAccelerationStructureAL.h"
++#include "VulkanCommon.h"
++
++#include <vector>
++
++namespace TrinityALImpl
++{
++
++class Tr2RtTopLevelAccelerationStructureAL : public Tr2DeviceResourceAL<Tr2RtTopLevelAccelerationStructureAL>
++{
++public:
++	Tr2RtTopLevelAccelerationStructureAL();
++	~Tr2RtTopLevelAccelerationStructureAL();
++
++	ALResult Create( const size_t count, const Tr2RtInstanceAL* instances, Tr2RtBuildFlags::Type buildFlags, Tr2PrimaryRenderContextAL& renderContext );
++	ALResult Update( const size_t count, const Tr2RtInstanceAL* instances, Tr2RenderContextAL& renderContext );
++
++	bool IsValid() const;
++
++	void Destroy();
++	Tr2ALMemoryType GetMemoryClass() const;
++	void Describe( Tr2DeviceResourceDescriptionAL& description ) const;
++
++	const ::Tr2BufferAL& GetBuffer() const;
++	size_t GetCapacity() const;
++
++	VkAccelerationStructureKHR GetAccelerationStructure() const
++	{
++		return m_accelerationStructure;
++	}
++
++private:
++	// Host-visible staging for VkAccelerationStructureInstanceKHR data;
++	// recycled once the frame that last used it has completed.
++	struct InstanceBuffer
++	{
++		VkBuffer buffer;
++		VmaAllocation allocation;
++		VkDeviceAddress address;
++		void* mappedData;
++		uint64_t frameIndex;
++	};
++
++	ALResult GetFreeInstanceBuffer( InstanceBuffer*& instanceBuffer );
++	ALResult UploadInstanceData( const InstanceBuffer& instanceBuffer, const size_t count, const Tr2RtInstanceAL* instances );
++	ALResult Build( const InstanceBuffer& instanceBuffer, const size_t count, VkBuildAccelerationStructureModeKHR mode );
++
++	// The acceleration structure storage lives in a Tr2BufferAL so callers can
++	// bind the structure through resource sets (GetBuffer()).
++	::Tr2BufferAL m_buffer;
++	VkAccelerationStructureKHR m_accelerationStructure;
++	VkBuffer m_scratch;
++	VmaAllocation m_scratchAllocation;
++	VkDeviceAddress m_scratchAddress;
++	std::vector<InstanceBuffer> m_instanceBuffers;
++	size_t m_capacity;
++	Tr2RtBuildFlags::Type m_buildFlags;
++};
++
 +}
 +
 +#endif
@@ -5406,10 +7574,10 @@ index 00000000..23529043
 +#endif
 diff --git a/trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp b/trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp
 new file mode 100644
-index 00000000..88e4fb5a
+index 00000000..e69c4e9b
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp
-@@ -0,0 +1,311 @@
+@@ -0,0 +1,341 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -5485,7 +7653,6 @@ index 00000000..88e4fb5a
 +}
 +
 +Tr2ShaderProgramAL::Tr2ShaderProgramAL() :
-+	m_descriptorSetLayout( VK_NULL_HANDLE ),
 +	m_pipelineLayout( VK_NULL_HANDLE ),
 +	m_isValid( false )
 +{
@@ -5549,10 +7716,21 @@ index 00000000..88e4fb5a
 +	}
 +
 +	// Collect one descriptor binding per register declared in the shader
-+	// signatures, following the binding model in VulkanBindingModel.h.
-+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
-+	std::vector<size_t> staticSamplerBindingIndex;
++	// signatures, following the binding model in VulkanBindingModel.h. Each
++	// HLSL register space becomes its own descriptor set; layout bindings are
++	// grouped per set. A static sampler tracks (set, index-in-set) so its
++	// immutable-sampler pointer can be attached after m_staticSamplers settles.
++	std::vector<std::vector<VkDescriptorSetLayoutBinding>> setBindings;
++	std::vector<std::pair<uint32_t, size_t>> staticSamplerBindingIndex;
 +	m_bindings.clear();
++
++	auto ensureSet = [&setBindings]( uint32_t set ) -> std::vector<VkDescriptorSetLayoutBinding>& {
++		if( set >= setBindings.size() )
++		{
++			setBindings.resize( set + 1 );
++		}
++		return setBindings[set];
++	};
 +
 +	for( int stageIndex = 0; stageIndex < SHADER_TYPE_COUNT; ++stageIndex )
 +	{
@@ -5567,6 +7745,8 @@ index 00000000..88e4fb5a
 +		for( const Tr2ShaderRegisterAL& reg : signature.registers )
 +		{
 +			BindingInfo info = {};
++			info.descriptorSet = reg.registerSpace;
++			info.descriptorCount = std::max<uint32_t>( reg.arrayCount, 1 );
 +			info.stage = stage;
 +			info.registerType = reg.registerType;
 +			info.registerIndex = reg.registerIndex;
@@ -5600,9 +7780,9 @@ index 00000000..88e4fb5a
 +			VkDescriptorSetLayoutBinding layoutBinding = {};
 +			layoutBinding.binding = info.binding;
 +			layoutBinding.descriptorType = info.descriptorType;
-+			layoutBinding.descriptorCount = 1;
++			layoutBinding.descriptorCount = info.descriptorCount;
 +			layoutBinding.stageFlags = stageFlags;
-+			layoutBindings.push_back( layoutBinding );
++			ensureSet( info.descriptorSet ).push_back( layoutBinding );
 +			m_bindings.push_back( info );
 +		}
 +
@@ -5614,6 +7794,8 @@ index 00000000..88e4fb5a
 +			m_staticSamplers.push_back( sampler );
 +
 +			BindingInfo info = {};
++			info.descriptorSet = staticSampler.registerSpace;
++			info.descriptorCount = 1;
 +			info.stage = stage;
 +			info.registerType = Tr2ShaderRegisterAL::SAMPLER;
 +			info.registerIndex = staticSampler.registerIndex;
@@ -5626,8 +7808,9 @@ index 00000000..88e4fb5a
 +			layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
 +			layoutBinding.descriptorCount = 1;
 +			layoutBinding.stageFlags = stageFlags;
-+			staticSamplerBindingIndex.push_back( layoutBindings.size() );
-+			layoutBindings.push_back( layoutBinding );
++			std::vector<VkDescriptorSetLayoutBinding>& bindingsForSet = ensureSet( info.descriptorSet );
++			staticSamplerBindingIndex.push_back( { info.descriptorSet, bindingsForSet.size() } );
++			bindingsForSet.push_back( layoutBinding );
 +			m_bindings.push_back( info );
 +		}
 +	}
@@ -5636,19 +7819,31 @@ index 00000000..88e4fb5a
 +	// fully populated (its storage will not move anymore).
 +	for( size_t i = 0; i < staticSamplerBindingIndex.size(); ++i )
 +	{
-+		layoutBindings[staticSamplerBindingIndex[i]].pImmutableSamplers = &m_staticSamplers[i];
++		const auto& location = staticSamplerBindingIndex[i];
++		setBindings[location.first][location.second].pImmutableSamplers = &m_staticSamplers[i];
 +	}
 +
-+	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
-+	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-+	layoutCreateInfo.bindingCount = (uint32_t)layoutBindings.size();
-+	layoutCreateInfo.pBindings = layoutBindings.data();
-+	VK_CR_RETURN_HR( vkCreateDescriptorSetLayout( context->GetDevice(), &layoutCreateInfo, nullptr, &m_descriptorSetLayout ) );
++	// A pipeline layout needs a contiguous list of set layouts from set 0.
++	// Spaces are allocated densely (space0 plus one per array), but create an
++	// empty layout for any set that ended up with no bindings just in case.
++	if( setBindings.empty() )
++	{
++		setBindings.resize( 1 );
++	}
++	m_descriptorSetLayouts.resize( setBindings.size(), VK_NULL_HANDLE );
++	for( size_t set = 0; set < setBindings.size(); ++set )
++	{
++		VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
++		layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
++		layoutCreateInfo.bindingCount = (uint32_t)setBindings[set].size();
++		layoutCreateInfo.pBindings = setBindings[set].data();
++		VK_CR_RETURN_HR( vkCreateDescriptorSetLayout( context->GetDevice(), &layoutCreateInfo, nullptr, &m_descriptorSetLayouts[set] ) );
++	}
 +
 +	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
 +	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-+	pipelineLayoutCreateInfo.setLayoutCount = 1;
-+	pipelineLayoutCreateInfo.pSetLayouts = &m_descriptorSetLayout;
++	pipelineLayoutCreateInfo.setLayoutCount = (uint32_t)m_descriptorSetLayouts.size();
++	pipelineLayoutCreateInfo.pSetLayouts = m_descriptorSetLayouts.data();
 +	VK_CR_RETURN_HR( vkCreatePipelineLayout( context->GetDevice(), &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout ) );
 +
 +	return S_OK;
@@ -5663,9 +7858,12 @@ index 00000000..88e4fb5a
 +		{
 +			vkDestroyPipelineLayout( context->GetDevice(), m_pipelineLayout, nullptr );
 +		}
-+		if( m_descriptorSetLayout != VK_NULL_HANDLE )
++		for( VkDescriptorSetLayout layout : m_descriptorSetLayouts )
 +		{
-+			vkDestroyDescriptorSetLayout( context->GetDevice(), m_descriptorSetLayout, nullptr );
++			if( layout != VK_NULL_HANDLE )
++			{
++				vkDestroyDescriptorSetLayout( context->GetDevice(), layout, nullptr );
++			}
 +		}
 +		for( VkSampler sampler : m_staticSamplers )
 +		{
@@ -5673,7 +7871,7 @@ index 00000000..88e4fb5a
 +		}
 +	}
 +	m_pipelineLayout = VK_NULL_HANDLE;
-+	m_descriptorSetLayout = VK_NULL_HANDLE;
++	m_descriptorSetLayouts.clear();
 +	m_staticSamplers.clear();
 +	m_bindings.clear();
 +
@@ -5723,10 +7921,10 @@ index 00000000..88e4fb5a
 +#endif
 diff --git a/trinityal/vulkan/Tr2ShaderProgramALVulkan.h b/trinityal/vulkan/Tr2ShaderProgramALVulkan.h
 new file mode 100644
-index 00000000..cf89b186
+index 00000000..5c747c5e
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ShaderProgramALVulkan.h
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,91 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -5749,7 +7947,9 @@ index 00000000..cf89b186
 +	// signatures; drives descriptor set updates at draw time.
 +	struct BindingInfo
 +	{
++		uint32_t descriptorSet;
 +		uint32_t binding;
++		uint32_t descriptorCount;
 +		VkDescriptorType descriptorType;
 +		Tr2RenderContextEnum::ShaderType stage;
 +		Tr2ShaderRegisterAL::RegisterType registerType;
@@ -5775,9 +7975,11 @@ index 00000000..cf89b186
 +	// creation. Indexed by Tr2RenderContextEnum::ShaderType.
 +	std::shared_ptr<Tr2ShaderAL> GetShader( Tr2RenderContextEnum::ShaderType type ) const;
 +
-+	VkDescriptorSetLayout GetDescriptorSetLayout() const
++	// One layout per descriptor set used by the program (index == set number,
++	// densely packed from set 0). See VulkanBindingModel.h: set == HLSL space.
++	const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const
 +	{
-+		return m_descriptorSetLayout;
++		return m_descriptorSetLayouts;
 +	}
 +
 +	VkPipelineLayout GetPipelineLayout() const
@@ -5804,7 +8006,7 @@ index 00000000..cf89b186
 +	std::shared_ptr<Tr2ShaderAL> m_shaders[Tr2RenderContextEnum::SHADER_TYPE_COUNT];
 +	std::vector<BindingInfo> m_bindings;
 +	std::vector<VkSampler> m_staticSamplers;
-+	VkDescriptorSetLayout m_descriptorSetLayout;
++	std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 +	VkPipelineLayout m_pipelineLayout;
 +	uint64_t m_uniqueId = 0;
 +	bool m_isValid;
@@ -7430,10 +9632,10 @@ index 00000000..322349c0
 +#endif // Tr2VideoAdapterInfoALVulkan_H
 diff --git a/trinityal/vulkan/VulkanBindingModel.h b/trinityal/vulkan/VulkanBindingModel.h
 new file mode 100644
-index 00000000..7c0d53f4
+index 00000000..2af6f35d
 --- /dev/null
 +++ b/trinityal/vulkan/VulkanBindingModel.h
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,72 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -7447,25 +9649,27 @@ index 00000000..7c0d53f4
 +
 +  HLSL shaders address resources through per-stage register namespaces
 +  (b#, t#, s#, u#). Vulkan uses (descriptor set, binding) pairs that are
-+  shared between all stages of a pipeline. This backend flattens the HLSL
-+  namespaces into a single descriptor set 0:
++  shared between all stages of a pipeline. This backend maps:
 +
-+      binding = stage * STAGE_STRIDE + classOffset + registerIndex
++      descriptorSet = HLSL register space
++      binding       = stage * STAGE_STRIDE + classOffset + registerIndex
 +
 +  where stage is the Tr2RenderContextEnum::ShaderType and classOffset is
-+  CBV/SRV/SAMPLER/UAV_OFFSET below.
++  CBV/SRV/SAMPLER/UAV_OFFSET below. dxc maps HLSL space N to descriptor
++  set N by default, so scalar resources (space0) stay in set 0 and each
++  resource array (which AssignRegisters isolates in its own space) lands
++  in its own set.
 +
-+  Shaders MUST be compiled with dxc using matching shifts, e.g. for a
-+  vertex shader (stage 0):
++  Shaders MUST be compiled with dxc using matching shifts applied to all
++  spaces, e.g. for a vertex shader (stage 0):
 +
 +      dxc -spirv -T vs_6_0 -E main
-+          -fvk-b-shift   0 0    (stage*128 + 0)
-+          -fvk-t-shift  32 0    (stage*128 + 32)
-+          -fvk-s-shift  64 0    (stage*128 + 64)
-+          -fvk-u-shift  96 0    (stage*128 + 96)
++          -fvk-b-shift   0 all    (stage*128 + 0)
++          -fvk-t-shift  32 all    (stage*128 + 32)
++          -fvk-s-shift  64 all    (stage*128 + 64)
++          -fvk-u-shift  96 all    (stage*128 + 96)
 +
 +  and for a pixel shader (stage 1) the shifts become 128/160/192/224.
-+  Only HLSL register space0 is supported.
 + */
 +namespace TrinityALImpl
 +{
@@ -7903,10 +10107,10 @@ index 00000000..47da5b19
 +#endif
 diff --git a/trinityal/vulkan/VulkanContext.cpp b/trinityal/vulkan/VulkanContext.cpp
 new file mode 100644
-index 00000000..c8f92562
+index 00000000..db645076
 --- /dev/null
 +++ b/trinityal/vulkan/VulkanContext.cpp
-@@ -0,0 +1,883 @@
+@@ -0,0 +1,1106 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -7923,6 +10127,33 @@ index 00000000..c8f92562
 +namespace
 +{
 +VulkanContext* g_vulkanContext = nullptr;
++
++// Routes VK_LAYER_KHRONOS_validation output (and any other VK_EXT_debug_utils
++// producer) through Trinity's own logger. Without this callback registered,
++// the validation layer has no channel to report spec violations through, even
++// with the layer enabled via VK_INSTANCE_LAYERS.
++VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
++	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
++	VkDebugUtilsMessageTypeFlagsEXT messageType,
++	const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
++	void* userData )
++{
++	(void)messageType;
++	(void)userData;
++	if( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT )
++	{
++		CCP_AL_LOGERR( "[vk-validation] %s", callbackData->pMessage );
++	}
++	else if( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )
++	{
++		CCP_AL_LOGWARN( "[vk-validation] %s", callbackData->pMessage );
++	}
++	else
++	{
++		CCP_AL_LOGNOTICE( "[vk-validation] %s", callbackData->pMessage );
++	}
++	return VK_FALSE;
++}
 +}
 +
 +VulkanContext* GetVulkanContext()
@@ -7983,6 +10214,11 @@ index 00000000..c8f92562
 +		}
 +#endif
 +	}
++	const bool hasDebugUtils = hasExtension( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
++	if( hasDebugUtils )
++	{
++		extensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
++	}
 +
 +	VkInstanceCreateInfo createInfo = {};
 +	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -7996,6 +10232,22 @@ index 00000000..c8f92562
 +		CCP_AL_LOGERR( "vkCreateInstance failed with VkResult %d", (int)result );
 +		m_instance = VK_NULL_HANDLE;
 +		return;
++	}
++
++	if( hasDebugUtils )
++	{
++		auto createMessenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr( m_instance, "vkCreateDebugUtilsMessengerEXT" );
++		if( createMessenger )
++		{
++			VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {};
++			messengerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
++			messengerInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
++				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
++			messengerInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
++				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
++			messengerInfo.pfnUserCallback = VulkanDebugUtilsCallback;
++			createMessenger( m_instance, &messengerInfo, nullptr, &m_debugMessenger );
++		}
 +	}
 +
 +	uint32_t deviceCount = 0;
@@ -8040,6 +10292,12 @@ index 00000000..c8f92562
 +	m_commandBuffer( VK_NULL_HANDLE ),
 +	m_isRecording( false ),
 +	m_supportsDynamicRendering( false ),
++	m_vkCmdBeginRendering( nullptr ),
++	m_vkCmdEndRendering( nullptr ),
++	m_supportsRayTracing( false ),
++	m_rayTracingFunctions(),
++	m_rayTracingProperties(),
++	m_accelerationStructureProperties(),
 +	m_renderingActive( false ),
 +	m_renderingHash( 0 ),
 +	m_descriptorPool( VK_NULL_HANDLE ),
@@ -8137,6 +10395,19 @@ index 00000000..c8f92562
 +		extensions.push_back( VK_KHR_SWAPCHAIN_EXTENSION_NAME );
 +	}
 +
++	const bool hasRayTracingExtensions = hasExtension( VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME ) &&
++		hasExtension( VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME ) &&
++		hasExtension( VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME );
++
++	// Below Vulkan 1.3, dynamic rendering is only available as the
++	// VK_KHR_dynamic_rendering extension rather than a core 1.3 feature.
++	const bool hasDynamicRenderingExtension = m_deviceProperties.apiVersion < VK_API_VERSION_1_3 &&
++		hasExtension( VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME );
++	if( hasDynamicRenderingExtension )
++	{
++		extensions.push_back( VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME );
++	}
++
 +	VkPhysicalDeviceFeatures enabledFeatures = {};
 +	enabledFeatures.occlusionQueryPrecise = m_deviceFeatures.occlusionQueryPrecise;
 +	enabledFeatures.pipelineStatisticsQuery = m_deviceFeatures.pipelineStatisticsQuery;
@@ -8145,29 +10416,107 @@ index 00000000..c8f92562
 +	enabledFeatures.independentBlend = m_deviceFeatures.independentBlend;
 +	enabledFeatures.imageCubeArray = m_deviceFeatures.imageCubeArray;
 +
-+	// The draw path is built on dynamic rendering (Vulkan 1.3 core).
++	// The draw path is built on dynamic rendering (Vulkan 1.3 core); ray
++	// tracing additionally needs buffer device address (Vulkan 1.2 core) and
++	// the acceleration structure / ray tracing pipeline extension features.
++	VkPhysicalDeviceRayTracingPipelineFeaturesKHR supportedRayTracingPipeline = {};
++	supportedRayTracingPipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
++	VkPhysicalDeviceAccelerationStructureFeaturesKHR supportedAccelerationStructure = {};
++	supportedAccelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
++	VkPhysicalDeviceVulkan12Features supported12 = {};
++	supported12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 +	VkPhysicalDeviceVulkan13Features supported13 = {};
 +	supported13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
++	VkPhysicalDeviceDynamicRenderingFeaturesKHR supportedDynamicRenderingExt = {};
++	supportedDynamicRenderingExt.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
 +	VkPhysicalDeviceFeatures2 supported2 = {};
 +	supported2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-+	supported2.pNext = &supported13;
++
++	// Chain only the structs the device can know about.
++	auto chainSupported = [&supported2]( auto& features ) {
++		features.pNext = supported2.pNext;
++		supported2.pNext = &features;
++	};
 +	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_3 )
++	{
++		chainSupported( supported13 );
++	}
++	else if( hasDynamicRenderingExtension )
++	{
++		chainSupported( supportedDynamicRenderingExt );
++	}
++	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_2 )
++	{
++		chainSupported( supported12 );
++	}
++	if( hasRayTracingExtensions )
++	{
++		chainSupported( supportedAccelerationStructure );
++		chainSupported( supportedRayTracingPipeline );
++	}
++	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_1 )
 +	{
 +		vkGetPhysicalDeviceFeatures2( m_physicalDevice, &supported2 );
 +	}
-+	m_supportsDynamicRendering = supported13.dynamicRendering == VK_TRUE;
++
++	m_supportsDynamicRendering = supported13.dynamicRendering == VK_TRUE ||
++		supportedDynamicRenderingExt.dynamicRendering == VK_TRUE;
 +	if( !m_supportsDynamicRendering )
 +	{
 +		CCP_AL_LOGWARN( "Vulkan device does not support dynamic rendering; draws will fail" );
 +	}
++	m_supportsRayTracing = hasRayTracingExtensions &&
++		supported12.bufferDeviceAddress == VK_TRUE &&
++		supportedAccelerationStructure.accelerationStructure == VK_TRUE &&
++		supportedRayTracingPipeline.rayTracingPipeline == VK_TRUE;
 +
 +	VkPhysicalDeviceVulkan13Features enabled13 = {};
 +	enabled13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-+	enabled13.dynamicRendering = m_supportsDynamicRendering ? VK_TRUE : VK_FALSE;
++	enabled13.dynamicRendering = VK_TRUE;
++
++	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabledDynamicRenderingExt = {};
++	enabledDynamicRenderingExt.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
++	enabledDynamicRenderingExt.dynamicRendering = VK_TRUE;
++
++	VkPhysicalDeviceVulkan12Features enabled12 = {};
++	enabled12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
++	VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructure = {};
++	enabledAccelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
++	VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipeline = {};
++	enabledRayTracingPipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 +
 +	VkDeviceCreateInfo deviceCreateInfo = {};
 +	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-+	deviceCreateInfo.pNext = m_supportsDynamicRendering ? &enabled13 : nullptr;
++
++	auto chainEnabled = [&deviceCreateInfo]( auto& features ) {
++		features.pNext = const_cast<void*>( deviceCreateInfo.pNext );
++		deviceCreateInfo.pNext = &features;
++	};
++	if( m_supportsDynamicRendering )
++	{
++		if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_3 )
++		{
++			chainEnabled( enabled13 );
++		}
++		else
++		{
++			chainEnabled( enabledDynamicRenderingExt );
++		}
++	}
++	if( m_supportsRayTracing )
++	{
++		extensions.push_back( VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME );
++		extensions.push_back( VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME );
++		extensions.push_back( VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME );
++
++		enabled12.bufferDeviceAddress = VK_TRUE;
++		enabledAccelerationStructure.accelerationStructure = VK_TRUE;
++		enabledRayTracingPipeline.rayTracingPipeline = VK_TRUE;
++		chainEnabled( enabled12 );
++		chainEnabled( enabledAccelerationStructure );
++		chainEnabled( enabledRayTracingPipeline );
++	}
++
 +	deviceCreateInfo.queueCreateInfoCount = 1;
 +	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
 +	deviceCreateInfo.enabledExtensionCount = (uint32_t)extensions.size();
@@ -8178,11 +10527,69 @@ index 00000000..c8f92562
 +
 +	vkGetDeviceQueue( m_device, m_queueFamilyIndex, 0, &m_queue );
 +
++	if( m_supportsDynamicRendering )
++	{
++		// The KHR-suffixed entry points are guaranteed to resolve whether the
++		// driver advertises the core 1.3 feature or only the extension; the
++		// unsuffixed core names are not guaranteed to be exported otherwise.
++		m_vkCmdBeginRendering = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdBeginRenderingKHR" );
++		m_vkCmdEndRendering = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdEndRenderingKHR" );
++		if( !m_vkCmdBeginRendering )
++		{
++			m_vkCmdBeginRendering = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdBeginRendering" );
++		}
++		if( !m_vkCmdEndRendering )
++		{
++			m_vkCmdEndRendering = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdEndRendering" );
++		}
++	}
++
++	if( m_supportsRayTracing )
++	{
++		m_accelerationStructureProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
++		m_rayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
++		m_rayTracingProperties.pNext = &m_accelerationStructureProperties;
++		VkPhysicalDeviceProperties2 properties2 = {};
++		properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
++		properties2.pNext = &m_rayTracingProperties;
++		vkGetPhysicalDeviceProperties2( m_physicalDevice, &properties2 );
++		m_rayTracingProperties.pNext = nullptr;
++
++		auto load = [this]( const char* name ) {
++			return vkGetDeviceProcAddr( m_device, name );
++		};
++		m_rayTracingFunctions.vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)load( "vkCreateAccelerationStructureKHR" );
++		m_rayTracingFunctions.vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)load( "vkDestroyAccelerationStructureKHR" );
++		m_rayTracingFunctions.vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)load( "vkGetAccelerationStructureBuildSizesKHR" );
++		m_rayTracingFunctions.vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)load( "vkGetAccelerationStructureDeviceAddressKHR" );
++		m_rayTracingFunctions.vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)load( "vkCmdBuildAccelerationStructuresKHR" );
++		m_rayTracingFunctions.vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)load( "vkCreateRayTracingPipelinesKHR" );
++		m_rayTracingFunctions.vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)load( "vkGetRayTracingShaderGroupHandlesKHR" );
++		m_rayTracingFunctions.vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)load( "vkCmdTraceRaysKHR" );
++
++		if( !m_rayTracingFunctions.vkCreateAccelerationStructureKHR ||
++			!m_rayTracingFunctions.vkDestroyAccelerationStructureKHR ||
++			!m_rayTracingFunctions.vkGetAccelerationStructureBuildSizesKHR ||
++			!m_rayTracingFunctions.vkGetAccelerationStructureDeviceAddressKHR ||
++			!m_rayTracingFunctions.vkCmdBuildAccelerationStructuresKHR ||
++			!m_rayTracingFunctions.vkCreateRayTracingPipelinesKHR ||
++			!m_rayTracingFunctions.vkGetRayTracingShaderGroupHandlesKHR ||
++			!m_rayTracingFunctions.vkCmdTraceRaysKHR )
++		{
++			CCP_AL_LOGWARN( "Failed to resolve Vulkan ray tracing entry points; ray tracing disabled" );
++			m_supportsRayTracing = false;
++		}
++	}
++
 +	VmaAllocatorCreateInfo allocatorCreateInfo = {};
 +	allocatorCreateInfo.physicalDevice = m_physicalDevice;
 +	allocatorCreateInfo.device = m_device;
 +	allocatorCreateInfo.instance = instance.GetInstance();
-+	allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
++	allocatorCreateInfo.vulkanApiVersion = std::min<uint32_t>( m_deviceProperties.apiVersion, VK_API_VERSION_1_3 );
++	if( m_supportsRayTracing )
++	{
++		allocatorCreateInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
++	}
 +	VK_CR_RETURN_HR( vmaCreateAllocator( &allocatorCreateInfo, &m_allocator ) );
 +
 +	VkCommandPoolCreateInfo poolCreateInfo = {};
@@ -8207,7 +10614,7 @@ index 00000000..c8f92562
 +
 +ALResult VulkanContext::CreateDescriptorPool()
 +{
-+	const VkDescriptorPoolSize poolSizes[] = {
++	std::vector<VkDescriptorPoolSize> poolSizes = {
 +		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16384 },
 +		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096 },
 +		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 16384 },
@@ -8216,12 +10623,16 @@ index 00000000..c8f92562
 +		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 4096 },
 +		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 4096 },
 +	};
++	if( m_supportsRayTracing )
++	{
++		poolSizes.push_back( { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1024 } );
++	}
 +
 +	VkDescriptorPoolCreateInfo poolCreateInfo = {};
 +	poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 +	poolCreateInfo.maxSets = 8192;
-+	poolCreateInfo.poolSizeCount = (uint32_t)( sizeof( poolSizes ) / sizeof( poolSizes[0] ) );
-+	poolCreateInfo.pPoolSizes = poolSizes;
++	poolCreateInfo.poolSizeCount = (uint32_t)poolSizes.size();
++	poolCreateInfo.pPoolSizes = poolSizes.data();
 +	VK_CR_RETURN_HR( vkCreateDescriptorPool( m_device, &poolCreateInfo, nullptr, &m_descriptorPool ) );
 +	return S_OK;
 +}
@@ -8293,6 +10704,8 @@ index 00000000..c8f92562
 +	m_queue = VK_NULL_HANDLE;
 +	m_physicalDevice = VK_NULL_HANDLE;
 +	m_isRecording = false;
++	m_supportsRayTracing = false;
++	m_rayTracingFunctions = VulkanRayTracingFunctions();
 +}
 +
 +VkCommandBuffer VulkanContext::GetCommandBuffer()
@@ -8326,7 +10739,7 @@ index 00000000..c8f92562
 +	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 +	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr );
 +
-+	vkCmdBeginRendering( commandBuffer, &renderingInfo );
++	m_vkCmdBeginRendering( commandBuffer, &renderingInfo );
 +	m_renderingActive = true;
 +	m_renderingHash = hash;
 +	return commandBuffer;
@@ -8338,7 +10751,7 @@ index 00000000..c8f92562
 +	{
 +		return;
 +	}
-+	vkCmdEndRendering( m_commandBuffer );
++	m_vkCmdEndRendering( m_commandBuffer );
 +	m_renderingActive = false;
 +	m_renderingHash = 0;
 +
@@ -8696,7 +11109,7 @@ index 00000000..c8f92562
 +		return;
 +	}
 +	std::lock_guard<std::mutex> lock( m_pendingDestroyMutex );
-+	m_pendingDestroys.push_back( { m_recordingFrameNumber, buffer, allocation, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE } );
++	m_pendingDestroys.push_back( { m_recordingFrameNumber, buffer, allocation, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE } );
 +}
 +
 +void VulkanContext::DestroyBufferViewLater( VkBufferView view )
@@ -8706,7 +11119,7 @@ index 00000000..c8f92562
 +		return;
 +	}
 +	std::lock_guard<std::mutex> lock( m_pendingDestroyMutex );
-+	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, view } );
++	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, view, VK_NULL_HANDLE } );
 +}
 +
 +void VulkanContext::DestroyImageLater( VkImage image, VmaAllocation allocation )
@@ -8716,7 +11129,7 @@ index 00000000..c8f92562
 +		return;
 +	}
 +	std::lock_guard<std::mutex> lock( m_pendingDestroyMutex );
-+	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, allocation, image, VK_NULL_HANDLE, VK_NULL_HANDLE } );
++	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, allocation, image, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE } );
 +}
 +
 +void VulkanContext::DestroyImageViewLater( VkImageView view )
@@ -8726,7 +11139,17 @@ index 00000000..c8f92562
 +		return;
 +	}
 +	std::lock_guard<std::mutex> lock( m_pendingDestroyMutex );
-+	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, view, VK_NULL_HANDLE } );
++	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, view, VK_NULL_HANDLE, VK_NULL_HANDLE } );
++}
++
++void VulkanContext::DestroyAccelerationStructureLater( VkAccelerationStructureKHR accelerationStructure )
++{
++	if( accelerationStructure == VK_NULL_HANDLE )
++	{
++		return;
++	}
++	std::lock_guard<std::mutex> lock( m_pendingDestroyMutex );
++	m_pendingDestroys.push_back( { m_recordingFrameNumber, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, accelerationStructure } );
 +}
 +
 +void VulkanContext::FlushPendingDestroys( bool force )
@@ -8738,6 +11161,10 @@ index 00000000..c8f92562
 +		if( !force && pending.frame > m_renderedFrameNumber )
 +		{
 +			break;
++		}
++		if( pending.accelerationStructure != VK_NULL_HANDLE && m_rayTracingFunctions.vkDestroyAccelerationStructureKHR )
++		{
++			m_rayTracingFunctions.vkDestroyAccelerationStructureKHR( m_device, pending.accelerationStructure, nullptr );
 +		}
 +		if( pending.view != VK_NULL_HANDLE )
 +		{
@@ -8792,10 +11219,10 @@ index 00000000..c8f92562
 +#endif
 diff --git a/trinityal/vulkan/VulkanContext.h b/trinityal/vulkan/VulkanContext.h
 new file mode 100644
-index 00000000..c62058a4
+index 00000000..45970648
 --- /dev/null
 +++ b/trinityal/vulkan/VulkanContext.h
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,319 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -8854,6 +11281,25 @@ index 00000000..c62058a4
 +	VkInstance m_instance;
 +	std::vector<VkPhysicalDevice> m_physicalDevices;
 +	bool m_supportsSurfaces;
++	VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
++};
++
++/*
++  Entry points for VK_KHR_acceleration_structure / VK_KHR_ray_tracing_pipeline.
++  Extension functions are not exported by the loader, so they are resolved with
++  vkGetDeviceProcAddr when the device is created. Only valid when the owning
++  context's SupportsRayTracing() returns true.
++ */
++struct VulkanRayTracingFunctions
++{
++	PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
++	PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
++	PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
++	PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = nullptr;
++	PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR = nullptr;
++	PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
++	PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
++	PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
 +};
 +
 +/*
@@ -8926,6 +11372,28 @@ index 00000000..c62058a4
 +		return m_supportsDynamicRendering;
 +	}
 +
++	// True when VK_KHR_acceleration_structure + VK_KHR_ray_tracing_pipeline
++	// (and the buffer device address feature they build on) are enabled.
++	bool SupportsRayTracing() const
++	{
++		return m_supportsRayTracing;
++	}
++
++	const VulkanRayTracingFunctions& GetRayTracingFunctions() const
++	{
++		return m_rayTracingFunctions;
++	}
++
++	const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& GetRayTracingProperties() const
++	{
++		return m_rayTracingProperties;
++	}
++
++	const VkPhysicalDeviceAccelerationStructurePropertiesKHR& GetAccelerationStructureProperties() const
++	{
++		return m_accelerationStructureProperties;
++	}
++
 +	// Descriptor sets live for one frame; the pool is reset when the frame's
 +	// work has provably completed.
 +	VkDescriptorSet AllocateDescriptorSet( VkDescriptorSetLayout layout );
@@ -8971,6 +11439,7 @@ index 00000000..c62058a4
 +	void DestroyBufferViewLater( VkBufferView view );
 +	void DestroyImageLater( VkImage image, VmaAllocation allocation );
 +	void DestroyImageViewLater( VkImageView view );
++	void DestroyAccelerationStructureLater( VkAccelerationStructureKHR accelerationStructure );
 +	void FlushPendingDestroys( bool force );
 +
 +	uint64_t GetRecordingFrameNumber() const
@@ -9013,6 +11482,15 @@ index 00000000..c62058a4
 +	VkCommandBuffer m_commandBuffer;
 +	bool m_isRecording;
 +	bool m_supportsDynamicRendering;
++	// Resolved explicitly via vkGetDeviceProcAddr: on devices below Vulkan 1.3
++	// that only expose dynamic rendering through VK_KHR_dynamic_rendering, the
++	// driver may not export the unsuffixed core entry points.
++	PFN_vkCmdBeginRenderingKHR m_vkCmdBeginRendering;
++	PFN_vkCmdEndRenderingKHR m_vkCmdEndRendering;
++	bool m_supportsRayTracing;
++	VulkanRayTracingFunctions m_rayTracingFunctions;
++	VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rayTracingProperties;
++	VkPhysicalDeviceAccelerationStructurePropertiesKHR m_accelerationStructureProperties;
 +
 +	bool m_renderingActive;
 +	uint64_t m_renderingHash;
@@ -9049,6 +11527,7 @@ index 00000000..c62058a4
 +		VkImage image;
 +		VkImageView view;
 +		VkBufferView bufferView;
++		VkAccelerationStructureKHR accelerationStructure;
 +	};
 +	std::deque<PendingDestroy> m_pendingDestroys;
 +	std::mutex m_pendingDestroyMutex;

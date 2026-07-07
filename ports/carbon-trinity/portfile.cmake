@@ -20,6 +20,7 @@ vcpkg_from_git(
 0014-port-add-basic-support-for-Linux.patch
 0015-port-trinityal-add-Vulkan-backend-for-Linux.patch
 0016-port-trinity-add-X11-support-for-Linux.patch
+0017-port-trinity-add-Vulkan-backend-for-shadercompiler.patch
     # END EXPORTED PATCHES
 )
 

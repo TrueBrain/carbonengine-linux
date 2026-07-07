@@ -1,9 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sun, 5 Jul 2026 19:17:10 +0200
-Subject: [PATCH 16/16] port(trinity): add X11 support for Linux
+Subject: [PATCH 16/17] port(trinity): add X11 support for Linux
 
-This is fully written by Claude's Fable.
+This is fully written by Claude's Fable + Opus 4.8.
+
+The WM is far from done: not all functionality is supported,
+and performance might be lacking. Use at your own risk.
 ---
  trinity/CMakeLists.txt             |   5 +
  trinity/UI/Tr2MainWindow.h         |  19 +

@@ -1,0 +1,3641 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Mon, 6 Jul 2026 20:53:36 +0200
+Subject: [PATCH 17/17] port(trinity): add Vulkan backend for shadercompiler
+
+This is fully written by Claude's Fable + Opus 4.8.
+
+The tool is far from done: not all functionality is supported,
+and performance might be lacking. Use at your own risk.
+---
+ shadercompiler/CMakeLists.txt                |   11 +
+ shadercompiler/EffectCompilerVulkan.cpp      | 2460 ++++++++++++++++++
+ shadercompiler/EffectCompilerVulkan.h        |   24 +
+ shadercompiler/ParserUtils.cpp               |    7 +
+ shadercompiler/Platforms.h                   |   10 +
+ shadercompiler/ShaderCompiler.cpp            |   29 +
+ shadercompiler/tests/Bindless.cpp            |    9 +-
+ shadercompiler/tests/GlobalInputTest.cpp     |    7 +-
+ shadercompiler/tests/MetalConversionTest.cpp |   41 +-
+ shadercompiler/tests/RayTracingTest.cpp      |   29 +-
+ shadercompiler/tests/VulkanCompilerTest.cpp  |  579 +++++
+ 11 files changed, 3173 insertions(+), 33 deletions(-)
+ create mode 100644 shadercompiler/EffectCompilerVulkan.cpp
+ create mode 100644 shadercompiler/EffectCompilerVulkan.h
+ create mode 100644 shadercompiler/tests/VulkanCompilerTest.cpp
+
+diff --git a/shadercompiler/CMakeLists.txt b/shadercompiler/CMakeLists.txt
+index 6953573c..254907eb 100644
+--- a/shadercompiler/CMakeLists.txt
++++ b/shadercompiler/CMakeLists.txt
+@@ -23,6 +23,8 @@ set(_SOURCES
+     EffectCompilerDX12.h
+     EffectCompilerMetal.cpp
+     EffectCompilerMetal.h
++    EffectCompilerVulkan.cpp
++    EffectCompilerVulkan.h
+     EffectData.cpp
+     EffectData.h
+     FXAnalyzer.cpp
+@@ -74,6 +76,7 @@ set(_TEST_SOURCES
+     tests/RayTracingTest.cpp
+     tests/ShaderCompilerTest.cpp
+     tests/TesingUtils.h
++    tests/VulkanCompilerTest.cpp
+ )
+ 
+ 
+@@ -112,6 +115,10 @@ if (WIN32)
+             find_package(directx-dxc CONFIG REQUIRED)
+         endif()
+     endif()
++else()
++    # The Vulkan backend invokes the dxc executable at runtime. Bake in the
++    # vcpkg-provided tool as the default; DXC_PATH or /dxc override it.
++    find_package(directx-dxc CONFIG QUIET)
+ endif()
+ 
+ function(configure_shader_compiler target)
+@@ -195,6 +202,10 @@ function(configure_shader_compiler target)
+     target_precompile_headers(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stdafx.h)
+     target_compile_definitions(${target} PRIVATE GLEW_MX GLEW_STATIC)
+ 
++    if(DIRECTX_DXC_TOOL)
++        target_compile_definitions(${target} PRIVATE SHADER_COMPILER_DXC_TOOL="${DIRECTX_DXC_TOOL}")
++    endif()
++
+     target_include_directories(${target} PRIVATE
+         ${CMAKE_CURRENT_SOURCE_DIR}
+         ${GENERATED_SOURCES_DIR}
+diff --git a/shadercompiler/EffectCompilerVulkan.cpp b/shadercompiler/EffectCompilerVulkan.cpp
+new file mode 100644
+index 00000000..96c1c8c8
+--- /dev/null
++++ b/shadercompiler/EffectCompilerVulkan.cpp
+@@ -0,0 +1,2460 @@
++// Copyright © 2026 CCP ehf.
++
++#include "stdafx.h"
++#include "EffectCompilerVulkan.h"
++
++#include "ASTNode.h"
++#include "CompileMessageQueue.h"
++#include "EffectData.h"
++#include "FXAnalyzer.h"
++#include "HLSLParser.h"
++#include "Macro.h"
++#include "OutputHLSL.h"
++#include "ParserState.h"
++#include "ParserUtils.h"
++#include "Platforms.h"
++#include "StringTable.h"
++#include "TextureFunctionConversionDX11.h"
++#include "YamlOutput.h"
++#include "WorkQueue.h"
++
++#ifndef _WIN32
++#include <unistd.h>
++#endif
++
++extern CompileMessageQueue g_messages;
++extern StringTable g_stringTable;
++extern bool g_printWarnings;
++extern unsigned g_optimizationLevel;
++extern bool g_skipOptimization;
++extern std::string g_dxcPath;
++
++namespace
++{
++std::mutex s_fileMutex;
++
++// SPIR-V binding model. Must be synchronized with trinityal/vulkan/VulkanBindingModel.h:
++// descriptorSet = HLSL register space; binding = stage * STAGE_STRIDE + classOffset +
++// registerIndex. The stage index is Tr2RenderContextEnum::ShaderType, which matches
++// InputStageType. Register shifts are applied to "all" spaces so the binding formula
++// holds within every set; dxc maps HLSL space N to descriptor set N by default.
++const uint32_t VULKAN_STAGE_STRIDE = 128;
++const uint32_t VULKAN_CBV_OFFSET = 0;
++const uint32_t VULKAN_SRV_OFFSET = 32;
++const uint32_t VULKAN_SAMPLER_OFFSET = 64;
++const uint32_t VULKAN_UAV_OFFSET = 96;
++
++std::pair<int, std::string> RunProcess( const char* commandLine )
++{
++	s_fileMutex.lock();
++#ifdef _WIN32
++	FILE* process = _popen( commandLine, "r" );
++#else
++	FILE* process = popen( commandLine, "r" );
++#endif
++	s_fileMutex.unlock();
++
++	if( !process )
++	{
++		return std::make_pair( -1, "" );
++	}
++	std::string output;
++	char readBuffer[128];
++	while( fgets( readBuffer, sizeof( readBuffer ), process ) )
++	{
++		output += readBuffer;
++	}
++#ifdef _WIN32
++	return std::make_pair( _pclose( process ), output );
++#else
++	return std::make_pair( pclose( process ), output );
++#endif
++}
++
++std::string DxcTool()
++{
++	if( !g_dxcPath.empty() )
++	{
++		return g_dxcPath;
++	}
++#ifdef _WIN32
++	char dxcPath[MAX_PATH] = { 0 };
++	size_t dxcPathSize;
++	if( getenv_s( &dxcPathSize, dxcPath, "DXC_PATH" ) == 0 && dxcPath[0] )
++	{
++		return dxcPath;
++	}
++#else
++	if( auto dxcPath = getenv( "DXC_PATH" ) )
++	{
++		return dxcPath;
++	}
++#endif
++#ifdef SHADER_COMPILER_DXC_TOOL
++	return SHADER_COMPILER_DXC_TOOL;
++#else
++	return "dxc";
++#endif
++}
++
++// Compile HLSL source to SPIR-V by invoking dxc as an external process (following
++// the Metal backend's external-compiler approach). Ray tracing libraries
++// (lib_* profiles) have no single entry point and need SPIR-V 1.4+, so they
++// are compiled for the vulkan1.2 target environment.
++std::vector<uint8_t> CompileSpirv( const std::string& code, const std::string& profile, const std::string& entryPoint, InputStageType stageType )
++{
++	std::vector<uint8_t> compiledCode;
++
++	s_fileMutex.lock();
++
++#ifdef _WIN32
++	char srcFilenameTemplate[] = "vk_tmpXXXXXXX";
++	char binFilenameTemplate[] = "spvtmpXXXXXXX";
++
++	_mktemp_s( srcFilenameTemplate );
++	_mktemp_s( binFilenameTemplate );
++
++	char* srcFilename = srcFilenameTemplate;
++	char* binFilename = binFilenameTemplate;
++#else
++	char srcFilenameTemplate[] = "src_XXXXXXX.hlsl";
++	char binFilenameTemplate[] = "bin_XXXXXXX.spv";
++
++	char* srcFilename = nullptr;
++	char* binFilename = nullptr;
++
++	{
++		int srcFd = mkstemps( srcFilenameTemplate, 5 );
++		int binFd = mkstemps( binFilenameTemplate, 4 );
++
++		srcFilename = ( srcFd != -1 ) ? srcFilenameTemplate : nullptr;
++		binFilename = ( binFd != -1 ) ? binFilenameTemplate : nullptr;
++
++		close( srcFd );
++		close( binFd );
++	}
++#endif
++	s_fileMutex.unlock();
++
++	if( !srcFilename || !binFilename )
++	{
++		// Failed to generate a name for temporary file(s).
++		return compiledCode;
++	}
++
++	do
++	{
++		// Write shader source into temp file.
++		{
++			ZoneScopedN( "Write Source" );
++
++			std::lock_guard withFileMutex( s_fileMutex );
++			FILE* file = nullptr;
++			if( fopen_s( &file, srcFilename, "w" ) != 0 )
++			{
++				break;
++			}
++			size_t bytesWritten = fwrite( code.c_str(), 1, code.length(), file );
++			fclose( file );
++			file = nullptr;
++
++			if( bytesWritten != code.length() )
++			{
++				break;
++			}
++		}
++
++		// Compile shader.
++		{
++			ZoneScopedN( "Call compiler" );
++
++			uint32_t stageBase = uint32_t( stageType ) * VULKAN_STAGE_STRIDE;
++			const bool isLibrary = profile.compare( 0, 3, "lib" ) == 0;
++
++			std::ostringstream cmd;
++			cmd << DxcTool()
++				<< " -spirv"
++				<< " -T " << profile;
++			if( isLibrary )
++			{
++				cmd << " -fspv-target-env=vulkan1.2";
++			}
++			else
++			{
++				cmd << " -E " << entryPoint << " -fspv-entrypoint-name=main";
++			}
++			cmd << " -HV 2018 -Zpc -fvk-use-dx-layout"
++				<< " -fvk-b-shift " << stageBase + VULKAN_CBV_OFFSET << " all"
++				<< " -fvk-t-shift " << stageBase + VULKAN_SRV_OFFSET << " all"
++				<< " -fvk-s-shift " << stageBase + VULKAN_SAMPLER_OFFSET << " all"
++				<< " -fvk-u-shift " << stageBase + VULKAN_UAV_OFFSET << " all";
++			if( g_skipOptimization )
++			{
++				cmd << " -Od";
++			}
++			else
++			{
++				cmd << " -O" << std::min( g_optimizationLevel, 3u );
++			}
++			cmd << " -Fo " << binFilename << ' ' << srcFilename << " 2>&1";
++
++			auto compilerOutput = RunProcess( cmd.str().c_str() );
++			if( !compilerOutput.second.empty() )
++			{
++				if( compilerOutput.first != 0 || g_printWarnings )
++				{
++					g_messages.AddMessage( "%s", compilerOutput.second.c_str() );
++				}
++			}
++			if( compilerOutput.first != 0 )
++			{
++				// Shader compilation failed.
++				break;
++			}
++		}
++
++		// Read shader binary.
++		{
++			ZoneScopedN( "Read binary" );
++
++			std::lock_guard withFileMutex( s_fileMutex );
++			FILE* file = nullptr;
++			if( fopen_s( &file, binFilename, "rb" ) != 0 )
++			{
++				break;
++			}
++
++			fseek( file, 0, SEEK_END );
++			long pos = ftell( file );
++			fseek( file, 0, SEEK_SET );
++
++			size_t dataSize = pos;
++			compiledCode.resize( dataSize );
++
++			size_t readBytes = fread( compiledCode.data(), 1, dataSize, file );
++
++			fclose( file );
++			file = nullptr;
++
++			if( readBytes != dataSize )
++			{
++				compiledCode.clear();
++				break;
++			}
++		}
++	} while( false );
++
++	// Remove temp files.
++	{
++		std::lock_guard withFileMutex( s_fileMutex );
++		remove( srcFilename );
++		remove( binFilename );
++	}
++	return compiledCode;
++}
++
++bool ParseShaderName( const InlineString& name, InputStageType& type )
++{
++	if( _stricmp( ToString( name ).c_str(), "vertexshader" ) == 0 )
++	{
++		type = VERTEX_STAGE;
++	}
++	else if( _stricmp( ToString( name ).c_str(), "pixelshader" ) == 0 )
++	{
++		type = PIXEL_STAGE;
++	}
++	else if( _stricmp( ToString( name ).c_str(), "computeshader" ) == 0 )
++	{
++		type = COMPUTE_STAGE;
++	}
++	else if( _stricmp( ToString( name ).c_str(), "geometryshader" ) == 0 )
++	{
++		type = GEOMETRY_STAGE;
++	}
++	else if( _stricmp( ToString( name ).c_str(), "hullshader" ) == 0 )
++	{
++		type = HULL_STAGE;
++	}
++	else if( _stricmp( ToString( name ).c_str(), "domainshader" ) == 0 )
++	{
++		type = DOMAIN_STAGE;
++	}
++	else
++	{
++		return false;
++	}
++	return true;
++}
++
++std::string SanitizeCode( const std::string& src )
++{
++	ZoneScoped;
++	std::regex line( "#line[^\\n]*\\n?\\n" );
++	return std::regex_replace( src, line, std::string( "" ) );
++}
++
++// ----------------------------------------------------------------------------
++// Entry point patching. These are copies of the (Windows-only) DX11 versions in
++// EffectCompilerDX11.cpp: wrap uniform arguments, fix VPOS usage and promote
++// POSITION/COLOR output semantics to their SV_ equivalents for dxc.
++// ----------------------------------------------------------------------------
++
++bool FindParameterBySemantics( ASTNode* node, const char** semantics, std::vector<Symbol*>* path, bool outParameter = false )
++{
++	for( unsigned j = 0; j < node->GetChildrenCount(); ++j )
++	{
++		Symbol* symbol = node->GetChild( j )->GetSymbol();
++		if( symbol == nullptr )
++		{
++			continue;
++		}
++		if( outParameter )
++		{
++			if( node->GetChild( j )->GetToken() == 0 || node->GetChild( j )->GetToken()->type == OP_IN )
++			{
++				continue;
++			}
++		}
++		for( unsigned k = 0; semantics[k]; ++k )
++		{
++			if( _stricmp( ToString( symbol->semantic ).c_str(), semantics[k] ) == 0 )
++			{
++				if( path )
++				{
++					path->clear();
++					path->push_back( symbol );
++				}
++				return true;
++			}
++		}
++		if( node->GetChild( j )->GetType().symbol && node->GetChild( j )->GetType().symbol->definition )
++		{
++			for( unsigned i = 0; i < node->GetChild( j )->GetType().symbol->definition->GetChildrenCount(); ++i )
++			{
++				if( FindParameterBySemantics( node->GetChild( j )->GetType().symbol->definition->GetChild( i ), semantics, path ) )
++				{
++					if( path )
++					{
++						path->insert( path->begin(), symbol );
++					}
++					return true;
++				}
++			}
++		}
++	}
++	return false;
++}
++
++bool FindOutputBySemantics( ASTNode* node, const char** semantics, std::vector<Symbol*>* path )
++{
++	// check "out" function arguments
++	if( FindParameterBySemantics( node, semantics, path, true ) )
++	{
++		return true;
++	}
++	// check return value if it has semantics
++	if( node->GetSymbol() && node->GetSymbol()->semantic.start )
++	{
++		std::string sematic = ToString( node->GetSymbol()->semantic );
++		for( unsigned i = 0; semantics[i]; ++i )
++		{
++			if( _stricmp( sematic.c_str(), semantics[i] ) == 0 )
++			{
++				if( path )
++				{
++					path->push_back( nullptr );
++				}
++				return true;
++			}
++		}
++	}
++	// finally check return value as a structure
++	if( node->GetType().symbol &&
++		node->GetType().symbol->definition )
++	{
++		for( unsigned i = 0; i < node->GetType().symbol->definition->GetChildrenCount(); ++i )
++		{
++			if( FindParameterBySemantics( node->GetType().symbol->definition->GetChild( i ), semantics, path ) )
++			{
++				if( path )
++				{
++					path->insert( path->begin(), nullptr );
++				}
++				return true;
++			}
++		}
++	}
++	return false;
++}
++
++void PrintValuePath( std::ostream& os, const std::vector<Symbol*>& path, const char* functionSymbol )
++{
++	bool first = true;
++	for( auto it = path.begin(); it != path.end(); ++it )
++	{
++		if( first )
++		{
++			first = false;
++		}
++		else
++		{
++			os << ".";
++		}
++		if( *it )
++		{
++			os << ( *it )->name;
++		}
++		else
++		{
++			os << functionSymbol;
++		}
++	}
++}
++
++void PatchSemantics( InputStageType shaderStage, ASTNode* callNode )
++{
++	Symbol* entryPointSymbol = callNode->GetSymbol();
++	if( !entryPointSymbol )
++	{
++		return;
++	}
++	ASTNode* functionHeader = entryPointSymbol->definition->GetChildOrNull( 0 );
++	if( functionHeader == nullptr )
++	{
++		return;
++	}
++	std::vector<Symbol*> targetPath;
++	switch( shaderStage )
++	{
++	case VERTEX_STAGE: {
++		const char* semantics[] = { "position", nullptr };
++		if( FindOutputBySemantics( functionHeader, semantics, &targetPath ) )
++		{
++			if( targetPath.back() )
++			{
++				targetPath.back()->semantic = MakeInlineString( "SV_Position" );
++			}
++			else
++			{
++				entryPointSymbol->semantic = MakeInlineString( "SV_Position" );
++			}
++		}
++		break;
++	}
++	case PIXEL_STAGE: {
++		{
++			const char* semantics[] = { "color", "color0", nullptr };
++			if( FindOutputBySemantics( functionHeader, semantics, &targetPath ) )
++			{
++				if( targetPath.back() )
++				{
++					targetPath.back()->semantic = MakeInlineString( "SV_Target0" );
++				}
++				else
++				{
++					entryPointSymbol->semantic = MakeInlineString( "SV_Target0" );
++				}
++			}
++		}
++		{
++			const char* semantics[] = { "color1", nullptr };
++			if( FindOutputBySemantics( functionHeader, semantics, &targetPath ) )
++			{
++				if( targetPath.back() )
++				{
++					targetPath.back()->semantic = MakeInlineString( "SV_Target1" );
++				}
++				else
++				{
++					entryPointSymbol->semantic = MakeInlineString( "SV_Target1" );
++				}
++			}
++		}
++		break;
++	}
++	default:
++		break;
++	}
++}
++
++PatchAction PatchShader( InputStageType shaderStage, ASTNode* callNode, ParserState& state, CodeStream& os, std::string& entryPointName )
++{
++	ZoneScoped;
++
++	// 1. wrap uniforms
++	// 2. fix VPOS
++
++	bool wrapUniforms = false;
++	bool fixVPOS = false;
++	bool fixVPOSType = false;
++
++	Symbol* entryPointSymbol = callNode->GetSymbol();
++
++	if( entryPointSymbol == nullptr || entryPointSymbol->definition == nullptr )
++	{
++		return PATCH_ERROR;
++	}
++
++	ASTNode* functionHeader = entryPointSymbol->definition->GetChildOrNull( 0 );
++	if( functionHeader == nullptr )
++	{
++		return PATCH_ERROR;
++	}
++
++	std::vector<Symbol*> targetPath;
++	std::vector<Symbol*> outPositionPath;
++
++	if( shaderStage == VERTEX_STAGE )
++	{
++		const char* position[] = { "position", "sv_position", nullptr };
++		FindOutputBySemantics( functionHeader, position, &outPositionPath );
++	}
++
++	// check for uniform parameters
++	if( callNode->GetChildrenCount() )
++	{
++		unsigned count = 0;
++		for( unsigned i = 0; i < functionHeader->GetChildrenCount(); ++i )
++		{
++			if( IsUniformInputArgument( functionHeader->GetChild( i ) ) )
++			{
++				++count;
++			}
++		}
++		if( count != callNode->GetChildrenCount() )
++		{
++			state.ShowMessage( callNode->GetLocation(), EC_NO_OVERRIDE, ToString( functionHeader->GetToken()->stringValue ).c_str(), "" );
++			return PATCH_ERROR;
++		}
++		wrapUniforms = true;
++	}
++
++	// find VPOS+POSITION parameters
++	std::vector<Symbol*> positionPath;
++	std::vector<Symbol*> vposPath;
++	const char* vpos[] = { "vpos", nullptr };
++	fixVPOSType = fixVPOS = FindParameterBySemantics( functionHeader, vpos, &vposPath );
++	if( fixVPOS )
++	{
++		const char* position[] = { "position", "sv_position", nullptr };
++		bool foundPosition = FindParameterBySemantics( functionHeader, position, &positionPath );
++		fixVPOS &= foundPosition;
++	}
++
++	if( fixVPOSType )
++	{
++		if( vposPath.back() )
++		{
++			if( vposPath.back()->type.symbol ||
++				( vposPath.back()->type.builtInType == OP_FLOAT && vposPath.back()->type.width == 4 && vposPath.back()->type.height == 1 ) )
++			{
++				fixVPOSType = false;
++			}
++		}
++	}
++
++	if( !wrapUniforms && !fixVPOS && !fixVPOSType && ( shaderStage != VERTEX_STAGE || outPositionPath.empty() ) )
++	{
++		entryPointName = ToString( entryPointSymbol->name );
++		return PATCH_USE;
++	}
++
++	if( entryPointSymbol->definition->GetChildOrNull( 2 ) )
++	{
++		os << HLSL{ entryPointSymbol->definition->GetChildOrNull( 2 ), nullptr };
++	}
++	// return type
++	os << functionHeader->GetType();
++	// name
++	InlineString name = state.AllocateName();
++	os << ' ' << name << "( ";
++	bool first = true;
++
++	for( size_t i = 0; i < functionHeader->GetChildrenCount(); ++i )
++	{
++		if( IsUniformInputArgument( functionHeader->GetChild( i ) ) )
++		{
++			continue;
++		}
++
++		Symbol* symbol = functionHeader->GetChild( i )->GetSymbol();
++		if( symbol == nullptr )
++		{
++			return PATCH_ERROR;
++		}
++		if( fixVPOS && symbol->semantic.start && _stricmp( ToString( symbol->semantic ).c_str(), "vpos" ) == 0 )
++		{
++			continue;
++		}
++		if( !first )
++		{
++			os << ", ";
++		}
++		else
++		{
++			first = false;
++		}
++		if( fixVPOSType && symbol->semantic.start && _stricmp( ToString( symbol->semantic ).c_str(), "vpos" ) == 0 )
++		{
++			os << "float4 " << functionHeader->GetChild( i )->GetSymbol()->name << ": VPOS";
++		}
++		else
++		{
++			os << HLSL{ functionHeader->GetChild( i ), nullptr };
++		}
++	}
++	os << " )";
++	// semantics
++	if( functionHeader->GetSymbol()->semantic.start )
++	{
++		os << " : " << functionHeader->GetSymbol()->semantic;
++	}
++	os << "\n{\n";
++	unsigned uniformIndex = 0;
++	std::map<size_t, InlineString> defaultUniformArguments;
++	for( size_t i = 0; i < functionHeader->GetChildrenCount(); ++i )
++	{
++		if( IsUniformInputArgument( functionHeader->GetChild( i ) ) )
++		{
++			if( callNode->GetChildrenCount() <= uniformIndex && functionHeader->GetChild( i )->GetChildOrNull( 1 ) != nullptr )
++			{
++				InlineString uniformName = state.AllocateName();
++				Type type = functionHeader->GetChild( i )->GetType();
++				type.storageClass = 0;
++				os << type << ' ' << uniformName << " = " << HLSL{ functionHeader->GetChild( i )->GetChildOrNull( 1 ), nullptr };
++				os << ";\n";
++				defaultUniformArguments[i] = uniformName;
++			}
++			uniformIndex++;
++		}
++	}
++
++	if( functionHeader->GetSymbol()->type.symbol || functionHeader->GetSymbol()->type.builtInType != OP_VOID )
++	{
++		os << functionHeader->GetType() << " __returnValue = ";
++	}
++	// call original function
++	uniformIndex = 0;
++	os << entryPointSymbol->name << "(";
++	for( size_t i = 0; i < functionHeader->GetChildrenCount(); ++i )
++	{
++		if( i > 0 )
++		{
++			os << ", ";
++		}
++		if( IsUniformInputArgument( functionHeader->GetChild( i ) ) )
++		{
++			if( callNode->GetChildrenCount() > uniformIndex )
++			{
++				os << HLSL{ callNode->GetChild( uniformIndex ), nullptr };
++			}
++			else if( functionHeader->GetChild( i )->GetChildOrNull( 1 ) != nullptr )
++			{
++				os << defaultUniformArguments[i];
++			}
++			uniformIndex++;
++		}
++		else
++		{
++			Symbol* symbol = functionHeader->GetChild( i )->GetSymbol();
++			if( symbol == nullptr )
++			{
++				return PATCH_ERROR;
++			}
++			if( fixVPOS && symbol->semantic.start && _stricmp( ToString( symbol->semantic ).c_str(), "vpos" ) == 0 )
++			{
++				// pass VPOS value from POSITION
++				PrintValuePath( os, positionPath, "" );
++				if( symbol->type.symbol == nullptr && symbol->type.builtInType == OP_FLOAT && symbol->type.height == 1 &&
++					positionPath.back()->type.symbol == nullptr && positionPath.back()->type.builtInType == OP_FLOAT &&
++					positionPath.back()->type.height == 1 && positionPath.back()->type.width != symbol->type.width )
++				{
++					const char* swizzle = "xyzw";
++					os << ".";
++					for( int k = 0; k < symbol->type.width; ++k )
++					{
++						os << swizzle[std::min( k, positionPath.back()->type.width - 1 )];
++					}
++				}
++			}
++			else if( fixVPOSType && symbol->semantic.start && _stricmp( ToString( symbol->semantic ).c_str(), "vpos" ) == 0 )
++			{
++				Type type = symbol->type;
++				os << type << "( " << symbol->name;
++				if( type.width != 4 )
++				{
++					const char* swizzle = "xyzw";
++					os << ".";
++					for( int k = 0; k < symbol->type.width; ++k )
++					{
++						os << swizzle[std::min( k, symbol->type.width - 1 )];
++					}
++				}
++				os << " )";
++			}
++			else
++			{
++				os << symbol->name;
++			}
++		}
++	}
++	os << ");\n";
++	if( functionHeader->GetSymbol()->type.symbol || functionHeader->GetSymbol()->type.builtInType != OP_VOID )
++	{
++		os << "return __returnValue;\n";
++	}
++	os << "}\n";
++
++	entryPointName = ToString( name );
++	return PATCH_USE;
++}
++
++void GetThreadGroupSize( StageInput& stage, ASTNode* callNode )
++{
++	stage.threadGroupSize[0] = 1;
++	stage.threadGroupSize[1] = 1;
++	stage.threadGroupSize[2] = 1;
++
++	if( stage.type != COMPUTE_STAGE )
++	{
++		return;
++	}
++
++	Symbol* entryPointSymbol = callNode->GetSymbol();
++	if( !entryPointSymbol || !entryPointSymbol->definition )
++	{
++		return;
++	}
++
++	ASTNode* attribList = entryPointSymbol->definition->GetChildOrNull( 2 );
++	if( attribList && attribList->GetNodeType() == NT_FUNCTION_ATTRIBUTE_LIST )
++	{
++		// Find [numthreads(X, Y, Z)] attribute.
++		for( size_t i = 0, n = attribList->GetChildrenCount(); i < n; ++i )
++		{
++			ASTNode* attribute = attribList->GetChild( i );
++			if( attribute->GetToken()->stringValue != "numthreads" )
++			{
++				continue;
++			}
++
++			for( size_t j = 0; j < 3; ++j )
++			{
++				ASTNode* child = attribute->GetChildOrNull( j );
++
++				InlineString valueString = ( child && child->GetToken() ) ? child->GetToken()->stringValue : InlineString{ nullptr, nullptr };
++				unsigned long value = valueString ? std::strtoul( valueString.start, nullptr, 10 ) : 1;
++
++				stage.threadGroupSize[j] = (uint32_t)value;
++			}
++		}
++	}
++}
++
++bool MakeEffectAnnotationFromSymbolAnnotation( const SymbolAnnotation& annotation, Annotation& result, bool& isSRGB, bool& isAutoregister )
++{
++	switch( annotation.type )
++	{
++	case OP_FLOAT:
++	case OP_HALF:
++	case OP_DOUBLE:
++		result.type = ANNOTATION_TYPE_FLOAT;
++		result.floatValue = float( ParseFloat( annotation.value.stringValue.start, annotation.value.stringValue.end ) );
++		return true;
++
++	case OP_UINT:
++	case OP_INT:
++		result.type = ANNOTATION_TYPE_INT;
++		result.intValue = int32_t( ParseNumber( annotation.value.stringValue.start, annotation.value.stringValue.end ) );
++		return true;
++
++	case OP_BOOL:
++		result.type = ANNOTATION_TYPE_BOOL;
++		result.intValue = annotation.value.intValue ? 1 : 0;
++		if( annotation.name == "Tr2sRGB" )
++		{
++			isSRGB = result.intValue != 0;
++		}
++		else if( annotation.name == "AutoRegister" )
++		{
++			isAutoregister = result.intValue != 0;
++		}
++		return true;
++
++	case OP_STRING:
++		result.type = ANNOTATION_TYPE_STRING;
++		result.stringValue = g_stringTable.AddString( ParseString( annotation.value.stringValue ).c_str() );
++		return true;
++	}
++
++	return false;
++}
++
++void AddSymbolAnnotations( const Symbol* symbol, std::map<StringReference, ParameterAnnotation>& annotations, bool& isSRGB, bool& isAutoregister )
++{
++	isSRGB = false;
++	isAutoregister = false;
++	if( !symbol || !symbol->annotations )
++	{
++		return;
++	}
++	ParameterAnnotation paramAnnotations;
++	for( auto& ai : *symbol->annotations )
++	{
++		Annotation result;
++		if( MakeEffectAnnotationFromSymbolAnnotation( ai, result, isSRGB, isAutoregister ) )
++		{
++			paramAnnotations.annotations[g_stringTable.AddString( ai.name )] = result;
++		}
++	}
++	if( !paramAnnotations.annotations.empty() )
++	{
++		auto name = g_stringTable.AddString( symbol->name );
++		if( annotations.find( name ) == annotations.end() )
++		{
++			annotations[name] = paramAnnotations;
++		}
++	}
++}
++
++// ----------------------------------------------------------------------------
++// AST-derived reflection. The Vulkan backend does not introspect the compiled
++// SPIR-V; StageData is populated from the parsed source instead, mirroring what
++// DxReflection::ProcessReflection produces from D3D shader reflection.
++// ----------------------------------------------------------------------------
++
++char ClassifyRegisterType( const Type& type )
++{
++	if( type.symbol )
++	{
++		return 0;
++	}
++	switch( type.builtInType )
++	{
++	case OP_SAMPLER2D:
++	case OP_SAMPLER3D:
++	case OP_SAMPLERCUBE:
++	case OP_SAMPLER:
++	case OP_SAMPLERCOMPARISON:
++		return 's';
++	case OP_TEXTURE1D:
++	case OP_TEXTURE2D:
++	case OP_TEXTURE3D:
++	case OP_TEXTURECUBE:
++	case OP_TEXTURE1DARRAY:
++	case OP_TEXTURE2DARRAY:
++	case OP_TEXTURE3DARRAY:
++	case OP_TEXTURECUBEARRAY:
++	case OP_TEXTURE2DMS:
++	case OP_TEXTURE2DMSARRAY:
++	case OP_TEXTURE:
++	case OP_BUFFER:
++	case OP_STRUCTUREDBUFFER:
++	case OP_BYTEADDRESSBUFFER:
++		return 't';
++	case OP_APPENDSTRUCTUREDBUFFER:
++	case OP_CONSUMESTRUCTUREDBUFFER:
++	case OP_RWBUFFER:
++	case OP_RWBYTEADDRESSBUFFER:
++	case OP_RWSTRUCTUREDBUFFER:
++	case OP_RWTEXTURE1D:
++	case OP_RWTEXTURE1DARRAY:
++	case OP_RWTEXTURE2D:
++	case OP_RWTEXTURE2DARRAY:
++	case OP_RWTEXTURE3D:
++	case OP_RWTEXTURE3DARRAY:
++		return 'u';
++	default:
++		return 0;
++	}
++}
++
++RegisterInputType TypeToRegisterInputType( const Type& type )
++{
++	switch( type.builtInType )
++	{
++	case OP_BUFFER:
++	case OP_BYTEADDRESSBUFFER:
++		return RT_SRV_BUFFER;
++	case OP_STRUCTUREDBUFFER:
++		return RT_SRV_STRUCTURED_BUFFER;
++	case OP_TEXTURE1D:
++		return RT_SRV_TEXTURE1D;
++	case OP_TEXTURE1DARRAY:
++		return RT_SRV_TEXTURE1DARRAY;
++	case OP_TEXTURE:
++	case OP_TEXTURE2D:
++		return RT_SRV_TEXTURE2D;
++	case OP_TEXTURE2DARRAY:
++		return RT_SRV_TEXTURE2DARRAY;
++	case OP_TEXTURE2DMS:
++		return RT_SRV_TEXTURE2DMS;
++	case OP_TEXTURE2DMSARRAY:
++		return RT_SRV_TEXTURE2DMSARRAY;
++	case OP_TEXTURE3D:
++		return RT_SRV_TEXTURE3D;
++	case OP_TEXTURECUBE:
++		return RT_SRV_TEXTURECUBE;
++	case OP_TEXTURECUBEARRAY:
++		return RT_SRV_TEXTURECUBEARRAY;
++	case OP_RWBUFFER:
++	case OP_RWBYTEADDRESSBUFFER:
++		return RT_UAV_BUFFER;
++	case OP_RWSTRUCTUREDBUFFER:
++	case OP_APPENDSTRUCTUREDBUFFER:
++	case OP_CONSUMESTRUCTUREDBUFFER:
++		return RT_UAV_STRUCTURED_BUFFER;
++	case OP_RWTEXTURE1D:
++		return RT_UAV_TEXTURE1D;
++	case OP_RWTEXTURE1DARRAY:
++		return RT_UAV_TEXTURE1DARRAY;
++	case OP_RWTEXTURE2D:
++		return RT_UAV_TEXTURE2D;
++	case OP_RWTEXTURE2DARRAY:
++		return RT_UAV_TEXTURE2DARRAY;
++	case OP_RWTEXTURE3D:
++		return RT_UAV_TEXTURE3D;
++	case OP_SAMPLER:
++	case OP_SAMPLER2D:
++	case OP_SAMPLER3D:
++	case OP_SAMPLERCUBE:
++	case OP_SAMPLERCOMPARISON:
++		return RT_SAMPLER;
++	default:
++		return RT_CONSTANT_BUFFER;
++	}
++}
++
++TextureType TypeToTextureType( const Type& type )
++{
++	switch( type.builtInType )
++	{
++	case OP_TEXTURE1D:
++	case OP_RWTEXTURE1D:
++		return TEX_TYPE_1D;
++	case OP_TEXTURE:
++	case OP_TEXTURE2D:
++	case OP_RWTEXTURE2D:
++		return TEX_TYPE_2D;
++	case OP_TEXTURE3D:
++	case OP_RWTEXTURE3D:
++		return TEX_TYPE_3D;
++	case OP_TEXTURECUBE:
++		return TEX_TYPE_CUBE;
++	case OP_TEXTURE2DARRAY:
++	case OP_RWTEXTURE2DARRAY:
++	case OP_TEXTURE2DMS:
++	case OP_TEXTURE2DMSARRAY:
++	case OP_TEXTURE3DARRAY:
++	case OP_RWTEXTURE3DARRAY:
++	case OP_TEXTURECUBEARRAY:
++		return TEX_TYPE_TYPELESS;
++	case OP_BUFFER:
++		return TEX_TYPE_BUFFER;
++	case OP_STRUCTUREDBUFFER:
++		return TEX_TYPE_STRUCTURED_BUFFER;
++	case OP_TBUFFER:
++		return TEX_TYPE_TBUFFER;
++	case OP_BYTEADDRESSBUFFER:
++		return TEX_TYPE_BYTEADDRESS_BUFFER;
++	case OP_RWBUFFER:
++		return TEX_TYPE_UAV_RWTYPED;
++	case OP_RWSTRUCTUREDBUFFER:
++		return TEX_TYPE_UAV_RWSTRUCTURED;
++	case OP_RWBYTEADDRESSBUFFER:
++		return TEX_TYPE_UAV_RWBYTEADDRESS;
++	default:
++		return TEX_TYPE_TYPELESS;
++	}
++}
++
++bool ProfileMatchesStage( const InlineString& profile, InputStageType stage )
++{
++	if( profile == MakeInlineString( "" ) )
++	{
++		return true;
++	}
++	switch( stage )
++	{
++	case VERTEX_STAGE:
++		return profile == MakeInlineString( "vs" );
++	case PIXEL_STAGE:
++		return profile == MakeInlineString( "ps" );
++	case COMPUTE_STAGE:
++		return profile == MakeInlineString( "cs" );
++	case GEOMETRY_STAGE:
++		return profile == MakeInlineString( "gs" );
++	case HULL_STAGE:
++		return profile == MakeInlineString( "hs" );
++	case DOMAIN_STAGE:
++		return profile == MakeInlineString( "ds" );
++	default:
++		return false;
++	}
++}
++
++// Returns the register specifier in effect for this stage: an explicit register
++// with a matching profile wins over the auto-assigned one (profile "").
++const RegisterSpecifier* GetEffectiveRegister( const Symbol* symbol, InputStageType stage )
++{
++	const RegisterSpecifier* fallback = nullptr;
++	for( auto& r : symbol->registerSpecifier )
++	{
++		if( !ProfileMatchesStage( r.first, stage ) )
++		{
++			continue;
++		}
++		if( r.second.explicitRegister )
++		{
++			return &r.second;
++		}
++		fallback = &r.second;
++	}
++	return fallback;
++}
++
++uint32_t GetRegisterCount( const Type& type )
++{
++	uint32_t count = 1;
++	for( int i = 0; i < type.arrayDimensions; ++i )
++	{
++		count *= uint32_t( type.arraySizes[i] );
++	}
++	return std::max( count, 1u );
++}
++
++ConstantType TypeToConstantType( const Type& type )
++{
++	switch( type.builtInType )
++	{
++	case OP_FLOAT:
++	case OP_HALF:
++	case OP_DOUBLE:
++		return CONSTANT_TYPE_FLOAT;
++	case OP_INT:
++		return CONSTANT_TYPE_INT;
++	case OP_UINT:
++	case OP_BINDLESSHANDLETEXTURE2D:
++	case OP_BINDLESSHANDLETEXTURE3D:
++	case OP_BINDLESSHANDLETEXTURECUBE:
++	case OP_BINDLESSHANDLESAMPLER:
++		return CONSTANT_TYPE_UINT;
++	case OP_BOOL:
++		return CONSTANT_TYPE_BOOL;
++	default:
++		return CONSTANT_TYPE_OTHER;
++	}
++}
++
++// D3D constant buffer packing (fxc rules). dxc is invoked with -fvk-use-dx-layout
++// so the SPIR-V offsets match what is computed here.
++bool ComputeConstantLayout( const Type& type, uint32_t& runningOffset, Constant& constant, uint32_t& arrayStride )
++{
++	if( type.symbol != nullptr )
++	{
++		return false; // struct constants are not supported
++	}
++
++	uint32_t elementCount = 1;
++	for( int i = 0; i < type.arrayDimensions; ++i )
++	{
++		elementCount *= uint32_t( type.arraySizes[i] );
++	}
++
++	uint32_t elementSize;
++	if( type.IsMatrix() )
++	{
++		// column_major floatRxC: C column registers, each holding R components
++		elementSize = 16 * uint32_t( type.height - 1 ) + 4 * uint32_t( type.width );
++		constant.dimension = 16;
++	}
++	else
++	{
++		elementSize = 4 * uint32_t( type.width );
++		constant.dimension = uint8_t( type.width );
++	}
++
++	uint32_t offset = runningOffset;
++	if( type.arrayDimensions > 0 || type.IsMatrix() )
++	{
++		offset = ( offset + 15 ) & ~15u;
++	}
++	else
++	{
++		offset = ( offset + 3 ) & ~3u;
++		if( offset / 16 != ( offset + elementSize - 1 ) / 16 )
++		{
++			offset = ( offset + 15 ) & ~15u;
++		}
++	}
++
++	arrayStride = ( elementSize + 15 ) & ~15u;
++	uint32_t size = elementSize;
++	if( type.arrayDimensions > 0 )
++	{
++		size = arrayStride * ( elementCount - 1 ) + elementSize;
++	}
++
++	constant.offset = offset;
++	constant.size = size;
++	constant.type = TypeToConstantType( type );
++	constant.elements = type.arrayDimensions > 0 ? elementCount : 0;
++
++	runningOffset = offset + size;
++	return true;
++}
++
++bool FillDefaults( ParserState& state, ASTNode* node, void* outDefaultValues, const Type& type )
++{
++	Type expectedType = type;
++	ExpressionValue value;
++
++	if( type.IsMatrix() )
++	{
++		state.ShowMessage( node->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++		return false;
++	}
++
++	if( EvaluateInitializer( state, node, expectedType, value, nullptr ) )
++	{
++		uint32_t count = uint32_t( type.width * type.height );
++		if( count != value.size() )
++		{
++			state.ShowMessage( node->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++			return false;
++		}
++
++		if( type.builtInType == OP_FLOAT )
++		{
++			float* floatValues = (float*)outDefaultValues;
++			for( size_t i = 0; i < count; ++i )
++			{
++				*floatValues++ = float( value[i].floatValue );
++			}
++		}
++		else if( type.builtInType == OP_INT || type.builtInType == OP_UINT || type.builtInType == OP_BOOL )
++		{
++			int32_t* intValues = (int32_t*)outDefaultValues;
++			for( size_t i = 0; i < count; ++i )
++			{
++				*intValues++ = int32_t( value[i].intValue );
++			}
++		}
++		else
++		{
++			state.ShowMessage( node->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++			return false;
++		}
++
++		return true;
++	}
++
++	return false;
++}
++
++bool FlattenStructConstants( ParserState& state, StageData& stage, const std::string& prefix, const Type& structType, ASTNode* location, uint32_t& offset );
++
++// Lays out a single constant buffer field into stage.constants. Struct-typed
++// fields flatten into one Constant per leaf member (dxc lays the cbuffer out the
++// same way), so a DX9-style "struct {...} X : register(vs, cN)" binding works.
++bool AddConstant( ParserState& state, StageData& stage, const std::string& name, const Type& type, ASTNode* location, uint32_t& offset )
++{
++	if( type.arrayDimensions == 0 && type.symbol && type.symbol->definition && type.symbol->definition->GetNodeType() == NT_STRUCT )
++	{
++		return FlattenStructConstants( state, stage, name, type, location, offset );
++	}
++
++	Constant constant;
++	constant.name = g_stringTable.AddString( name.c_str() );
++	constant.isSRGB = false;
++	constant.isAutoregister = false;
++
++	uint32_t arrayStride = 0;
++	if( !ComputeConstantLayout( type, offset, constant, arrayStride ) )
++	{
++		state.ShowMessage( location->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++		return false;
++	}
++
++	stage.constants.push_back( constant );
++	return true;
++}
++
++// Flattens a struct-typed field into its leaf members. Per HLSL cbuffer packing
++// a struct (and the field following it) starts on a 16-byte boundary.
++bool FlattenStructConstants( ParserState& state, StageData& stage, const std::string& prefix, const Type& structType, ASTNode* location, uint32_t& offset )
++{
++	offset = ( offset + 15 ) & ~15u;
++
++	for( auto member : structType.symbol->definition->GetChildren() )
++	{
++		if( !member || member->GetNodeType() != NT_STRUCT_MEMBER )
++		{
++			continue;
++		}
++		ASTNode* decl = member->GetChildOrNull( 0 );
++		if( !decl || !decl->GetSymbol() )
++		{
++			continue;
++		}
++		Symbol* memberSymbol = decl->GetSymbol();
++		std::string name = prefix + "." + ToString( memberSymbol->name );
++		if( !AddConstant( state, stage, name, memberSymbol->type, decl, offset ) )
++		{
++			return false;
++		}
++	}
++
++	offset = ( offset + 15 ) & ~15u;
++	return true;
++}
++
++// Collects the members of a constant buffer, in declaration order, into
++// stage.constants. Only used members participate: the HLSL emitter skips unused
++// declarations, so this layout matches the source dxc actually compiles.
++bool CollectConstants( ParserState& state, StageData& stage, ASTNode* cbufferNode, std::map<StringReference, ParameterAnnotation>& annotations )
++{
++	uint32_t offset = 0;
++
++	std::vector<ASTNode*> declarations;
++	for( auto child : cbufferNode->GetChildren() )
++	{
++		if( !child )
++		{
++			continue;
++		}
++		if( child->GetNodeType() == NT_NAME_DECLARATION )
++		{
++			declarations.push_back( child );
++		}
++		else if( child->GetNodeType() == NT_VAR_DECLARATION_LIST )
++		{
++			for( auto decl : child->GetChildren() )
++			{
++				if( decl && decl->GetNodeType() == NT_NAME_DECLARATION )
++				{
++					declarations.push_back( decl );
++				}
++			}
++		}
++	}
++
++	for( auto declaration : declarations )
++	{
++		Symbol* symbol = declaration->GetSymbol();
++		if( !symbol || !symbol->used )
++		{
++			continue;
++		}
++
++		// "static const" globals are compile-time constants that dxc inlines; they
++		// are not laid out in the constant buffer, so skip them (they must not shift
++		// the offsets of the real members that follow).
++		if( symbol->type.storageClass == OP_STATIC )
++		{
++			continue;
++		}
++
++		const Type& type = symbol->type;
++
++		// A struct field (e.g. a "struct {...} X : register(vs, cN)" binding
++		// wrapped into a cbuffer) flattens into one Constant per leaf member.
++		if( type.arrayDimensions == 0 && type.symbol && type.symbol->definition && type.symbol->definition->GetNodeType() == NT_STRUCT )
++		{
++			if( !FlattenStructConstants( state, stage, ToString( symbol->name ), type, declaration, offset ) )
++			{
++				return false;
++			}
++			continue;
++		}
++
++		Constant constant;
++		constant.name = g_stringTable.AddString( symbol->name );
++		constant.isSRGB = false;
++		constant.isAutoregister = false;
++
++		uint32_t arrayStride = 0;
++		if( !ComputeConstantLayout( type, offset, constant, arrayStride ) )
++		{
++			state.ShowMessage( declaration->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++			return false;
++		}
++
++		// Annotations (also extracts sRGB/autoregister flags).
++		{
++			ParameterAnnotation paramAnnotations;
++			if( symbol->annotations )
++			{
++				for( auto& a : *symbol->annotations )
++				{
++					Annotation result;
++					if( MakeEffectAnnotationFromSymbolAnnotation( a, result, constant.isSRGB, constant.isAutoregister ) )
++					{
++						paramAnnotations.annotations[g_stringTable.AddString( a.name )] = result;
++					}
++				}
++			}
++			if( symbol->type.IsBindlessHandle() )
++			{
++				Annotation symbolAnnotation;
++				symbolAnnotation.type = ANNOTATION_TYPE_INT;
++				symbolAnnotation.intValue = symbol->type.builtInType == OP_BINDLESSHANDLESAMPLER ? 100 : BindlessTextureType( symbol->type.builtInType );
++				paramAnnotations.annotations[g_stringTable.AddString( "BindlessHandleType" )] = symbolAnnotation;
++			}
++			if( !paramAnnotations.annotations.empty() && annotations.find( constant.name ) == annotations.end() )
++			{
++				annotations[constant.name] = paramAnnotations;
++			}
++			if( symbol->type.IsBindlessHandle() && symbol->type.builtInType == OP_BINDLESSHANDLESAMPLER )
++			{
++				auto found = std::find_if( begin( state.m_bindlessSamplers ), end( state.m_bindlessSamplers ), [symbol]( const auto& bs ) { return bs.name == symbol; } );
++				if( found != end( state.m_bindlessSamplers ) )
++				{
++					Sampler sampler;
++					if( GetSamplerState( state, found->definition, sampler ) )
++					{
++						sampler.name = constant.name;
++						stage.samplers[uint8_t( 100 + ( found - begin( state.m_bindlessSamplers ) ) )] = sampler;
++					}
++				}
++			}
++		}
++
++		// Default value?
++		ASTNode* defaultValueNode = declaration->GetChildOrNull( 1 );
++		if( defaultValueNode )
++		{
++			stage.defaultValues.resize( std::max( stage.defaultValues.size(), size_t( constant.offset + constant.size ) ) );
++			memset( &stage.defaultValues[constant.offset], 0, constant.size );
++
++			if( type.arrayDimensions == 0 )
++			{
++				if( !FillDefaults( state, defaultValueNode, stage.defaultValues.data() + constant.offset, type ) )
++				{
++					return false;
++				}
++			}
++			else if( type.arrayDimensions == 1 )
++			{
++				Type elementType = type;
++				elementType.arrayDimensions = 0;
++				for( size_t i = 0, n = defaultValueNode->GetChildrenCount(); i < n; ++i )
++				{
++					size_t elementOffset = constant.offset + i * arrayStride;
++					if( !FillDefaults( state, defaultValueNode->GetChild( unsigned( i ) ), stage.defaultValues.data() + elementOffset, elementType ) )
++					{
++						return false;
++					}
++				}
++			}
++			else
++			{
++				state.ShowMessage( defaultValueNode->GetLocation(), EC_UNSUPPORTED_TYPE, type.ToString().c_str() );
++				return false;
++			}
++		}
++
++		stage.constants.push_back( constant );
++	}
++	return true;
++}
++
++bool HasUsedDeclarations( ASTNode* node )
++{
++	for( auto child : node->GetChildren() )
++	{
++		if( !child )
++		{
++			continue;
++		}
++		if( child->GetNodeType() == NT_NAME_DECLARATION )
++		{
++			if( child->GetSymbol() && child->GetSymbol()->used )
++			{
++				return true;
++			}
++		}
++		else if( child->GetNodeType() == NT_VAR_DECLARATION_LIST )
++		{
++			if( HasUsedDeclarations( child ) )
++			{
++				return true;
++			}
++		}
++	}
++	return false;
++}
++
++// Walks the program and populates registerInputs/textures/samplers/uavs/constants
++// for all used resources, mirroring DxReflection::ProcessReflection.
++bool CollectResources( ParserState& state, ASTNode* node, InputStageType stageType, StageData& stage, std::map<StringReference, ParameterAnnotation>& annotations, bool useStaticSamplers )
++{
++	if( !node )
++	{
++		return true;
++	}
++	switch( node->GetNodeType() )
++	{
++	case NT_CBUFFER: {
++		if( !HasUsedDeclarations( node ) )
++		{
++			return true;
++		}
++		const RegisterSpecifier* reg = GetEffectiveRegister( node->GetSymbol(), stageType );
++		if( !reg )
++		{
++			state.ShowMessage( node->GetLocation(), EC_CUSTOM_ERROR, "internal error: constant buffer \"%s\" has no register assigned", ToString( node->GetSymbol()->name ).c_str() );
++			return false;
++		}
++		if( reg->space > 0 )
++		{
++			state.ShowMessage( node->GetLocation(), EC_CUSTOM_ERROR, "register spaces other than space0 are not supported by the Vulkan backend" );
++			return false;
++		}
++		stage.registerInputs.push_back( { RT_CONSTANT_BUFFER, uint32_t( reg->registerNumber ), 1, 0 } );
++		if( reg->registerNumber == 0 )
++		{
++			if( !CollectConstants( state, stage, node, annotations ) )
++			{
++				return false;
++			}
++		}
++		return true;
++	}
++	case NT_NAME_DECLARATION: {
++		Symbol* symbol = node->GetSymbol();
++		if( !symbol || !symbol->used )
++		{
++			return true;
++		}
++		char registerType = ClassifyRegisterType( symbol->type );
++		if( !registerType )
++		{
++			return true;
++		}
++		const RegisterSpecifier* reg = GetEffectiveRegister( symbol, stageType );
++		if( !reg )
++		{
++			state.ShowMessage( node->GetLocation(), EC_CUSTOM_ERROR, "internal error: resource \"%s\" has no register assigned", ToString( symbol->name ).c_str() );
++			return false;
++		}
++		// A nonzero register space maps directly to a Vulkan descriptor set
++		// (dxc's default: HLSL space N -> descriptor set N). AssignRegisters puts
++		// each resource array in its own space, so arrays land in their own set.
++		uint32_t registerCount = GetRegisterCount( symbol->type );
++		uint32_t registerNumber = uint32_t( reg->registerNumber );
++		uint32_t registerSpace = uint32_t( reg->space );
++
++		switch( registerType )
++		{
++		case 's': {
++			Sampler sampler;
++			if( !GetSamplerState( state, symbol->definition, sampler ) )
++			{
++				return false;
++			}
++			StaticSampler staticSampler;
++			if( symbol->type.arrayDimensions == 0 && useStaticSamplers && ConvertToStaticSampler( staticSampler, sampler ) )
++			{
++				staticSampler.registerIndex = registerNumber;
++				staticSampler.registerSpace = registerSpace;
++				stage.staticSamplers.push_back( staticSampler );
++			}
++			else
++			{
++				sampler.name = g_stringTable.AddString( symbol->name );
++				stage.samplers[uint8_t( registerNumber )] = sampler;
++				stage.registerInputs.push_back( { RT_SAMPLER, registerNumber, registerCount, registerSpace } );
++
++				bool srgb, autoregister;
++				AddSymbolAnnotations( symbol, annotations, srgb, autoregister );
++			}
++			break;
++		}
++		case 't': {
++			stage.registerInputs.push_back( { TypeToRegisterInputType( symbol->type ), registerNumber, registerCount, registerSpace } );
++
++			Texture texture;
++			texture.name = g_stringTable.AddString( symbol->name );
++			texture.type = TypeToTextureType( symbol->type );
++			texture.count = registerCount;
++			AddSymbolAnnotations( symbol, annotations, texture.isSRGB, texture.isAutoregister );
++			stage.textures[uint8_t( registerNumber )] = texture;
++			break;
++		}
++		case 'u': {
++			stage.registerInputs.push_back( { TypeToRegisterInputType( symbol->type ), registerNumber, registerCount, registerSpace } );
++
++			Uav uav;
++			uav.name = g_stringTable.AddString( symbol->name );
++			uav.type = TypeToTextureType( symbol->type );
++			uav.count = registerCount;
++			bool srgb;
++			AddSymbolAnnotations( symbol, annotations, srgb, uav.isAutoregister );
++			stage.uavs[uint8_t( registerNumber )] = uav;
++			break;
++		}
++		default:
++			break;
++		}
++		return true;
++	}
++	case NT_PROGRAM:
++	case NT_VAR_DECLARATION_LIST:
++		for( size_t i = 0; i < node->GetChildrenCount(); ++i )
++		{
++			if( !CollectResources( state, node->GetChild( i ), stageType, stage, annotations, useStaticSamplers ) )
++			{
++				return false;
++			}
++		}
++		return true;
++	default:
++		return true;
++	}
++}
++
++// ----------------------------------------------------------------------------
++// Ray tracing libraries. Resources named in the [globalinput] attribute are
++// bound through descriptors like any other resource and go into the library's
++// global inputs. Everything else is local, i.e. provided per shader record;
++// Vulkan has no local root signatures, so local data is restricted to a
++// single constant buffer whose contents the runtime embeds into the shader
++// binding table record and the shader reads as shaderRecordEXT data.
++// ----------------------------------------------------------------------------
++
++// Registers are assigned for the library pseudo-stage (see AssignRegisters
++// call in the library loop); the empty shader profile matches any stage.
++const InputStageType LIBRARY_STAGE = InputStageType( 8 );
++
++// True if the constant buffer has at least one member that dxc lays out. A
++// buffer whose only members are inlined "static const" globals produces no
++// constant buffer at all, so it must not become a (local) shader record.
++bool HasLaidOutConstants( ASTNode* cbufferNode )
++{
++	for( auto child : cbufferNode->GetChildren() )
++	{
++		std::vector<ASTNode*> declarations;
++		if( child && child->GetNodeType() == NT_NAME_DECLARATION )
++		{
++			declarations.push_back( child );
++		}
++		else if( child && child->GetNodeType() == NT_VAR_DECLARATION_LIST )
++		{
++			for( auto decl : child->GetChildren() )
++			{
++				if( decl && decl->GetNodeType() == NT_NAME_DECLARATION )
++				{
++					declarations.push_back( decl );
++				}
++			}
++		}
++		for( auto decl : declarations )
++		{
++			Symbol* symbol = decl->GetSymbol();
++			if( symbol && symbol->used && symbol->type.storageClass != OP_STATIC )
++			{
++				return true;
++			}
++		}
++	}
++	return false;
++}
++
++bool IsGlobalInput( const Symbol* symbol, const std::vector<GlobalInputElement>& globalInputs )
++{
++	return std::any_of( begin( globalInputs ), end( globalInputs ), [symbol]( const GlobalInputElement& element ) {
++		return element.symbol == symbol || ( element.name == symbol->name && element.type == symbol->type );
++	} );
++}
++
++bool CollectLibraryResources( ParserState& state, ASTNode* node, const std::vector<GlobalInputElement>& globalInputs, StageData& globalStage, StageData& localStage, std::map<StringReference, ParameterAnnotation>& annotations, std::vector<InlineString>& localCBuffers )
++{
++	if( !node )
++	{
++		return true;
++	}
++	switch( node->GetNodeType() )
++	{
++	case NT_CBUFFER: {
++		if( !HasUsedDeclarations( node ) )
++		{
++			return true;
++		}
++		// A buffer that only holds inlined "static const" globals contributes no
++		// descriptor and no shader record data; turning it into a shader record
++		// yields an empty struct that dxc then indexes into (invalid SPIR-V).
++		if( !HasLaidOutConstants( node ) )
++		{
++			return true;
++		}
++		Symbol* symbol = node->GetSymbol();
++		const RegisterSpecifier* reg = GetEffectiveRegister( symbol, LIBRARY_STAGE );
++		if( !reg )
++		{
++			state.ShowMessage( node->GetLocation(), EC_CUSTOM_ERROR, "internal error: constant buffer \"%s\" has no register assigned", ToString( symbol->name ).c_str() );
++			return false;
++		}
++		// Register spaces on RT cbuffers just distinguish local (shader record)
++		// from global bindings in HLSL; the space itself carries no meaning here
++		// since local cbuffers become shader record data (not descriptors) and
++		// global ones are always placed at descriptor set 0, so it is discarded
++		// below rather than checked.
++		// PatchCBuffers wraps DX9-style bindings (e.g. "struct {...} X : register(vs, cN)")
++		// into a fresh buffer symbol, while the globalinput list still names the wrapped
++		// variable, so also match the cbuffer's member declarations.
++		bool isGlobal = IsGlobalInput( symbol, globalInputs );
++		for( auto child : node->GetChildren() )
++		{
++			if( isGlobal )
++			{
++				break;
++			}
++			if( child && child->GetNodeType() == NT_NAME_DECLARATION && child->GetSymbol() && IsGlobalInput( child->GetSymbol(), globalInputs ) )
++			{
++				isGlobal = true;
++			}
++		}
++		StageData& stage = isGlobal ? globalStage : localStage;
++		if( &stage == &localStage )
++		{
++			localCBuffers.push_back( symbol->name );
++		}
++		stage.registerInputs.push_back( { RT_CONSTANT_BUFFER, uint32_t( reg->registerNumber ), 1, 0 } );
++		return CollectConstants( state, stage, node, annotations );
++	}
++	case NT_NAME_DECLARATION: {
++		Symbol* symbol = node->GetSymbol();
++		if( !symbol || !symbol->used )
++		{
++			return true;
++		}
++		char registerType = ClassifyRegisterType( symbol->type );
++		if( !registerType )
++		{
++			return true;
++		}
++		if( !IsGlobalInput( symbol, globalInputs ) )
++		{
++			state.ShowMessage( node->GetLocation(), EC_CUSTOM_ERROR, "resource \"%s\" is not listed in [globalinput]: the Vulkan backend only supports constants as local shader record data", ToString( symbol->name ).c_str() );
++			return false;
++		}
++		// Global resources use the regular descriptor path.
++		return CollectResources( state, node, LIBRARY_STAGE, globalStage, annotations, true );
++	}
++	case NT_PROGRAM:
++	case NT_VAR_DECLARATION_LIST:
++		for( size_t i = 0; i < node->GetChildrenCount(); ++i )
++		{
++			if( !CollectLibraryResources( state, node->GetChild( i ), globalInputs, globalStage, localStage, annotations, localCBuffers ) )
++			{
++				return false;
++			}
++		}
++		return true;
++	default:
++		return true;
++	}
++}
++
++// Global inputs that no shader in the library referenced still describe the
++// pipeline's interface and are exported (mirroring the DX12 backend).
++bool AddUnusedGlobalInputs( ParserState& state, StageData& globalStage, const std::vector<GlobalInputElement>& globalInputs, std::map<StringReference, ParameterAnnotation>& annotations )
++{
++	for( const auto& input : globalInputs )
++	{
++		Symbol* symbol = input.symbol;
++		if( !symbol || symbol->registerSpecifier.empty() )
++		{
++			continue;
++		}
++		const RegisterSpecifier* reg = GetEffectiveRegister( symbol, LIBRARY_STAGE );
++		if( !reg )
++		{
++			continue;
++		}
++
++		RegisterInputDescription description = {};
++		description.registerType = reg->registerType == 'b' ? RT_CONSTANT_BUFFER : TypeToRegisterInputType( symbol->type );
++		description.registerIndex = uint32_t( reg->registerNumber );
++		description.registerCount = GetRegisterCount( symbol->type );
++		description.registerSpace = 0;
++
++		auto alreadyExported = std::find_if( begin( globalStage.registerInputs ), end( globalStage.registerInputs ), [&description]( const RegisterInputDescription& existing ) {
++			return existing.registerType == description.registerType && existing.registerIndex == description.registerIndex;
++		} );
++
++		switch( reg->registerType )
++		{
++		case 's': {
++			Sampler sampler;
++			if( !GetSamplerState( state, symbol->definition, sampler ) )
++			{
++				return false;
++			}
++			StaticSampler staticSampler;
++			if( symbol->type.arrayDimensions == 0 && ConvertToStaticSampler( staticSampler, sampler ) )
++			{
++				staticSampler.registerIndex = reg->registerNumber;
++				staticSampler.registerSpace = 0;
++				auto found = std::find_if( begin( globalStage.staticSamplers ), end( globalStage.staticSamplers ), [&staticSampler]( const StaticSampler& existing ) {
++					return existing.registerIndex == staticSampler.registerIndex && existing.registerSpace == staticSampler.registerSpace;
++				} );
++				if( found == end( globalStage.staticSamplers ) )
++				{
++					globalStage.staticSamplers.push_back( staticSampler );
++				}
++			}
++			else if( alreadyExported == end( globalStage.registerInputs ) )
++			{
++				sampler.name = g_stringTable.AddString( symbol->name );
++				globalStage.samplers[uint8_t( reg->registerNumber )] = sampler;
++				globalStage.registerInputs.push_back( description );
++
++				bool srgb, autoregister;
++				AddSymbolAnnotations( symbol, annotations, srgb, autoregister );
++			}
++			break;
++		}
++		case 't': {
++			if( alreadyExported != end( globalStage.registerInputs ) )
++			{
++				break;
++			}
++			globalStage.registerInputs.push_back( description );
++
++			Texture texture;
++			texture.name = g_stringTable.AddString( symbol->name );
++			texture.type = TypeToTextureType( symbol->type );
++			texture.count = description.registerCount;
++			texture.isSRGB = false;
++			texture.isAutoregister = false;
++			AddSymbolAnnotations( symbol, annotations, texture.isSRGB, texture.isAutoregister );
++			globalStage.textures[uint8_t( reg->registerNumber )] = texture;
++			break;
++		}
++		case 'u': {
++			if( alreadyExported != end( globalStage.registerInputs ) )
++			{
++				break;
++			}
++			globalStage.registerInputs.push_back( description );
++
++			Uav uav;
++			uav.name = g_stringTable.AddString( symbol->name );
++			uav.type = TypeToTextureType( symbol->type );
++			uav.count = description.registerCount;
++			bool srgb;
++			AddSymbolAnnotations( symbol, annotations, srgb, uav.isAutoregister );
++			globalStage.uavs[uint8_t( reg->registerNumber )] = uav;
++			break;
++		}
++		case 'b': {
++			if( alreadyExported == end( globalStage.registerInputs ) )
++			{
++				globalStage.registerInputs.push_back( description );
++			}
++			break;
++		}
++		default:
++			break;
++		}
++	}
++	return true;
++}
++
++// Prefixes the (single) local constant buffer's declaration in the generated
++// HLSL with [[vk::shader_record_ext]], turning it into shader record data.
++std::string AddShaderRecordAttribute( const std::string& code, const InlineString& cbufferName )
++{
++	const std::string declaration = "cbuffer " + ToString( cbufferName );
++	size_t at = 0;
++	while( ( at = code.find( declaration, at ) ) != std::string::npos )
++	{
++		const size_t end = at + declaration.size();
++		const char next = end < code.size() ? code[end] : ' ';
++		if( !isalnum( (unsigned char)next ) && next != '_' )
++		{
++			return code.substr( 0, at ) + "[[vk::shader_record_ext]]\n" + code.substr( at );
++		}
++		at = end;
++	}
++	return code;
++}
++
++// ----------------------------------------------------------------------------
++// Pipeline inputs. dxc assigns SPIR-V input locations in declaration order,
++// skipping system-value builtins; the same numbering is reproduced here. The
++// Vulkan runtime uses PipelineInputDescription::registerIndex directly as the
++// vertex attribute location (see trinityal/vulkan/Tr2RenderContextVulkan.cpp).
++// ----------------------------------------------------------------------------
++
++bool IsSystemSemantic( const std::string& semantic )
++{
++	if( semantic.size() >= 3 && _strnicmp( semantic.c_str(), "sv_", 3 ) == 0 )
++	{
++		return true;
++	}
++	if( _stricmp( semantic.c_str(), "vpos" ) == 0 || _stricmp( semantic.c_str(), "vface" ) == 0 )
++	{
++		return true;
++	}
++	return false;
++}
++
++void SplitSemantic( const std::string& semantic, std::string& name, uint32_t& index )
++{
++	size_t end = semantic.size();
++	while( end > 0 && isdigit( static_cast<unsigned char>( semantic[end - 1] ) ) )
++	{
++		--end;
++	}
++	name = semantic.substr( 0, end );
++	index = end < semantic.size() ? uint32_t( atoi( semantic.c_str() + end ) ) : 0;
++}
++
++bool AddPipelineInput( ParserState& state, StageInput& stage, Symbol* symbol, uint32_t& location, const FileLocation& messageLocation )
++{
++	const Type& type = symbol->type;
++
++	// Struct inputs are flattened in member declaration order.
++	if( type.symbol && type.symbol->definition )
++	{
++		for( auto member : type.symbol->definition->GetChildren() )
++		{
++			if( !member )
++			{
++				continue;
++			}
++			for( auto declaration : member->GetChildren() )
++			{
++				if( declaration && declaration->GetSymbol() )
++				{
++					if( !AddPipelineInput( state, stage, declaration->GetSymbol(), location, messageLocation ) )
++					{
++						return false;
++					}
++				}
++			}
++		}
++		return true;
++	}
++
++	std::string semantic = ToString( symbol->semantic );
++	if( semantic.empty() )
++	{
++		state.ShowMessage( messageLocation, EC_CUSTOM_ERROR, "shader input \"%s\" has no semantic", ToString( symbol->name ).c_str() );
++		return false;
++	}
++	if( IsSystemSemantic( semantic ) )
++	{
++		// Builtins do not consume an input location.
++		return true;
++	}
++
++	if( type.IsMatrix() )
++	{
++		state.ShowMessage( messageLocation, EC_CUSTOM_ERROR, "matrix shader inputs are not supported by the Vulkan backend" );
++		return false;
++	}
++
++	std::string semanticName;
++	uint32_t semanticIndex;
++	SplitSemantic( semantic, semanticName, semanticIndex );
++
++	bool found = false;
++	PipelineInputDescription input;
++	for( int n = 0; n < UC_NUM_USAGE_CODE; ++n )
++	{
++		if( _stricmp( semanticName.c_str(), GetStringForUsageCode( n ) ) == 0 )
++		{
++			input.name = uint8_t( n );
++			found = true;
++			break;
++		}
++	}
++	if( !found )
++	{
++		g_messages.AddMessage( "\\memory(0): error X0000: Shader uses unsupported input semantics \"%s\"", semantic.c_str() );
++		return false;
++	}
++
++	input.registerIndex = uint8_t( location++ );
++	input.index = uint8_t( semanticIndex );
++	input.type = TypeToConstantType( type );
++	input.dimension = uint8_t( type.width );
++	input.usedMask = uint8_t( ( 1u << type.width ) - 1 );
++	stage.pipelineInputs.push_back( input );
++	return true;
++}
++
++bool CollectPipelineInputs( ParserState& state, StageInput& stage, ASTNode* callNode )
++{
++	Symbol* entryPointSymbol = callNode->GetSymbol();
++	if( !entryPointSymbol || !entryPointSymbol->definition )
++	{
++		return false;
++	}
++	ASTNode* functionHeader = entryPointSymbol->definition->GetChildOrNull( 0 );
++	if( !functionHeader )
++	{
++		return false;
++	}
++
++	uint32_t location = 0;
++	for( size_t i = 0; i < functionHeader->GetChildrenCount(); ++i )
++	{
++		ASTNode* parameter = functionHeader->GetChild( i );
++		if( IsUniformInputArgument( parameter ) )
++		{
++			continue;
++		}
++		if( parameter->GetToken() && parameter->GetToken()->type == OP_OUT )
++		{
++			continue;
++		}
++		Symbol* symbol = parameter->GetSymbol();
++		if( !symbol )
++		{
++			continue;
++		}
++		if( !AddPipelineInput( state, stage, symbol, location, parameter->GetLocation() ) )
++		{
++			return false;
++		}
++	}
++	return true;
++}
++
++}
++
++bool EffectCompilerVulkan::Create()
++{
++	auto compilerOutput = RunProcess( ( DxcTool() + " --version" ).c_str() );
++	if( compilerOutput.first != 0 )
++	{
++		g_messages.AddMessage( "ShaderCompiler: error X0000: Could not invoke dxc (\"%s\"). Set DXC_PATH or pass /dxc <path>.\n", DxcTool().c_str() );
++		return false;
++	}
++	return true;
++}
++
++bool EffectCompilerVulkan::CompileEffect( const char* source, size_t sourceLength, const std::vector<Macro>& defines, EffectData& result, IWorkQueue* workQueue )
++{
++	ZoneScoped;
++
++	// Normalize the PLATFORM define to the numeric id so shader code can test it.
++	std::vector<Macro> newDefines = defines;
++	if( auto define = FindMacro( newDefines, "PLATFORM" ) )
++	{
++		define->value = GetPlatformIdString( PLATFORM_VULKAN );
++	}
++	else
++	{
++		newDefines.push_back( { "PLATFORM", GetPlatformIdString( PLATFORM_VULKAN ) } );
++	}
++
++	ParserState state( MakeInlineString( source, source + sourceLength ) );
++	for( auto& it : newDefines )
++	{
++		PreprocessorDefine d;
++		d.location.fileName = MakeInlineString( "" );
++		d.location.lineNumber = 0;
++		d.value = MakeInlineString( it.value.c_str() );
++		state.m_defines[MakeInlineString( it.name.c_str() )] = d;
++	}
++
++	if( !state.Parse() )
++	{
++		return false;
++	}
++
++	PatchCBuffers( state );
++	TransferSRGBToTexturesDX11( state );
++	ConvertTextureFunctionsDX11( state );
++	MergeSamplers( state );
++
++	std::vector<ASTNode*> techniqueNodes;
++	state.GetTree()->FindNodes( NT_TECHNIQUE, techniqueNodes );
++	if( techniqueNodes.empty() )
++	{
++		g_messages.AddMessage( "\\memory(0): error X0000: No technique found" );
++		return false;
++	}
++
++	YamlListing listing;
++	listing.dict();
++	listing.literal( "permutation" ).dict().literal( "platform" ).literal( "Vulkan" ).literal( "id" ).literal( "000" ).literal( "defines" ).dict();
++	for( auto& it : newDefines )
++	{
++		listing.literal( it.name ).literal( it.value );
++	}
++	listing.end();
++	listing.literal( "techniques" ).list();
++
++	for( auto techniqueNode : techniqueNodes )
++	{
++		Technique technique;
++		technique.name = g_stringTable.AddString( ToString( techniqueNode->GetToken()->stringValue ).c_str() );
++
++		listing.dict()
++			.literal( "name" )
++			.literal( techniqueNode->GetToken()->stringValue )
++			.literal( "passes" )
++			.list();
++
++		for( size_t passIx = 0; passIx < techniqueNode->GetChildrenCount(); ++passIx )
++		{
++			ASTNode* passNode = techniqueNode->GetChild( passIx );
++			if( passNode->GetNodeType() != NT_PASS )
++			{
++				// Ray tracing libraries are handled after the passes.
++				continue;
++			}
++			listing.list();
++			Pass outPass;
++			for( size_t stateIx = 0; stateIx < passNode->GetChildrenCount(); ++stateIx )
++			{
++				if( passNode->GetChild( stateIx )->GetNodeType() == NT_STATE_ASSIGNMENT )
++				{
++					unsigned stateCode = 0;
++					unsigned value = 0;
++					if( ParseStateAssignment( state, passNode->GetChild( stateIx ), g_renderStates, &value ) )
++					{
++						std::string name = ToString( passNode->GetChild( stateIx )->GetToken()->stringValue );
++						for( int i = 0; g_renderStateNames[i].name; ++i )
++						{
++							if( _stricmp( name.c_str(), g_renderStateNames[i].name ) == 0 )
++							{
++								stateCode = g_renderStateNames[i].value;
++							}
++						}
++						switch( stateCode )
++						{
++						case unsigned( -1 ):
++						case unsigned( -2 ):
++						case unsigned( -3 ):
++						case unsigned( -4 ):
++						case unsigned( -5 ):
++						case unsigned( -6 ):
++							if( value != 0 )
++							{
++								state.ShowMessage( passNode->GetChild( stateIx )->GetLocation(), EC_INVALID_STATE_VALUE, name.c_str() );
++							}
++							break;
++						case 0:
++							state.ShowMessage( passNode->GetChild( stateIx )->GetLocation(), EC_STATE_DEPRECATED, name.c_str() );
++							break;
++						default:
++							outPass.states[stateCode] = value;
++						}
++					}
++					continue;
++				}
++
++				if( passNode->GetChild( stateIx )->GetNodeType() != NT_SHADER_ASSIGNMENT )
++				{
++					continue;
++				}
++
++				ASTNode* shaderNode = passNode->GetChild( stateIx );
++
++				StageInput stage;
++				if( !ParseShaderName( shaderNode->GetToken()->stringValue, stage.type ) )
++				{
++					state.ShowMessage( shaderNode->GetToken()->fileLocation, EC_INVALID_STATE, ToString( shaderNode->GetToken()->stringValue ).c_str() );
++					return false;
++				}
++
++				switch( stage.type )
++				{
++				case VERTEX_STAGE:
++				case PIXEL_STAGE:
++				case COMPUTE_STAGE:
++					break;
++				default:
++					state.ShowMessage( shaderNode->GetLocation(), EC_CUSTOM_ERROR, "Shader type %i is not supported by the Vulkan backend", int( stage.type ) );
++					return false;
++				}
++
++				// vs_3_0 etc. from the source -> shader model 6.0 for dxc
++				std::string profile = ToString( shaderNode->GetChild( 0 )->GetToken()->stringValue );
++				profile = profile.substr( 0, 3 ) + "6_0";
++
++				if( shaderNode->GetChild( 1 )->GetSymbol() == nullptr )
++				{
++					return false;
++				}
++
++				GetThreadGroupSize( stage, shaderNode->GetChild( 1 ) );
++
++				PatchSemantics( stage.type, shaderNode->GetChild( 1 ) );
++
++				state.GetSymbolTable().ResetUsedFlag();
++				MarkUsedSymbols( shaderNode->GetChild( 1 ), state );
++
++				CreateGlobalsCB( state );
++				AssignRegisters( state.GetTree(), stage.type );
++
++				CompilerInputStream os( state, ShadingLanguage::HLSL );
++				os << HLSL{ state.GetTree(), &state.GetSymbolTable() };
++
++				std::string entryPoint = ToString( shaderNode->GetChild( 1 )->GetSymbol()->name );
++
++				std::string patchEntryPoint = entryPoint;
++				switch( PatchShader( stage.type, shaderNode->GetChild( 1 ), state, os, patchEntryPoint ) )
++				{
++				case PATCH_ERROR:
++					return false;
++				default:
++					break;
++				}
++				state.ResetPragmaUsage();
++				std::string code = os.str();
++
++				std::string shaderCacheKey = code + "\n//" + profile + ' ' + patchEntryPoint;
++
++				// Let only one thread compile this permutation.
++				bool needsToCompile = false;
++				std::shared_ptr<SyncData> syncData;
++				{
++					std::lock_guard scope( m_compiledCS );
++					auto found = m_compiled.find( shaderCacheKey );
++					if( found == end( m_compiled ) )
++					{
++						// Yep, this thread will have to compile. Make an entry into the cache.
++						syncData = std::make_shared<SyncData>();
++						m_compiled[shaderCacheKey] = syncData;
++						needsToCompile = true;
++					}
++					else
++					{
++						// Some other thread is going to compile for us. Grab his stuff from the cache.
++						syncData = found->second;
++					}
++				}
++
++				if( !needsToCompile )
++				{
++					// Let's wait for the other thread to compile for us
++					if( workQueue )
++					{
++						workQueue->OnBlocked();
++					}
++					{
++						std::unique_lock<std::mutex> lock( syncData->mutex );
++						syncData->conditionVariable.wait( lock, [&syncData] { return syncData->compiled; } );
++					}
++					if( workQueue )
++					{
++						workQueue->OnUnblocked();
++					}
++				}
++				else
++				{
++					// We need to compile, nobody else is doing it for this permutation.
++					auto compiledCode = CompileSpirv( code, profile, patchEntryPoint, stage.type );
++					syncData->compiledCode = compiledCode;
++
++					// Let's wake up everyone waiting for this permutation's compilation.
++					{
++						std::lock_guard scope( syncData->mutex );
++						syncData->compiled = true;
++					}
++					syncData->conditionVariable.notify_all();
++				}
++
++				auto compiledCode = syncData->compiledCode;
++
++				{
++					std::lock_guard scope( m_compiledCS );
++					syncData.reset();
++				}
++
++				if( compiledCode.empty() )
++				{
++					// No compiledCode on the cache entry! This means compilation must have failed.
++					return false;
++				}
++
++				stage.shaderSize = uint32_t( compiledCode.size() );
++				stage.shaderDataStr = g_stringTable.AddString( compiledCode.data(), compiledCode.size() );
++				stage.source = code;
++
++				if( !CollectResources( state, state.GetTree(), stage.type, stage, result.annotations, true ) )
++				{
++					return false;
++				}
++
++				if( !CollectPipelineInputs( state, stage, shaderNode->GetChild( 1 ) ) )
++				{
++					return false;
++				}
++
++				{
++					stage.annotations.annotations.clear();
++					Symbol* symbol = shaderNode->GetChild( 1 )->GetSymbol();
++					if( symbol && symbol->annotations )
++					{
++						for( auto a = symbol->annotations->begin(); a != symbol->annotations->end(); ++a )
++						{
++							Annotation symbolAnnotation;
++							bool isSrgb, isAutoregister;
++							if( MakeEffectAnnotationFromSymbolAnnotation( *a, symbolAnnotation, isSrgb, isAutoregister ) )
++							{
++								stage.annotations.annotations[g_stringTable.AddString( ToString( a->name ).c_str() )] = symbolAnnotation;
++							}
++						}
++					}
++				}
++
++				if( !stage.defaultValues.empty() )
++				{
++					stage.defaultValuesStr = g_stringTable.AddString( &stage.defaultValues[0], stage.defaultValues.size() );
++				}
++				else
++				{
++					stage.defaultValuesStr = INVALID_REFERENCE;
++				}
++
++				if( listing.enabled() )
++				{
++					listing.dict()
++						.literal( "profile" )
++						.literal( profile )
++						.literal( "original" )
++						.dict()
++						.literal( "entryPoint" )
++						.literal( patchEntryPoint )
++						.literal( "source" )
++						.literal( SanitizeCode( code ) );
++					listing.end();
++					listing.end();
++				}
++
++				outPass.stages.push_back( stage );
++			}
++			technique.passes.push_back( outPass );
++
++			listing.end(); // stages list
++		}
++
++		listing.end(); // passes list
++		listing.literal( "libraries" ).list();
++
++		for( size_t passIx = 0; passIx < techniqueNode->GetChildrenCount(); ++passIx )
++		{
++			ASTNode* libNode = techniqueNode->GetChild( passIx );
++			if( libNode->GetNodeType() != NT_LIBRARY )
++			{
++				continue;
++			}
++			listing.dict()
++				.literal( "name" )
++				.literal( libNode->GetToken()->stringValue )
++				.literal( "exports" )
++				.list();
++
++			Library library;
++			library.payloadSize = 0;
++			library.hitGroupName = g_stringTable.AddString( "" );
++			library.globalInputs.defaultValuesStr = INVALID_REFERENCE;
++			library.localInputs.defaultValuesStr = INVALID_REFERENCE;
++
++			std::vector<GlobalInputElement> globalInputs;
++
++			state.GetSymbolTable().ResetUsedFlag();
++
++			for( size_t i = 0; i < libNode->GetChildrenCount(); ++i )
++			{
++				auto childNode = libNode->GetChild( i );
++				if( childNode->GetNodeType() == NT_SHADER_ASSIGNMENT )
++				{
++					ShaderExport shaderExport;
++					if( auto parsed = ParseRtShaderName( childNode->GetToken()->stringValue ) )
++					{
++						shaderExport.type = parsed.value();
++					}
++					else
++					{
++						state.ShowMessage( childNode->GetToken()->fileLocation, EC_INVALID_STATE, ToString( childNode->GetToken()->stringValue ).c_str() );
++						return false;
++					}
++					listing.literal( childNode->GetChild( 1 )->GetSymbol()->name );
++					shaderExport.name = g_stringTable.AddString( ToString( childNode->GetChild( 1 )->GetSymbol()->name ).c_str() );
++					library.exports.push_back( shaderExport );
++
++					if( !ProcessGlobalInputAttribute( state, childNode->GetChild( 1 )->GetSymbol()->definition, globalInputs ) )
++					{
++						return false;
++					}
++					for( auto& gi : globalInputs )
++					{
++						if( gi.symbol )
++						{
++							gi.symbol->used = true;
++							if( auto type = gi.symbol->type.symbol )
++							{
++								const_cast<Symbol*>( type )->used = true;
++							}
++						}
++					}
++					MarkUsedSymbols( childNode->GetChild( 1 ), state );
++				}
++				else if( childNode->GetNodeType() == NT_STATE_ASSIGNMENT )
++				{
++					auto name = childNode->GetToken()->stringValue;
++					if( EqualsCaseInsensitive( name, "payloadsize" ) )
++					{
++						Type type;
++						type.FromTokenType( OP_UINT );
++						ExpressionValue value;
++						if( !EvaluateExpression( state, childNode->GetChildOrNull( 0 ), type, value, nullptr ) )
++						{
++							state.ShowMessage( childNode->GetToken()->fileLocation, EC_INVALID_STATE, ToString( name ).c_str() );
++							return false;
++						}
++						library.payloadSize = uint32_t( value[0].intValue );
++					}
++					else if( EqualsCaseInsensitive( name, "hitgroupname" ) )
++					{
++						Type type;
++						type.FromTokenType( OP_STRING );
++						ExpressionValue value;
++						if( !EvaluateExpression( state, childNode->GetChildOrNull( 0 ), type, value, nullptr ) )
++						{
++							state.ShowMessage( childNode->GetToken()->fileLocation, EC_INVALID_STATE, ToString( name ).c_str() );
++							return false;
++						}
++						library.hitGroupName = g_stringTable.AddString( value[0].stringValue.c_str() );
++					}
++				}
++			}
++			listing.end(); // exports list
++
++			CreateGlobalsCB( state );
++			AssignRegisters( state.GetTree(), LIBRARY_STAGE, globalInputs );
++
++			std::vector<InlineString> localCBuffers;
++			if( !CollectLibraryResources( state, state.GetTree(), globalInputs, library.globalInputs, library.localInputs, result.annotations, localCBuffers ) )
++			{
++				return false;
++			}
++			if( localCBuffers.size() > 1 )
++			{
++				state.ShowMessage( libNode->GetLocation(), EC_CUSTOM_ERROR, "the Vulkan backend supports at most one local constant buffer per library (it becomes the shader record)" );
++				return false;
++			}
++			if( !AddUnusedGlobalInputs( state, library.globalInputs, globalInputs, result.annotations ) )
++			{
++				return false;
++			}
++
++			if( !library.globalInputs.defaultValues.empty() )
++			{
++				library.globalInputs.defaultValuesStr = g_stringTable.AddString( &library.globalInputs.defaultValues[0], library.globalInputs.defaultValues.size() );
++			}
++			if( !library.localInputs.defaultValues.empty() )
++			{
++				library.localInputs.defaultValuesStr = g_stringTable.AddString( &library.localInputs.defaultValues[0], library.localInputs.defaultValues.size() );
++			}
++
++			CompilerInputStream os( state, ShadingLanguage::HLSL );
++			os << HLSL{ state.GetTree(), &state.GetSymbolTable() };
++			std::string code = os.str();
++			if( !localCBuffers.empty() )
++			{
++				code = AddShaderRecordAttribute( code, localCBuffers[0] );
++			}
++			library.source = code;
++
++			const std::string profile = "lib_6_3";
++			std::string shaderCacheKey = code + "\n//" + profile;
++
++			// Let only one thread compile this permutation.
++			bool needsToCompile = false;
++			std::shared_ptr<SyncData> syncData;
++			{
++				std::lock_guard scope( m_compiledCS );
++				auto found = m_compiled.find( shaderCacheKey );
++				if( found == end( m_compiled ) )
++				{
++					// Yep, this thread will have to compile. Make an entry into the cache.
++					syncData = std::make_shared<SyncData>();
++					m_compiled[shaderCacheKey] = syncData;
++					needsToCompile = true;
++				}
++				else
++				{
++					// Some other thread is going to compile for us. Grab his stuff from the cache.
++					syncData = found->second;
++				}
++			}
++
++			if( !needsToCompile )
++			{
++				// Let's wait for the other thread to compile for us
++				if( workQueue )
++				{
++					workQueue->OnBlocked();
++				}
++				{
++					std::unique_lock<std::mutex> lock( syncData->mutex );
++					syncData->conditionVariable.wait( lock, [&syncData] { return syncData->compiled; } );
++				}
++				if( workQueue )
++				{
++					workQueue->OnUnblocked();
++				}
++			}
++			else
++			{
++				// We need to compile, nobody else is doing it for this permutation.
++				auto compiledCode = CompileSpirv( code, profile, "", COMPUTE_STAGE );
++				syncData->compiledCode = compiledCode;
++
++				// Let's wake up everyone waiting for this permutation's compilation.
++				{
++					std::lock_guard scope( syncData->mutex );
++					syncData->compiled = true;
++				}
++				syncData->conditionVariable.notify_all();
++			}
++
++			auto compiledCode = syncData->compiledCode;
++
++			{
++				std::lock_guard scope( m_compiledCS );
++				syncData.reset();
++			}
++
++			if( compiledCode.empty() )
++			{
++				// No compiledCode on the cache entry! This means compilation must have failed.
++				return false;
++			}
++
++			library.shaderSize = uint32_t( compiledCode.size() );
++			library.shaderDataStr = g_stringTable.AddString( compiledCode.data(), compiledCode.size() );
++
++			technique.libraries.push_back( library );
++
++			if( listing.enabled() )
++			{
++				listing.literal( "profile" ).literal( profile );
++				listing.literal( "original" ).dict();
++				listing.literal( "source" ).literal( SanitizeCode( code ) );
++				listing.end();
++			}
++			listing.end(); // library dict
++		}
++
++		listing.end(); // libraries list
++
++		result.techniques.push_back( technique );
++		listing.end(); // technique dict
++	}
++	listing.end(); // technique list
++
++	return true;
++}
+diff --git a/shadercompiler/EffectCompilerVulkan.h b/shadercompiler/EffectCompilerVulkan.h
+new file mode 100644
+index 00000000..61b7a6f9
+--- /dev/null
++++ b/shadercompiler/EffectCompilerVulkan.h
+@@ -0,0 +1,24 @@
++// Copyright © 2026 CCP ehf.
++
++#pragma once
++
++#include "EffectCompilerBase.h"
++
++class EffectCompilerVulkan : public EffectCompilerBase
++{
++public:
++	bool Create() override;
++	bool CompileEffect( const char* source, size_t sourceLength, const std::vector<Macro>& defines, EffectData& result, class IWorkQueue* workQueue ) override;
++
++private:
++	struct SyncData
++	{
++		bool compiled = false;
++		std::condition_variable conditionVariable;
++		std::mutex mutex;
++		std::vector<uint8_t> compiledCode;
++	};
++
++	std::unordered_map<std::string, std::shared_ptr<SyncData>> m_compiled;
++	std::mutex m_compiledCS;
++};
+diff --git a/shadercompiler/ParserUtils.cpp b/shadercompiler/ParserUtils.cpp
+index d42566e0..35950eed 100644
+--- a/shadercompiler/ParserUtils.cpp
++++ b/shadercompiler/ParserUtils.cpp
+@@ -985,6 +985,13 @@ void CreateGlobalsCB( ParserState& state )
+ 					continue;
+ 				}
+ 			}
++			// "static const" globals are compile-time constants that the compiler
++			// inlines; they are not constant buffer data and must not be wrapped
++			// into the Globals cbuffer (an all-static one would be emitted empty).
++			if( child->GetType().storageClass == OP_STATIC )
++			{
++				continue;
++			}
+ 			if( !GetRegisterType( child->GetType() ) )
+ 			{
+ 				varStart = std::min( varStart, i );
+diff --git a/shadercompiler/Platforms.h b/shadercompiler/Platforms.h
+index 46ced5e2..2ce353ba 100644
+--- a/shadercompiler/Platforms.h
++++ b/shadercompiler/Platforms.h
+@@ -13,6 +13,8 @@ enum Platform
+ 
+ 	PLATFORM_METAL = 10,
+ 
++	PLATFORM_VULKAN = 11,
++
+ 	_PLATFORM_END,
+ };
+ 
+@@ -26,6 +28,8 @@ inline bool IsValidPlatform( Platform platform )
+ 		return true;
+ 	case PLATFORM_METAL:
+ 		return true;
++	case PLATFORM_VULKAN:
++		return true;
+ 	default:
+ 		return false;
+ 	}
+@@ -41,6 +45,8 @@ inline const char* GetPlatformShortName( Platform platform )
+ 		return "dx12";
+ 	case PLATFORM_METAL:
+ 		return "mtl";
++	case PLATFORM_VULKAN:
++		return "vulkan";
+ 	default:
+ 		return "INVALID";
+ 	}
+@@ -56,6 +62,8 @@ inline const char* GetPlatformLongName( Platform platform )
+ 		return "DirectX 12";
+ 	case PLATFORM_METAL:
+ 		return "Metal";
++	case PLATFORM_VULKAN:
++		return "Vulkan";
+ 	default:
+ 		return "INVALID";
+ 	}
+@@ -71,6 +79,8 @@ inline const char* GetPlatformIdString( Platform platform )
+ 		return "6";
+ 	case PLATFORM_METAL:
+ 		return "10";
++	case PLATFORM_VULKAN:
++		return "11";
+ 	default:
+ 		return "INVALID";
+ 	}
+diff --git a/shadercompiler/ShaderCompiler.cpp b/shadercompiler/ShaderCompiler.cpp
+index 294755c7..afa0c88c 100644
+--- a/shadercompiler/ShaderCompiler.cpp
++++ b/shadercompiler/ShaderCompiler.cpp
+@@ -7,6 +7,7 @@
+ #include "EffectCompilerDX11.h"
+ #include "EffectCompilerDX12.h"
+ #include "EffectCompilerMetal.h"
++#include "EffectCompilerVulkan.h"
+ #include "EffectData.h"
+ #include "WorkQueue.h"
+ #include "Macro.h"
+@@ -49,6 +50,7 @@ size_t g_shaderLength = 0;
+ // Print warning messages?
+ bool g_printWarnings = true;
+ std::string g_metalToolsPath;
++std::string g_dxcPath;
+ 
+ 
+ // Generate DX11 HLSL listing file
+@@ -156,6 +158,9 @@ bool CompileShader( const CompileShaderArguments& arguments, IWorkQueue* workQue
+ 			case PLATFORM_METAL:
+ 				newCompiler.reset( new EffectCompilerMetal() );
+ 				break;
++			case PLATFORM_VULKAN:
++				newCompiler.reset( new EffectCompilerVulkan() );
++				break;
+ 			default:
+ 				g_messages.AddMessage( "\\memory(0): error X0000: unsupported platform %i", int( platform ) );
+ 				g_error = 1;
+@@ -212,6 +217,7 @@ void PrintUsage()
+ 	printf( "  /telemetry - Enable RAD Telemetry\n" );
+ #endif
+ 	printf( "  /metal <path> - Path to Metal Developer Tools for Windows\n" );
++	printf( "  /dxc <path> - Path to the dxc executable (for Vulkan/SPIR-V)\n" );
+ 	printf( "  /pdb <path> - Path to output debug files\n" );
+ 	printf( "input_file - Path to input HLSL file\n" );
+ 	printf( "output_file - Path to output binary file\n" );
+@@ -350,6 +356,18 @@ bool ExtractCommandLineArguments( ProgramArguments& args, int argc, char* argv[]
+ 				return false;
+ 			}
+ 		}
++		else if( strcmp( argv[i], "/dxc" ) == 0 )
++		{
++			++i;
++			if( i < argc )
++			{
++				g_dxcPath = argv[i];
++			}
++			else
++			{
++				return false;
++			}
++		}
+ 		else if( strcmp( argv[i], "/pdb" ) == 0 )
+ 		{
+ 			g_generatePDB = true;
+@@ -596,11 +614,22 @@ int main( int argc, char* argv[] )
+ 	{
+ 		g_metalToolsPath = metalToolsPath;
+ 	}
++
++	char dxcPath[MAX_PATH] = { 0 };
++	size_t dxcPathSize;
++	if( getenv_s( &dxcPathSize, dxcPath, "DXC_PATH" ) == 0 )
++	{
++		g_dxcPath = dxcPath;
++	}
+ #else
+ 	if( auto metalToolsPath = getenv( "METAL_TOOLS_PATH" ) )
+ 	{
+ 		g_metalToolsPath = metalToolsPath;
+ 	}
++	if( auto dxcPath = getenv( "DXC_PATH" ) )
++	{
++		g_dxcPath = dxcPath;
++	}
+ #endif
+ 
+ 
+diff --git a/shadercompiler/tests/Bindless.cpp b/shadercompiler/tests/Bindless.cpp
+index c80c8b47..a4e5a91c 100644
+--- a/shadercompiler/tests/Bindless.cpp
++++ b/shadercompiler/tests/Bindless.cpp
+@@ -3,6 +3,7 @@
+ #include "gtest/gtest.h"
+ #include "EffectCompilerDX12.h"
+ #include "EffectCompilerMetal.h"
++#include "EffectCompilerVulkan.h"
+ #include "EffectData.h"
+ #include "TesingUtils.h"
+ 
+@@ -10,8 +11,12 @@ extern StringTable g_stringTable;
+ 
+ #if _WIN32
+ using BindlessCompiler = EffectCompilerDX12;
+-#else
++#elif __APPLE__
+ using BindlessCompiler = EffectCompilerMetal;
++#elif __linux__
++using BindlessCompiler = EffectCompilerVulkan;
++#else
++#error "Unsupported platform"
+ #endif
+ 
+ TEST( Bindless, SamplerInitializerStored )
+@@ -47,7 +52,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+diff --git a/shadercompiler/tests/GlobalInputTest.cpp b/shadercompiler/tests/GlobalInputTest.cpp
+index 43b99252..b33a4bf8 100644
+--- a/shadercompiler/tests/GlobalInputTest.cpp
++++ b/shadercompiler/tests/GlobalInputTest.cpp
+@@ -3,13 +3,18 @@
+ #include "gtest/gtest.h"
+ #include "EffectCompilerMetal.h"
+ #include "EffectCompilerDX12.h"
++#include "EffectCompilerVulkan.h"
+ #include "EffectData.h"
+ #include "TesingUtils.h"
+ 
+ #if _WIN32
+ using DefaultCompiler = EffectCompilerDX12;
+-#else
++#elif __APPLE__
+ using DefaultCompiler = EffectCompilerMetal;
++#elif __linux__
++using DefaultCompiler = EffectCompilerVulkan;
++#else
++#error "Unsupported platform"
+ #endif
+ 
+ TEST( GlobalInput, GlobalInputWithNoArgumentsIsAnError )
+diff --git a/shadercompiler/tests/MetalConversionTest.cpp b/shadercompiler/tests/MetalConversionTest.cpp
+index abb5fe63..86502756 100644
+--- a/shadercompiler/tests/MetalConversionTest.cpp
++++ b/shadercompiler/tests/MetalConversionTest.cpp
+@@ -1,5 +1,8 @@
+ // Copyright © 2024 CCP ehf.
+ 
++// Can't use Metal Tools on Linux.
++#if !defined(__linux__)
++
+ #include "gtest/gtest.h"
+ #include "EffectCompilerMetal.h"
+ #include "EffectData.h"
+@@ -25,7 +28,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -61,7 +64,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -82,7 +85,7 @@ Buffer<float3> Buff;
+ 
+ float4 ps(): SV_Target
+ {
+-	float3x3 m = { 
++	float3x3 m = {
+ 		1, 2, 3,
+ 		4, 5, 6,
+ 		7, 8, 9 };
+@@ -93,7 +96,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -175,7 +178,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -217,7 +220,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -292,7 +295,7 @@ float4 ps( VSOut vsOut ): SV_Target
+ 	color += Tex7.Load( uint2( vsOut.uv ) );
+ 	color += Tex8.Load( uint2( vsOut.uv ) );
+ 	color += Tex9.Load( uint2( vsOut.uv ) );
+-	
++
+ 	color += Tex10[uint2( vsOut.uv )];
+ 	color += Tex11.Load( uint2( vsOut.uv ) );
+ 	color += Tex12.Load( uint2( vsOut.uv ) );
+@@ -303,7 +306,7 @@ float4 ps( VSOut vsOut ): SV_Target
+ 	color += Tex17.Load( uint2( vsOut.uv ) );
+ 	color += Tex18.Load( uint2( vsOut.uv ) );
+ 	color += Tex19.Load( uint2( vsOut.uv ) );
+-	
++
+ 	color += Buf20[0];
+ 	color += Buf21[0];
+ 	color += Buf22[0];
+@@ -322,7 +325,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -368,7 +371,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -412,7 +415,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -461,7 +464,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -511,7 +514,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -561,7 +564,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -602,7 +605,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -646,7 +649,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -690,7 +693,7 @@ technique t0
+ {
+ 	pass p0
+ 	{
+-		vertexshader = compile vs_3_0 vs();	
++		vertexshader = compile vs_3_0 vs();
+ 		pixelshader = compile ps_3_0 ps();
+ 	}
+ }
+@@ -701,4 +704,6 @@ technique t0
+ 	EXPECT_NE( data.techniques[0].passes[0].stages[0].source.find( "[[ base_vertex ]]" ), std::string::npos );
+ 	EXPECT_NE( data.techniques[0].passes[0].stages[0].source.find( "[[ instance_id ]]" ), std::string::npos );
+ 	EXPECT_NE( data.techniques[0].passes[0].stages[0].source.find( "[[ base_instance ]]" ), std::string::npos );
+-}
+\ No newline at end of file
++}
++
++#endif
+diff --git a/shadercompiler/tests/RayTracingTest.cpp b/shadercompiler/tests/RayTracingTest.cpp
+index 5c660bc9..3fe72b34 100644
+--- a/shadercompiler/tests/RayTracingTest.cpp
++++ b/shadercompiler/tests/RayTracingTest.cpp
+@@ -3,6 +3,7 @@
+ #include "gtest/gtest.h"
+ #include "EffectCompilerMetal.h"
+ #include "EffectCompilerDX12.h"
++#include "EffectCompilerVulkan.h"
+ #include "EffectData.h"
+ #include "TesingUtils.h"
+ 
+@@ -19,8 +20,12 @@ public:
+ 
+ #if _WIN32
+ using RayTracingCompilers = ::testing::Types<EffectCompilerDX12, EffectCompilerMetal>;
+-#else
++#elif __APPLE__
+ using RayTracingCompilers = ::testing::Types<EffectCompilerMetal>;
++#elif __linux__
++using RayTracingCompilers = ::testing::Types<EffectCompilerVulkan>;
++#else
++#error "Unsupported platform"
+ #endif
+ 
+ TYPED_TEST_SUITE( RayTracing, RayTracingCompilers );
+@@ -565,7 +570,7 @@ struct PerFrameVSData
+ {
+ 	// matrices
+     float4x4 ViewInverseTransposeMat;
+-    float4x4 ViewProjectionMat;  
++    float4x4 ViewProjectionMat;
+     float4x4 ViewMat;
+     float4x4 ProjectionMat;
+     float4x4 ShadowViewMat;
+@@ -624,7 +629,7 @@ void RayGen()
+ 
+ 	ray.TMin = 0.0f;
+ 	ray.TMax = 10000000.0; // camera far plane value
+-	
++
+ 	HitInfo payload = {0.0};
+ 	TraceRay(
+ 		Scene,
+@@ -646,7 +651,7 @@ void Miss(inout HitInfo payload)
+ 	payload.visibility = 1;
+ }
+ 
+-struct Attributes 
++struct Attributes
+ {
+ 	float2 uv;
+ };
+@@ -667,16 +672,16 @@ struct PerObjectPSData {
+ 
+ [shader("closesthit")]
+ [globalinput(GLOBAL_INPUT)]
+-void ClosestHit(inout HitInfo payload, Attributes attrib) 
++void ClosestHit(inout HitInfo payload, Attributes attrib)
+ {
+ }
+ 
+-[shader("anyhit")] 
+-void AnyHit( inout HitInfo payload, Attributes attrib ) 
++[shader("anyhit")]
++void AnyHit( inout HitInfo payload, Attributes attrib )
+ {
+ 	float3 positionOS = ObjectRayOrigin() + RayTCurrent() * ObjectRayDirection();
+ 	float3 dist = positionOS - PerObjectPS.Clipdata1.xyz;
+-	if( sign( PerObjectPS.Clipdata1.w ) * dot( dist, dist ) - PerObjectPS.Clipdata1.w < 0 ) 
++	if( sign( PerObjectPS.Clipdata1.w ) * dot( dist, dist ) - PerObjectPS.Clipdata1.w < 0 )
+ 	{
+ 		IgnoreHit();
+ 	}
+@@ -887,7 +892,7 @@ Texture2D Bar;
+ [globalinput("PerFrame;Tex;Bar")]
+ void Miss(inout HitInfo payload)
+ {
+-	payload.visibility = // foo.coefficient + 
++	payload.visibility = // foo.coefficient +
+ 		Bar.Load( uint3( 0, 0, 0 ) ).r;
+ }
+ 
+@@ -941,7 +946,7 @@ Texture2D Bar;
+ [globalinput("PerFrame;Tex;Bar;TestMapSampler1")]
+ void Miss(inout HitInfo payload)
+ {
+-	payload.visibility = // foo.coefficient + 
++	payload.visibility = // foo.coefficient +
+ 		Bar.Load( uint3( 0, 0, 0 ) ).r;
+ 	//payload.visibility += Tex.SampleLevel( TestMapSampler1, float2( 0.5, 0.0 ), 0 ).r;
+ }
+@@ -993,7 +998,7 @@ float GetVisibility( float2 dd )
+ 
+ 	ray.TMin = 0.0f;
+ 	ray.TMax = 10000000.0; // camera far plane value
+-	
++
+ 	HitInfo payload = {0.0};
+ 	TraceRay(
+ 		Scene,
+@@ -1057,7 +1062,7 @@ float GetVisibility( float2 dd )
+ 
+ 	ray.TMin = 0.0f;
+ 	ray.TMax = 10000000.0; // camera far plane value
+-	
++
+ 	HitInfo payload = {0.0};
+ 	TraceRay(
+ 		Scene,
+diff --git a/shadercompiler/tests/VulkanCompilerTest.cpp b/shadercompiler/tests/VulkanCompilerTest.cpp
+new file mode 100644
+index 00000000..99b3b137
+--- /dev/null
++++ b/shadercompiler/tests/VulkanCompilerTest.cpp
+@@ -0,0 +1,579 @@
++// Copyright © 2026 CCP ehf.
++
++#include "gtest/gtest.h"
++#include "EffectCompilerVulkan.h"
++#include "EffectData.h"
++#include "StringTable.h"
++#include "TesingUtils.h"
++
++extern StringTable g_stringTable;
++
++namespace
++{
++
++bool IsSpirv( const StageInput& stage )
++{
++	if( stage.shaderSize < 4 )
++	{
++		return false;
++	}
++	const uint8_t magic[] = { 0x03, 0x02, 0x23, 0x07 };
++	return memcmp( g_stringTable.GetString( stage.shaderDataStr ), magic, 4 ) == 0;
++}
++
++const Constant* FindConstant( const StageData& stage, const char* name )
++{
++	for( auto& constant : stage.constants )
++	{
++		if( strcmp( g_stringTable.GetString( constant.name ), name ) == 0 )
++		{
++			return &constant;
++		}
++	}
++	return nullptr;
++}
++
++}
++
++TEST( VulkanCompiler, CompilesTexturedQuadToSpirv )
++{
++	const char* src = R"SRC(
++float4 offsetScale;
++
++Texture2D sourceTexture;
++SamplerState sourceSampler
++{
++	MinFilter = Linear;
++	MagFilter = Linear;
++	MipFilter = Point;
++	AddressU  = Clamp;
++	AddressV  = Clamp;
++};
++
++struct VS_INPUT
++{
++	float4 position : POSITION;
++	float2 texcoord : TEXCOORD0;
++};
++
++struct VS_OUTPUT
++{
++	float4 position : SV_Position;
++	float2 texcoord : TEXCOORD0;
++};
++
++VS_OUTPUT vs( VS_INPUT input )
++{
++	VS_OUTPUT output;
++	output.position = float4( input.position.xy * offsetScale.zw + offsetScale.xy, 0.0, 1.0 );
++	output.texcoord = input.texcoord;
++	return output;
++}
++
++float4 ps( VS_OUTPUT input ) : COLOR
++{
++	return sourceTexture.Sample( sourceSampler, input.texcoord );
++}
++
++technique t0
++{
++	pass p0
++	{
++		vertexshader = compile vs_3_0 vs();
++		pixelshader = compile ps_3_0 ps();
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	ASSERT_EQ( data.techniques.size(), 1u );
++	ASSERT_EQ( data.techniques[0].passes.size(), 1u );
++	ASSERT_EQ( data.techniques[0].passes[0].stages.size(), 2u );
++
++	auto& vs = data.techniques[0].passes[0].stages[0];
++	auto& ps = data.techniques[0].passes[0].stages[1];
++
++	EXPECT_EQ( vs.type, VERTEX_STAGE );
++	EXPECT_EQ( ps.type, PIXEL_STAGE );
++	EXPECT_TRUE( IsSpirv( vs ) );
++	EXPECT_TRUE( IsSpirv( ps ) );
++
++	// Vertex inputs: locations are assigned in declaration order.
++	ASSERT_EQ( vs.pipelineInputs.size(), 2u );
++	EXPECT_EQ( vs.pipelineInputs[0].name, UC_POSITION );
++	EXPECT_EQ( vs.pipelineInputs[0].registerIndex, 0 );
++	EXPECT_EQ( vs.pipelineInputs[0].dimension, 4 );
++	EXPECT_EQ( vs.pipelineInputs[1].name, UC_TEXCOORD );
++	EXPECT_EQ( vs.pipelineInputs[1].index, 0 );
++	EXPECT_EQ( vs.pipelineInputs[1].registerIndex, 1 );
++	EXPECT_EQ( vs.pipelineInputs[1].dimension, 2 );
++
++	// VS uses the Globals constant buffer at b0.
++	ASSERT_EQ( vs.registerInputs.size(), 1u );
++	EXPECT_EQ( vs.registerInputs[0].registerType, RT_CONSTANT_BUFFER );
++	EXPECT_EQ( vs.registerInputs[0].registerIndex, 0u );
++
++	auto constant = FindConstant( vs, "offsetScale" );
++	ASSERT_NE( constant, nullptr );
++	EXPECT_EQ( constant->offset, 0u );
++	EXPECT_EQ( constant->size, 16u );
++	EXPECT_EQ( constant->dimension, 4 );
++	EXPECT_EQ( constant->type, CONSTANT_TYPE_FLOAT );
++
++	// PS uses the texture at t0; the clamp/linear sampler becomes a static sampler.
++	ASSERT_EQ( ps.registerInputs.size(), 1u );
++	EXPECT_EQ( ps.registerInputs[0].registerType, RT_SRV_TEXTURE2D );
++	EXPECT_EQ( ps.registerInputs[0].registerIndex, 0u );
++	ASSERT_EQ( ps.textures.size(), 1u );
++	EXPECT_STREQ( g_stringTable.GetString( ps.textures.begin()->second.name ), "sourceTexture" );
++	EXPECT_EQ( ps.samplers.size(), 0u );
++	ASSERT_EQ( ps.staticSamplers.size(), 1u );
++	EXPECT_EQ( ps.staticSamplers[0].registerIndex, 0u );
++}
++
++TEST( VulkanCompiler, ConstantBufferLayoutFollowsD3DPackingRules )
++{
++	const char* src = R"SRC(
++float2 a;
++float3 b;
++float c;
++float4x4 m;
++float4 arr[3];
++
++float4 vs() : POSITION
++{
++	return mul( float4( a, c, 1.0 ), m ) + b.xyzx + arr[1];
++}
++
++float4 ps() : COLOR
++{
++	return float4( 0.0, 0.0, 0.0, 1.0 );
++}
++
++technique t0
++{
++	pass p0
++	{
++		vertexshader = compile vs_3_0 vs();
++		pixelshader = compile ps_3_0 ps();
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& vs = data.techniques[0].passes[0].stages[0];
++
++	// CreateGlobalsCB moves scalars to the end, so the emitted member order is
++	// a, b, arr, m, c. float3 b would cross a 16-byte boundary at 8 -> 16, the
++	// array and the matrix align to 16. Verified against the OpMemberDecorate
++	// offsets dxc emits for the same source.
++	auto a = FindConstant( vs, "a" );
++	auto b = FindConstant( vs, "b" );
++	auto c = FindConstant( vs, "c" );
++	auto m = FindConstant( vs, "m" );
++	auto arr = FindConstant( vs, "arr" );
++	ASSERT_NE( a, nullptr );
++	ASSERT_NE( b, nullptr );
++	ASSERT_NE( c, nullptr );
++	ASSERT_NE( m, nullptr );
++	ASSERT_NE( arr, nullptr );
++
++	EXPECT_EQ( a->offset, 0u );
++	EXPECT_EQ( a->size, 8u );
++	EXPECT_EQ( b->offset, 16u );
++	EXPECT_EQ( b->size, 12u );
++	EXPECT_EQ( arr->offset, 32u );
++	EXPECT_EQ( arr->size, 48u );
++	EXPECT_EQ( arr->elements, 3u );
++	EXPECT_EQ( m->offset, 80u );
++	EXPECT_EQ( m->size, 64u );
++	EXPECT_EQ( m->dimension, 16 );
++	EXPECT_EQ( c->offset, 144u );
++	EXPECT_EQ( c->size, 4u );
++}
++
++TEST( VulkanCompiler, DefaultValuesAreDerivedFromInitializers )
++{
++	const char* src = R"SRC(
++float4 tint = float4( 0.25, 0.5, 0.75, 1.0 );
++
++float4 vs() : POSITION
++{
++	return tint;
++}
++
++float4 ps() : COLOR
++{
++	return tint;
++}
++
++technique t0
++{
++	pass p0
++	{
++		vertexshader = compile vs_3_0 vs();
++		pixelshader = compile ps_3_0 ps();
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& vs = data.techniques[0].passes[0].stages[0];
++
++	auto tint = FindConstant( vs, "tint" );
++	ASSERT_NE( tint, nullptr );
++	ASSERT_GE( vs.defaultValues.size(), size_t( tint->offset + tint->size ) );
++	const float* values = reinterpret_cast<const float*>( &vs.defaultValues[tint->offset] );
++	EXPECT_FLOAT_EQ( values[0], 0.25f );
++	EXPECT_FLOAT_EQ( values[1], 0.5f );
++	EXPECT_FLOAT_EQ( values[2], 0.75f );
++	EXPECT_FLOAT_EQ( values[3], 1.0f );
++}
++
++TEST( VulkanCompiler, CompilesComputeShaderWithUav )
++{
++	const char* src = R"SRC(
++RWTexture2D<float4> outputTexture;
++
++[numthreads( 8, 4 , 1 )]
++void cs( uint3 id : SV_DispatchThreadID )
++{
++	outputTexture[id.xy] = float4( 1.0, 0.0, 0.0, 1.0 );
++}
++
++technique t0
++{
++	pass p0
++	{
++		computeshader = compile cs_5_0 cs();
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	ASSERT_EQ( data.techniques[0].passes[0].stages.size(), 1u );
++	auto& cs = data.techniques[0].passes[0].stages[0];
++
++	EXPECT_EQ( cs.type, COMPUTE_STAGE );
++	EXPECT_TRUE( IsSpirv( cs ) );
++	EXPECT_EQ( cs.threadGroupSize[0], 8u );
++	EXPECT_EQ( cs.threadGroupSize[1], 4u );
++	EXPECT_EQ( cs.threadGroupSize[2], 1u );
++
++	ASSERT_EQ( cs.uavs.size(), 1u );
++	EXPECT_STREQ( g_stringTable.GetString( cs.uavs.begin()->second.name ), "outputTexture" );
++	ASSERT_EQ( cs.registerInputs.size(), 1u );
++	EXPECT_EQ( cs.registerInputs[0].registerType, RT_UAV_TEXTURE2D );
++}
++
++TEST( VulkanCompiler, CompilesLegacyDX9StyleSampling )
++{
++	const char* src = R"SRC(
++texture testTexture;
++sampler2D testSampler = sampler_state
++{
++	Texture = <testTexture>;
++	MinFilter = Linear;
++	MagFilter = Linear;
++	MipFilter = Linear;
++	AddressU  = Wrap;
++	AddressV  = Wrap;
++};
++
++float4 vs() : POSITION
++{
++	return float4( 0.0, 0.0, 0.0, 1.0 );
++}
++
++float4 ps( float2 uv : TEXCOORD0 ) : COLOR
++{
++	return tex2D( testSampler, uv );
++}
++
++technique t0
++{
++	pass p0
++	{
++		vertexshader = compile vs_3_0 vs();
++		pixelshader = compile ps_3_0 ps();
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& ps = data.techniques[0].passes[0].stages[1];
++
++	EXPECT_TRUE( IsSpirv( ps ) );
++	ASSERT_EQ( ps.textures.size(), 1u );
++	EXPECT_STREQ( g_stringTable.GetString( ps.textures.begin()->second.name ), "testTexture" );
++}
++
++// ----------------------------------------------------------------------------
++// Ray tracing libraries (compiled with -T lib_6_3 -spirv).
++// ----------------------------------------------------------------------------
++
++namespace
++{
++
++bool IsSpirvLibrary( const Library& library )
++{
++	if( library.shaderSize < 4 )
++	{
++		return false;
++	}
++	const uint8_t magic[] = { 0x03, 0x02, 0x23, 0x07 };
++	return memcmp( g_stringTable.GetString( library.shaderDataStr ), magic, 4 ) == 0;
++}
++
++}
++
++TEST( VulkanCompiler, CompilesRayTracingLibraryToSpirv )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float4 color;
++};
++
++RaytracingAccelerationStructure Scene;
++RWTexture2D<float4> Output;
++
++cbuffer RayGenCB
++{
++	float4 viewOrigin;
++}
++
++[shader("raygeneration")]
++[globalinput("Scene;Output;RayGenCB")]
++void RayGen()
++{
++	RayDesc ray;
++	ray.Origin = viewOrigin.xyz;
++	ray.Direction = float3( 0, 0, 1 );
++	ray.TMin = 0.1f;
++	ray.TMax = 1000.f;
++
++	HitInfo payload;
++	payload.color = float4( 0, 0, 0, 0 );
++	TraceRay( Scene, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload );
++	Output[DispatchRaysIndex().xy] = payload.color;
++}
++
++[shader("miss")]
++void Miss(inout HitInfo payload)
++{
++	payload.color = float4( 1, 0, 0, -1 );
++}
++
++technique t0
++{
++	library p0
++	{
++		RayGenShader = compile lib_6_3 RayGen();
++		MissShader = compile lib_6_3 Miss();
++		payloadsize = 16;
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	ASSERT_EQ( data.techniques.size(), 1u );
++	ASSERT_EQ( data.techniques[0].libraries.size(), 1u );
++
++	auto& library = data.techniques[0].libraries[0];
++	EXPECT_TRUE( IsSpirvLibrary( library ) );
++	EXPECT_EQ( library.payloadSize, 16u );
++	ASSERT_EQ( library.exports.size(), 2u );
++	EXPECT_EQ( library.exports[0].type, RtShaderType::RAY_GEN );
++	EXPECT_STREQ( g_stringTable.GetString( library.exports[0].name ), "RayGen" );
++	EXPECT_EQ( library.exports[1].type, RtShaderType::MISS );
++	EXPECT_STREQ( g_stringTable.GetString( library.exports[1].name ), "Miss" );
++}
++
++TEST( VulkanCompiler, RayTracingNumericInputsAreLocal )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float visibility;
++};
++
++float LocalInput;
++
++[shader("miss")]
++void Miss(inout HitInfo payload)
++{
++	payload.visibility = LocalInput;
++}
++
++technique t0
++{
++	library p0
++	{
++		MissShader = compile lib_6_3 Miss();
++		payloadsize = 4;
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& library = data.techniques[0].libraries[0];
++	EXPECT_TRUE( IsSpirvLibrary( library ) );
++	EXPECT_FALSE( library.localInputs.constants.empty() );
++	EXPECT_TRUE( library.globalInputs.constants.empty() );
++
++	// Local constants become shader record data.
++	EXPECT_NE( library.source.find( "[[vk::shader_record_ext]]" ), std::string::npos );
++}
++
++TEST( VulkanCompiler, RayTracingSrvsAreGlobal )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float visibility;
++};
++
++Texture2D GlobalInput;
++
++[shader("miss")]
++[globalinput("GlobalInput;")]
++void Miss(inout HitInfo payload)
++{
++	payload.visibility = GlobalInput[uint2( 0, 0 )].r;
++}
++
++technique t0
++{
++	library p0
++	{
++		MissShader = compile lib_6_3 Miss();
++		payloadsize = 4;
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& library = data.techniques[0].libraries[0];
++	EXPECT_TRUE( IsSpirvLibrary( library ) );
++	EXPECT_TRUE( library.localInputs.textures.empty() );
++	EXPECT_FALSE( library.globalInputs.textures.empty() );
++}
++
++TEST( VulkanCompiler, RayTracingSrvsMissingFromGlobalInputGenerateErrors )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float visibility;
++};
++
++Texture2D GlobalInput;
++
++[shader("miss")]
++void Miss(inout HitInfo payload)
++{
++	payload.visibility = GlobalInput[uint2( 0, 0 )].r;
++}
++
++technique t0
++{
++	library p0
++	{
++		MissShader = compile lib_6_3 Miss();
++		payloadsize = 4;
++	}
++}
++)SRC";
++
++	ASSERT_FALSE( Compiles<EffectCompilerVulkan>( src ) );
++}
++
++TEST( VulkanCompiler, RayTracingLocalCBuffersBecomeShaderRecordData )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float4 color;
++};
++struct Attributes
++{
++	float2 uv;
++};
++
++cbuffer PerObject
++{
++	float4 material;
++}
++
++[shader("closesthit")]
++void ClosestHit(inout HitInfo payload, Attributes attrib)
++{
++	payload.color = material;
++}
++
++technique t0
++{
++	library p0
++	{
++		ClosestHitShader = compile lib_6_3 ClosestHit();
++		payloadsize = 16;
++		hitgroupname = "HitGroup";
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& library = data.techniques[0].libraries[0];
++	EXPECT_TRUE( IsSpirvLibrary( library ) );
++	EXPECT_STREQ( g_stringTable.GetString( library.hitGroupName ), "HitGroup" );
++	ASSERT_FALSE( library.localInputs.registerInputs.empty() );
++	EXPECT_EQ( library.localInputs.registerInputs[0].registerType, RT_CONSTANT_BUFFER );
++	EXPECT_NE( library.source.find( "[[vk::shader_record_ext]]" ), std::string::npos );
++	EXPECT_TRUE( library.globalInputs.registerInputs.empty() );
++}
++
++TEST( VulkanCompiler, RayTracingUnusedGlobalInputsAreExported )
++{
++	const char* src = R"SRC(
++struct HitInfo
++{
++    float visibility;
++};
++
++struct Foo
++{
++	float coefficient;
++};
++
++cbuffer PerFrame
++{
++    Foo foo;
++};
++
++Texture2D Tex;
++Texture2D Bar;
++
++[shader("miss")]
++[globalinput("PerFrame;Tex;Bar")]
++void Miss(inout HitInfo payload)
++{
++	payload.visibility = Bar.Load( uint3( 0, 0, 0 ) ).r;
++}
++
++technique t0
++{
++	library p0
++	{
++		MissShader = compile lib_6_3 Miss();
++		payloadsize = 4;
++	}
++}
++)SRC";
++
++	auto data = Compile<EffectCompilerVulkan>( src );
++	auto& library = data.techniques[0].libraries[0];
++	EXPECT_TRUE( IsSpirvLibrary( library ) );
++	ASSERT_EQ( library.globalInputs.textures.size(), 2u );
++	ASSERT_EQ( library.globalInputs.registerInputs.size(), 3u );
++}
