@@ -33,6 +33,10 @@ if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
     add_compile_options(-Wno-reorder)
     add_compile_options(-Wno-missing-braces)
 
+    # On MSVC, wchar_t is 2 bytes/char. On GCC/clang it is 4 bytes/char.
+    # Align these by telling GCC/clang to use 2 bytes/char.
+    add_compile_options(-fshort-wchar)
+
     # Manually add debug symbols to builds
     add_compile_options(-g)
 endif ()
