@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sat, 4 Jul 2026 18:48:48 +0200
-Subject: [PATCH 2/8] build: integrate vcpkg manifest features
+Subject: [PATCH 2/9] build: integrate vcpkg manifest features
 
 This ensures that CMake options propagate through via vcpkg.
 Meaning no more installing Python3 if you are not building docs.

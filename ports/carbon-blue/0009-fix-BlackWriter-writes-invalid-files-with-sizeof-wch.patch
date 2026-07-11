@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 11 Jul 2026 16:28:28 +0200
+Subject: [PATCH 9/9] fix: BlackWriter writes invalid files with
+ sizeof(wchar_t) != 2 systems
+
+On Linux / MacOS, a wchar_t is 4 bytes/char. On Windows
+it is 2 bytes/char. This is fine, except when writing to
+files.
+
+The reader of black files already correctly compensates
+for this difference. But the writer did not.
+---
+ src/BlackWriter.cpp | 24 +++++++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/src/BlackWriter.cpp b/src/BlackWriter.cpp
+index 81dc203..26fe607 100644
+--- a/src/BlackWriter.cpp
++++ b/src/BlackWriter.cpp
+@@ -60,10 +60,28 @@ Be::Result<std::string> BlackWriter::WriteObjectToStream( const IRoot* root, IBl
+ 	{
+ 		const std::wstring& s = *it;
+ 		size_t len = wcslen( s.c_str() );
+-		m_outputStream->Write( s.c_str(), sizeof( wchar_t ) * len );
+ 
+-		wchar_t terminator = 0;
+-		m_outputStream->Write( &terminator, sizeof( terminator) );
++		// The wide string table is always stored on disk as UCS-2 (2 bytes per
++		// character), matching what BlackReader expects, regardless of the
++		// platform's native wchar_t size (2 bytes on Windows, 4 bytes on Linux/macOS).
++		if( sizeof( wchar_t ) == 2 )
++		{
++			m_outputStream->Write( s.c_str(), sizeof( wchar_t ) * len );
++
++			wchar_t terminator = 0;
++			m_outputStream->Write( &terminator, sizeof( terminator) );
++		}
++		else
++		{
++			std::vector<char16_t> narrow( len + 1 );
++			for( size_t i = 0; i < len; ++i )
++			{
++				narrow[i] = static_cast<char16_t>( s[i] );
++			}
++			narrow[len] = 0;
++
++			m_outputStream->Write( narrow.data(), sizeof( char16_t ) * narrow.size() );
++		}
+ 	}
+ 
+ 	// Switch back to the main stream

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sat, 4 Jul 2026 18:53:13 +0200
-Subject: [PATCH 7/8] port(linux): add support for Linux
+Subject: [PATCH 7/9] port(linux): add support for Linux
 
 ---
  CMakeLists.txt           |  22 ++++---

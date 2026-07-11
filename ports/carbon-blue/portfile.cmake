@@ -13,6 +13,7 @@ vcpkg_from_git(
 0006-fix-use-empty-vector-instead-of-old-style.patch
 0007-port-linux-add-support-for-Linux.patch
 0008-fix-linux-un-pack-functions-for-long-long-aren-t-def.patch
+0009-fix-BlackWriter-writes-invalid-files-with-sizeof-wch.patch
     # END EXPORTED PATCHES
 )
 

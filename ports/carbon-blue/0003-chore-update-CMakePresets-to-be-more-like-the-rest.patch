@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sat, 4 Jul 2026 19:03:00 +0200
-Subject: [PATCH 3/8] chore: update CMakePresets to be more like the rest
+Subject: [PATCH 3/9] chore: update CMakePresets to be more like the rest
 
 ---
  CMakePresets.json | 2 +-

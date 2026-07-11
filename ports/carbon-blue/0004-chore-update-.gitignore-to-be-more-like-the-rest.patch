@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sat, 4 Jul 2026 19:02:11 +0200
-Subject: [PATCH 4/8] chore: update .gitignore to be more like the rest
+Subject: [PATCH 4/9] chore: update .gitignore to be more like the rest
 
 ---
  .gitignore | 3 ++-

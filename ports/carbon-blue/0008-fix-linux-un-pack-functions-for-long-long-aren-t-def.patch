@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Patric Stout <github@truebrain.nl>
 Date: Sat, 4 Jul 2026 19:58:11 +0200
-Subject: [PATCH 8/8] fix(linux): (un)pack functions for long long aren't
+Subject: [PATCH 8/9] fix(linux): (un)pack functions for long long aren't
  defined
 
 On Linux, uint64_t isn't the same as unsigned long long. Although
