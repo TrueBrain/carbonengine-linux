@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 11 Jul 2026 19:31:40 +0200
+Subject: [PATCH 2/5] fix: compile on case sensitive filesystems
+
+---
+ src/Components/StretchAudio.cpp      | 2 +-
+ src/Components/StretchAudio_Blue.cpp | 2 +-
+ src/LogBridge.cpp                    | 2 +-
+ src/LowLevelIO/LowLevelIOHook.cpp    | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/Components/StretchAudio.cpp b/src/Components/StretchAudio.cpp
+index ee3a60a..54fa404 100644
+--- a/src/Components/StretchAudio.cpp
++++ b/src/Components/StretchAudio.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2020 CCP ehf.
+ 
+-#include "StdAfx.h"
++#include "stdafx.h"
+ #include "StretchAudio.h"
+ #include "AudManager.h"
+ 
+diff --git a/src/Components/StretchAudio_Blue.cpp b/src/Components/StretchAudio_Blue.cpp
+index 17d613f..87eeda7 100644
+--- a/src/Components/StretchAudio_Blue.cpp
++++ b/src/Components/StretchAudio_Blue.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2020 CCP ehf.
+ 
+-#include "StdAfx.h"
++#include "stdafx.h"
+ #include "StretchAudio.h"
+ 
+ BLUE_DEFINE( StretchAudio );
+diff --git a/src/LogBridge.cpp b/src/LogBridge.cpp
+index 3db1585..85c659e 100644
+--- a/src/LogBridge.cpp
++++ b/src/LogBridge.cpp
+@@ -1,6 +1,6 @@
+ // Copyright © 2014 CCP ehf.
+ 
+-#include "StdAfx.h"
++#include "stdafx.h"
+ #include "LogBridge.h"
+ #include "AudManager.h"
+ 
+diff --git a/src/LowLevelIO/LowLevelIOHook.cpp b/src/LowLevelIO/LowLevelIOHook.cpp
+index 24e5d7a..0f40923 100644
+--- a/src/LowLevelIO/LowLevelIOHook.cpp
++++ b/src/LowLevelIO/LowLevelIOHook.cpp
+@@ -6,7 +6,7 @@
+ #include <AK/Tools/Common/AkObject.h>
+ #include <AK/SoundEngine/Common/AkMemoryMgr.h>
+ 
+-#include <CCPLog.h>
++#include <CcpLog.h>
+ 
+ #if defined(__APPLE__)
+ #include <unistd.h>

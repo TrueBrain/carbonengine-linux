@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 11 Jul 2026 19:32:28 +0200
+Subject: [PATCH 3/5] fix: long long isn't the same as int64_t
+
+BlueTypeTraits only knows int64_t, so name it as such.
+Most likely the intention anyway.
+---
+ src/AudManager.h            | 4 ++--
+ src/SoundPrioritization.cpp | 4 ++--
+ src/SoundPrioritization.h   | 9 +++++----
+ 3 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/src/AudManager.h b/src/AudManager.h
+index e8594a3..d0077fd 100644
+--- a/src/AudManager.h
++++ b/src/AudManager.h
+@@ -281,7 +281,7 @@ private:
+ 	}
+ 
+ 	// Getters
+-	DELEGATE_GETTER( long long, GetOneShotWindow )
++	DELEGATE_GETTER( int64_t, GetOneShotWindow )
+ 	DELEGATE_GETTER( float, GetPlaying2DWeight )
+ 	DELEGATE_GETTER( float, GetPlayingEventsWeight )
+ 	DELEGATE_GETTER( float, GetPlayingVitalSoundWeight )
+@@ -293,7 +293,7 @@ private:
+ 	DELEGATE_GETTER( int, GetMaxAwakeGameObjects )
+ 
+ 	// Setters
+-	DELEGATE_SETTER( long long, SetOneShotWindow )
++	DELEGATE_SETTER( int64_t, SetOneShotWindow )
+ 	DELEGATE_SETTER( float, SetPlaying2DWeight )
+ 	DELEGATE_SETTER( float, SetPlayingEventsWeight )
+ 	DELEGATE_SETTER( float, SetPlayingVitalSoundWeight )
+diff --git a/src/SoundPrioritization.cpp b/src/SoundPrioritization.cpp
+index b2fed1d..11e2a63 100644
+--- a/src/SoundPrioritization.cpp
++++ b/src/SoundPrioritization.cpp
+@@ -215,12 +215,12 @@ void SoundPrioritization::SetMaxAwakeGameObjects( int value )
+ 	m_settings.maxAwakeGameObjects = value;
+ }
+ 
+-long long SoundPrioritization::GetOneShotWindow() const
++int64_t SoundPrioritization::GetOneShotWindow() const
+ {
+ 	return m_settings.oneShotWindow;
+ }
+ 
+-void SoundPrioritization::SetOneShotWindow( long long numMilliseconds )
++void SoundPrioritization::SetOneShotWindow( int64_t numMilliseconds )
+ {
+ 	m_settings.oneShotWindow = numMilliseconds;
+ }
+diff --git a/src/SoundPrioritization.h b/src/SoundPrioritization.h
+index 96ecd6f..1b0422a 100644
+--- a/src/SoundPrioritization.h
++++ b/src/SoundPrioritization.h
+@@ -3,6 +3,7 @@
+ #pragma once
+ 
+ #include <chrono>
++#include <cstdint>
+ #include <vector>
+ #include <limits>
+ #include "IPrioritizedObject.h"
+@@ -30,7 +31,7 @@ public:
+      */
+     struct CullingSettings {
+         int maxAwakeGameObjects;      /**< Maximum number of simultaneously active audio objects */
+-        long long oneShotWindow;      /**< Time window in milliseconds for one-shot sound opportunities */
++        int64_t oneShotWindow;      /**< Time window in milliseconds for one-shot sound opportunities */
+         float weightMultiplier;       /**< Global multiplier applied to all weight calculations */
+         float playingVitalSoundWeight;/**< Priority weight for objects playing vital sounds */
+         float playing2DWeight;        /**< Priority weight for objects playing 2D sounds */
+@@ -102,15 +103,15 @@ public:
+ 
+     /**
+      * @brief Get the time window for one-shot sound opportunities
+-     * @return long long The current one-shot window in milliseconds
++     * @return int64_t The current one-shot window in milliseconds
+      */
+-    long long GetOneShotWindow() const;
++    int64_t GetOneShotWindow() const;
+ 
+     /**
+      * @brief Set the time window for one-shot sound opportunities
+      * @param numMilliseconds The new time window in milliseconds
+      */
+-    void SetOneShotWindow(long long numMilliseconds);
++    void SetOneShotWindow(int64_t numMilliseconds);
+ 
+     /**
+      * @brief Get the priority weight for 2D sounds

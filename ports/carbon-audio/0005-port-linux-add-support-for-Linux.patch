@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 11 Jul 2026 19:33:45 +0200
+Subject: [PATCH 5/5] port(linux): add support for Linux
+
+---
+ src/AudSettings.h                 | 2 +-
+ src/LowLevelIO/FileHelpers.h      | 8 ++++----
+ src/LowLevelIO/LowLevelIOHook.cpp | 6 +++---
+ 3 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/src/AudSettings.h b/src/AudSettings.h
+index 8289588..56fa163 100644
+--- a/src/AudSettings.h
++++ b/src/AudSettings.h
+@@ -17,7 +17,7 @@ public:
+ 	std::wstring m_soundbankLanguage = L"en";
+ 	std::wstring m_stereoAudioDeviceName = L"System_Stereo";
+ 	std::wstring m_spatialAudioDeviceName = L"System"; 
+-#elif __APPLE__
++#elif __APPLE__ || __linux__
+ 	bool m_spatialAudioEnabled = true;
+ 	std::string m_audioSrcPath = "Media";
+ 	std::string m_baseSoundBankPath = "res:/Audio";
+diff --git a/src/LowLevelIO/FileHelpers.h b/src/LowLevelIO/FileHelpers.h
+index dc17bdb..f2e8995 100644
+--- a/src/LowLevelIO/FileHelpers.h
++++ b/src/LowLevelIO/FileHelpers.h
+@@ -8,9 +8,9 @@
+ #include <filesystem>
+ #include <system_error>
+ 
+-#if defined(__APPLE__)
++#if defined(__APPLE__) || defined(__linux__)
+ #include <stdio.h>
+-#include <sys/errno.h>
++#include <cerrno>
+ #endif
+ 
+ /**
+@@ -107,7 +107,7 @@ public:
+             desc.iFileSize = (AkInt64)fileSize;
+         return AK_Success;
+ 
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+         AK_UNUSEDVAR(overlapped);
+ 
+         const char* stdioMode;
+@@ -157,7 +157,7 @@ public:
+ 
+         AKASSERT(!"Failed to close file handle");
+         return AK_Fail;
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+         if (!fclose(desc.hFile))
+             return AK_Success;
+ 
+diff --git a/src/LowLevelIO/LowLevelIOHook.cpp b/src/LowLevelIO/LowLevelIOHook.cpp
+index 0f40923..f0bb3ab 100644
+--- a/src/LowLevelIO/LowLevelIOHook.cpp
++++ b/src/LowLevelIO/LowLevelIOHook.cpp
+@@ -8,7 +8,7 @@
+ 
+ #include <CcpLog.h>
+ 
+-#if defined(__APPLE__)
++#if defined(__APPLE__) || defined(__linux__)
+ #include <unistd.h>
+ #include <stdio.h>
+ #endif
+@@ -261,7 +261,7 @@ void LowLevelIOHook::Read(AkFileDesc& fileDesc, const AkIoHeuristics&, AkAsyncIO
+         result = AK_FilePermissionError;
+     transfer.pCallback(&transfer, result);
+ 
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+     AkFileHandle handle = fileDesc.hFile;
+     if (lseek(fileno(handle), transfer.uFilePosition, SEEK_SET) == (off_t)transfer.uFilePosition)
+     {
+@@ -304,7 +304,7 @@ void LowLevelIOHook::Write(AkFileDesc& fileDesc, const AkIoHeuristics&, AkAsyncI
+         result = AK_FilePermissionError;
+     transfer.pCallback(&transfer, result);
+ 
+-#elif defined(__APPLE__)
++#elif defined(__APPLE__) || defined(__linux__)
+     AkFileHandle handle = fileDesc.hFile;
+     if (lseek(fileno(handle), transfer.uFilePosition, SEEK_SET) == (off_t)transfer.uFilePosition)
+     {

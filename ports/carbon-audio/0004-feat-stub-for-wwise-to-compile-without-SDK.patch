@@ -1,0 +1,1407 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Patric Stout <github@truebrain.nl>
+Date: Sat, 11 Jul 2026 19:15:44 +0200
+Subject: [PATCH 4/5] feat: stub for wwise, to compile without SDK
+
+Of course there won't be audio. But it does compile.
+---
+ CMakeLists.txt                                |  51 +-
+ vcpkg.json                                    |  15 +-
+ wwise-stub/include/AK/AkWwiseSDKVersion.h     |   4 +
+ wwise-stub/include/AK/Comm/AkCommunication.h  |   4 +
+ wwise-stub/include/AK/Core.h                  | 740 ++++++++++++++++++
+ .../AK/Plugin/Ak3DAudioBedMixerFXFactory.h    |   4 +
+ .../include/AK/Plugin/AkAudioInputPlugin.h    |   4 +
+ .../include/AK/Plugin/AkCompressorFXFactory.h |   4 +
+ .../include/AK/Plugin/AkDelayFXFactory.h      |   4 +
+ .../include/AK/Plugin/AkFlangerFXFactory.h    |   4 +
+ .../AK/Plugin/AkGuitarDistortionFXFactory.h   |   4 +
+ .../include/AK/Plugin/AkHarmonizerFXFactory.h |   4 +
+ .../AK/Plugin/AkMatrixReverbFXFactory.h       |   4 +
+ .../include/AK/Plugin/AkMeterFXFactory.h      |   4 +
+ .../AK/Plugin/AkParametricEQFXFactory.h       |   4 +
+ .../AK/Plugin/AkPeakLimiterFXFactory.h        |   4 +
+ .../AK/Plugin/AkPitchShifterFXFactory.h       |   4 +
+ .../include/AK/Plugin/AkRecorderFXFactory.h   |   4 +
+ .../include/AK/Plugin/AkRoomVerbFXFactory.h   |   4 +
+ .../include/AK/Plugin/AkSidechainFXFactory.h  |   4 +
+ .../AK/Plugin/AkSilenceSourceFactory.h        |   4 +
+ .../AK/Plugin/AkStereoDelayFXFactory.h        |   4 +
+ .../include/AK/Plugin/AkTremoloFXFactory.h    |   4 +
+ .../AK/Plugin/AkVorbisDecoderFactory.h        |   4 +
+ .../AK/Plugin/MasteringSuiteFXFactory.h       |   4 +
+ .../AK/SoundEngine/Common/AkCallback.h        |   4 +
+ .../AK/SoundEngine/Common/AkMemoryMgr.h       |   4 +
+ .../AK/SoundEngine/Common/AkMemoryMgrModule.h |   4 +
+ .../AK/SoundEngine/Common/AkQueryParameters.h |   4 +
+ .../AK/SoundEngine/Common/AkSoundEngine.h     |   4 +
+ .../AK/SoundEngine/Common/AkStreamMgrModule.h |   4 +
+ .../include/AK/SoundEngine/Common/AkTypes.h   |   4 +
+ .../include/AK/SoundEngine/Common/IAkPlugin.h |   4 +
+ .../AK/SoundEngine/Common/IAkStreamMgr.h      |   4 +
+ .../AK/SpatialAudio/Common/AkSpatialAudio.h   |   4 +
+ wwise-stub/include/AK/Tools/Common/AkAssert.h |   4 +
+ .../include/AK/Tools/Common/AkAutoLock.h      |   4 +
+ .../include/AK/Tools/Common/AkFNVHash.h       |   4 +
+ .../include/AK/Tools/Common/AkListBare.h      |   4 +
+ wwise-stub/include/AK/Tools/Common/AkLock.h   |   4 +
+ .../include/AK/Tools/Common/AkMonitorError.h  |   4 +
+ wwise-stub/include/AK/Tools/Common/AkObject.h |   4 +
+ .../include/AK/Tools/Common/AkPlatformFuncs.h |   4 +
+ .../include/AK/Tools/Common/AkProfilingID.h   |   4 +
+ .../include/AK/Tools/Common/AkVectors.h       |   4 +
+ 45 files changed, 964 insertions(+), 10 deletions(-)
+ create mode 100644 wwise-stub/include/AK/AkWwiseSDKVersion.h
+ create mode 100644 wwise-stub/include/AK/Comm/AkCommunication.h
+ create mode 100644 wwise-stub/include/AK/Core.h
+ create mode 100644 wwise-stub/include/AK/Plugin/Ak3DAudioBedMixerFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkAudioInputPlugin.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkCompressorFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkDelayFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkFlangerFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkGuitarDistortionFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkHarmonizerFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkMatrixReverbFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkMeterFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkParametricEQFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkPeakLimiterFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkPitchShifterFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkRecorderFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkRoomVerbFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkSidechainFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkSilenceSourceFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkStereoDelayFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkTremoloFXFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/AkVorbisDecoderFactory.h
+ create mode 100644 wwise-stub/include/AK/Plugin/MasteringSuiteFXFactory.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkCallback.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgr.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgrModule.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkQueryParameters.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkSoundEngine.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkStreamMgrModule.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/AkTypes.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/IAkPlugin.h
+ create mode 100644 wwise-stub/include/AK/SoundEngine/Common/IAkStreamMgr.h
+ create mode 100644 wwise-stub/include/AK/SpatialAudio/Common/AkSpatialAudio.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkAssert.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkAutoLock.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkFNVHash.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkListBare.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkLock.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkMonitorError.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkObject.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkPlatformFuncs.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkProfilingID.h
+ create mode 100644 wwise-stub/include/AK/Tools/Common/AkVectors.h
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7e82643..d2b9cbc 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,18 @@
+ # Copyright © 2021 CCP ehf.
+ 
+ cmake_minimum_required(VERSION 3.16)
++
++# Currently there is no wwise SDK available for Linux. So default that to OFF.
++if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
++	option(CARBON_AUDIO_WITH_WWISE "Build against the real Wwise SDK (requires a license; unavailable on Linux)." OFF)
++else()
++	option(CARBON_AUDIO_WITH_WWISE "Build against the real Wwise SDK (requires a license; unavailable on Linux)." ON)
++endif()
++
++if(CARBON_AUDIO_WITH_WWISE)
++	list(APPEND VCPKG_MANIFEST_FEATURES "wwise")
++endif()
++
+ project(CarbonAudio VERSION 1.0.0)
+ 
+ include(cmake/CcpTargetConfigurations.cmake)
+@@ -10,14 +22,16 @@ include(cmake/CcpPackageConfigHelpers.cmake)
+ find_package(carbon-blue            CONFIG REQUIRED)
+ find_package(carbon-math            CONFIG REQUIRED)
+ find_package(carbon-trinityaudioapi CONFIG REQUIRED)
+-find_package(Wwise                  CONFIG REQUIRED)
++if(CARBON_AUDIO_WITH_WWISE)
++	find_package(Wwise               CONFIG REQUIRED)
++endif()
+ find_package(TBB                    CONFIG REQUIRED)
+ find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
+ 
+ set(PUBLIC_HEADER_FILES_INCLUDE
+ )
+ 
+-ccp_add_library(CarbonAudio SHARED
++set(CARBON_AUDIO_SOURCES
+ 	src/AudListener_Blue.cpp
+     src/AudActionLog.cpp
+ 	src/AudActionLog_Blue.cpp
+@@ -60,10 +74,21 @@ ccp_add_library(CarbonAudio SHARED
+ 	src/Components/StretchAudio_Blue.cpp
+     src/LowLevelIO/AudPathResolver.cpp
+     src/LowLevelIO/LowLevelIOHook.cpp
+-    src/WAAPI/WaapiManager.cpp
+-    src/WAAPI/WaapiManager_Blue.cpp
+ )
+ 
++# WAAPI (WwiseAuthoringAPI/AkAutobahn) is a design-time bridge to the Wwise
++# Authoring Tool, not needed for runtime audio. The Wwise stub does not model
++# AkJson/AkVariant or AK::WwiseAuthoringAPI::Client, so this subsystem is left
++# out of the Linux build rather than mocked.
++if(CARBON_AUDIO_WITH_WWISE)
++	list(APPEND CARBON_AUDIO_SOURCES
++		src/WAAPI/WaapiManager.cpp
++		src/WAAPI/WaapiManager_Blue.cpp
++	)
++endif()
++
++ccp_add_library(CarbonAudio SHARED ${CARBON_AUDIO_SOURCES})
++
+ target_sources(CarbonAudio PRIVATE
+     src/AudActionLog.h
+ 	src/AudConstants.h
+@@ -98,10 +123,13 @@ target_sources(CarbonAudio PRIVATE
+     src/LowLevelIO/LowLevelIOHook.h
+ 	src/IPrioritizedObject.h
+ 	src/SoundPrioritization.h
+-    src/WAAPI/WaapiManager.h
+ 	${PUBLIC_HEADER_FILES_INCLUDE}
+ )
+ 
++if(CARBON_AUDIO_WITH_WWISE)
++	target_sources(CarbonAudio PRIVATE src/WAAPI/WaapiManager.h)
++endif()
++
+ set(WWISE_LIBRARIES
+ 	Ak3DAudioBedMixerFX AkAudioInputSource AkAutobahn AkCompressorFX AkConvolutionReverbFX
+ 	AkDelayFX AkFlangerFX AkGainFX AkGuitarDistortionFX AkHarmonizerFX
+@@ -116,6 +144,12 @@ if(WIN32)
+ endif()
+ list(APPEND WWISE_LIBRARIES $<IF:$<CONFIG:Release>,,CommunicationCentral>)
+ 
++if(NOT CARBON_AUDIO_WITH_WWISE)
++	# No real Wwise SDK to link against -- the stub is header-only, so there
++	# is nothing to add to the link line beyond the include directory below.
++	set(WWISE_LIBRARIES "")
++endif()
++
+ target_link_libraries(CarbonAudio
+ 		PUBLIC
+ 			Blue
+@@ -123,10 +157,15 @@ target_link_libraries(CarbonAudio
+ 		PRIVATE
+ 			TBB::tbb
+ 			CcpMath
+-			Wwise::Wwise
+ 			${WWISE_LIBRARIES}
+ 		)
+ 
++if(NOT CARBON_AUDIO_WITH_WWISE)
++	target_include_directories(CarbonAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wwise-stub/include)
++else()
++	target_link_libraries(CarbonAudio PRIVATE Wwise::Wwise)
++endif()
++
+ if(APPLE)
+ 	target_link_libraries(CarbonAudio PRIVATE
+ 		"-framework AudioToolbox"
+diff --git a/vcpkg.json b/vcpkg.json
+index 00cb129..2de93b0 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -12,10 +12,6 @@
+       "name": "carbon-trinityaudioapi",
+       "version>=": "2.0.3"
+     },
+-    {
+-      "name": "wwise",
+-      "version>=": "2025.1.5.9095"
+-    },
+     {
+       "name": "python3",
+       "version>=": "3.12.9#1"
+@@ -29,6 +25,17 @@
+       "host": true
+     }
+   ],
++  "features": {
++    "wwise": {
++      "description": "Build against the real Wwise SDK. Requires a licensed Audiokinetic account; unavailable on Linux, where CarbonAudio builds against a local header-only stand-in instead.",
++      "dependencies": [
++        {
++          "name": "wwise",
++          "version>=": "2025.1.5.9095"
++        }
++      ]
++    }
++  },
+   "overrides": [
+     {
+       "name": "protobuf",
+diff --git a/wwise-stub/include/AK/AkWwiseSDKVersion.h b/wwise-stub/include/AK/AkWwiseSDKVersion.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/AkWwiseSDKVersion.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Comm/AkCommunication.h b/wwise-stub/include/AK/Comm/AkCommunication.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Comm/AkCommunication.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Core.h b/wwise-stub/include/AK/Core.h
+new file mode 100644
+index 0000000..9c3c347
+--- /dev/null
++++ b/wwise-stub/include/AK/Core.h
+@@ -0,0 +1,740 @@
++// Linux-only stand-in for the Wwise SDK. Not part of Audiokinetic's SDK.
++//
++// This header exists so CarbonAudio can compile on Linux, where the real
++// (licensed) Wwise SDK is not available. It reproduces only the surface
++// area CarbonAudio's source actually calls, with behaviorally inert bodies
++// (init calls "succeed", queries return failure/zero, nothing produces
++// audio). It is only ever selected on __linux__ builds -- see
++// CMakeLists.txt. Windows and macOS continue to use the real Wwise SDK.
++#pragma once
++
++#ifndef __linux__
++#error "AK/Core.h (the Wwise stub) must only be used on Linux builds."
++#endif
++
++#include <cstdint>
++#include <cstdio>
++#include <cstring>
++#include <cmath>
++#include <string>
++#include <functional>
++
++// ---------------------------------------------------------------------
++// Primitive typedefs
++// ---------------------------------------------------------------------
++typedef uint8_t  AkUInt8;
++typedef int8_t   AkInt8;
++typedef uint16_t AkUInt16;
++typedef int16_t  AkInt16;
++typedef uint32_t AkUInt32;
++typedef int32_t  AkInt32;
++typedef uint64_t AkUInt64;
++typedef int64_t  AkInt64;
++typedef float    AkReal32;
++typedef uint16_t AkUtf16;
++
++typedef uint64_t AkGameObjectID;
++typedef uint32_t AkUniqueID;
++typedef uint32_t AkPlayingID;
++typedef uint32_t AkBankID;
++typedef uint32_t AkPluginID;
++typedef uint32_t AkDeviceID;
++typedef uint32_t AkOutputDeviceID;
++typedef float    AkRtpcValue;
++typedef int32_t  AkTimeMs;
++typedef uint64_t AkGeomID;
++typedef uint32_t AkVertIdx;
++typedef uint32_t AkTriIdx;
++
++// AkOSChar matches this codebase's non-Windows convention (see AudSettings.h,
++// FileHelpers.h): narrow char, with std::wstring converted at call sites
++// via CW2A/CA2W where paths are involved.
++typedef char AkOSChar;
++typedef FILE* AkFileHandle;
++
++// ---------------------------------------------------------------------
++// Result codes / misc enums
++// ---------------------------------------------------------------------
++enum AKRESULT : int32_t
++{
++	AK_Success = 0,
++	AK_Fail,
++	AK_IDNotFound,
++	AK_NotCompatible,
++	AK_BankAlreadyLoaded,
++	AK_InvalidParameter,
++	AK_FileNotFound,
++	AK_FilePermissionError,
++	AK_UnknownFileError,
++	AK_InsufficientMemory,
++	AK_NotImplemented,
++};
++
++enum AkOpenMode
++{
++	AK_OpenModeRead = 0,
++	AK_OpenModeWrite,
++	AK_OpenModeWriteOvrwr,
++	AK_OpenModeReadWrite,
++};
++
++enum AkGlobalCallbackLocation
++{
++	AkGlobalCallbackLocation_EndRender = 1,
++};
++
++enum AkAudioDeviceEvent
++{
++	AkAudioDeviceEvent_Initialization = 0,
++	AkAudioDeviceEvent_Removal,
++	AkAudioDeviceEvent_SystemRemoval,
++};
++
++enum AkActionOnEventType
++{
++	AkActionOnEventType_Stop = 0,
++	AkActionOnEventType_Break,
++};
++
++enum AkDataState
++{
++	AK_DataReady = 0,
++	AK_NoMoreData,
++};
++
++// ---------------------------------------------------------------------
++// Constants / macros
++// ---------------------------------------------------------------------
++constexpr AkGameObjectID AK_INVALID_GAME_OBJECT = static_cast<AkGameObjectID>( -1 );
++constexpr AkPlayingID    AK_INVALID_PLAYING_ID   = 0;
++constexpr AkUniqueID     AK_INVALID_UNIQUE_ID    = 0;
++constexpr AkDeviceID     AK_INVALID_DEVICE_ID    = 0;
++constexpr size_t         AK_MAX_PATH             = 260;
++constexpr size_t         AK_COMM_SETTINGS_MAX_STRING_SIZE = 64;
++constexpr size_t         AK_MONITOR_DEVICENAME_MAXLENGTH  = 64;
++constexpr const char*    AK_PATH_SEPARATOR       = "/";
++constexpr AkUInt32       AKCODECID_BANK          = 0;
++constexpr AkUInt32       AKCOMPANYID_AUDIOKINETIC = 0;
++constexpr AkUInt32       AkPluginTypeNone        = 0;
++constexpr AkUInt32       AK_EndOfEvent           = 0x0001;
++constexpr AkUInt32       AK_SPEAKER_SETUP_STEREO = 3;
++constexpr AkUInt32       AK_SPEAKER_SETUP_MONO   = 1;
++constexpr AkUInt32       AK_INT                  = 0;
++constexpr AkUInt32       AK_INTERLEAVED          = 0;
++constexpr AkUInt32       AkMemID_Streaming       = 0;
++
++// AkWwiseSDKVersion.h contents (real Wwise headers define these too).
++constexpr AkUInt32       AK_WWISESDK_VERSION_MAJOR    = 2025;
++constexpr AkUInt32       AK_WWISESDK_VERSION_MINOR    = 1;
++constexpr AkUInt32       AK_WWISESDK_VERSION_SUBMINOR = 5;
++constexpr AkUInt32       AK_WWISESDK_VERSION_BUILD    = 9095;
++constexpr const char*    AK_WWISESDK_COPYRIGHT = "Linux Wwise stub (no Audiokinetic SDK present); not a real Wwise build.";
++
++#define AKMAKECLASSID( _type, _company, _index ) \
++	( (AkUInt32)( ( (AkUInt32)( _type ) ) | ( (AkUInt32)( _company ) << 8 ) | ( (AkUInt32)( _index ) << 16 ) ) )
++
++#define AKASSERT( _expr ) ( (void)0 )
++#define AK_UNUSEDVAR( _var ) ( (void)( _var ) )
++#define AKTEXT( _str ) _str
++#define AK_OSPRINTF ::snprintf
++
++// Not a real UTF-8 -> UTF-16 transcode, just enough to populate a debug-only
++// device name buffer for the (disabled in optimized builds) profiler monitor.
++#define AK_CHAR_TO_UTF16( _dest, _src, _maxLen )                                     \
++	do                                                                                 \
++	{                                                                                  \
++		size_t __akU16Len = ::strnlen( ( _src ), ( _maxLen ) - 1 );                   \
++		for( size_t __akU16I = 0; __akU16I < __akU16Len; ++__akU16I )                 \
++			( _dest )[__akU16I] = (AkUtf16)(unsigned char)( _src )[__akU16I];         \
++		( _dest )[__akU16Len] = 0;                                                    \
++	} while( 0 )
++
++template <typename T>
++inline T* AkNew( AkUInt32 /*pool*/, T value )
++{
++	return new T( static_cast<T&&>( value ) );
++}
++
++template <typename T>
++inline void AkDelete( AkUInt32 /*pool*/, T* ptr )
++{
++	delete ptr;
++}
++
++// ---------------------------------------------------------------------
++// Vector / transform math (real logic -- used for RH<->LH conversion)
++// ---------------------------------------------------------------------
++struct AkVector
++{
++	float X = 0.0f, Y = 0.0f, Z = 0.0f;
++};
++
++struct AkVector64
++{
++	double X = 0.0, Y = 0.0, Z = 0.0;
++};
++
++class Ak3DVector32
++{
++public:
++	float X = 0.0f, Y = 0.0f, Z = 0.0f;
++
++	Ak3DVector32() = default;
++	Ak3DVector32( float x, float y, float z ) : X( x ), Y( y ), Z( z ) {}
++
++	bool IsFinite() const { return std::isfinite( X ) && std::isfinite( Y ) && std::isfinite( Z ); }
++	float LengthSquared() const { return X * X + Y * Y + Z * Z; }
++	float Length() const { return std::sqrt( LengthSquared() ); }
++
++	void Normalize()
++	{
++		float length = Length();
++		if( length > 0.0f )
++		{
++			X /= length;
++			Y /= length;
++			Z /= length;
++		}
++	}
++
++	Ak3DVector32 Cross( const Ak3DVector32& other ) const
++	{
++		return Ak3DVector32( Y * other.Z - Z * other.Y, Z * other.X - X * other.Z, X * other.Y - Y * other.X );
++	}
++};
++
++struct AkTransform
++{
++	AkVector64 m_position{};
++	AkVector   m_front{ 0.0f, 0.0f, 1.0f };
++	AkVector   m_top{ 0.0f, 1.0f, 0.0f };
++
++	AkVector64 Position() const { return m_position; }
++	AkVector OrientationFront() const { return m_front; }
++	AkVector OrientationTop() const { return m_top; }
++
++	void Set( const AkVector64& pos, const AkVector& front, const AkVector& top )
++	{
++		m_position = pos;
++		m_front = front;
++		m_top = top;
++	}
++
++	void Set( const AkVector& pos, const AkVector& front, const AkVector& top )
++	{
++		Set( AkVector64{ pos.X, pos.Y, pos.Z }, front, top );
++	}
++
++	void SetPosition( const Ak3DVector32& pos ) { m_position = AkVector64{ pos.X, pos.Y, pos.Z }; }
++	void SetOrientation( const Ak3DVector32& front, const Ak3DVector32& top )
++	{
++		m_front = AkVector{ front.X, front.Y, front.Z };
++		m_top = AkVector{ top.X, top.Y, top.Z };
++	}
++};
++
++using AkListenerPosition = AkTransform;
++using AkSoundPosition = AkTransform;
++
++// ---------------------------------------------------------------------
++// Streaming / file IO types
++// ---------------------------------------------------------------------
++struct AkFileSystemFlags
++{
++	AkUInt32 uCodecID = 0;
++	bool bIsLanguageSpecific = false;
++};
++
++struct AkFileOpenData
++{
++	AkUInt32 fileID = 0;
++	const AkOSChar* pszFileName = nullptr;
++	AkOpenMode eOpenMode = AK_OpenModeRead;
++	AkFileSystemFlags* pFlags = nullptr;
++};
++
++struct AkFileDesc
++{
++	AkFileHandle hFile = nullptr;
++	AkInt64 iFileSize = 0;
++	AkDeviceID deviceID = AK_INVALID_DEVICE_ID;
++};
++
++struct AkAsyncFileOpenData : public AkFileOpenData
++{
++	AkFileDesc* pFileDesc = nullptr;
++	void ( *pCallback )( AkAsyncFileOpenData*, AKRESULT ) = nullptr;
++};
++
++struct AkIoHeuristics
++{
++	AkUInt32 uMinNumBuffers = 0;
++	float fThroughput = 0.0f;
++};
++
++struct AkAsyncIOTransferInfo
++{
++	void* pBuffer = nullptr;
++	AkUInt32 uBufferSize = 0;
++	AkUInt32 uRequestedSize = 0;
++	AkUInt64 uFilePosition = 0;
++	void* pUserData = nullptr;
++	void ( *pCallback )( AkAsyncIOTransferInfo*, AKRESULT ) = nullptr;
++};
++
++struct BatchIoTransferItem
++{
++	AkFileDesc* pFileDesc = nullptr;
++	AkIoHeuristics ioHeuristics{};
++	AkAsyncIOTransferInfo* pTransferInfo = nullptr;
++};
++
++struct AkDeviceDesc
++{
++	AkDeviceID deviceID = AK_INVALID_DEVICE_ID;
++	bool bCanRead = false;
++	bool bCanWrite = false;
++	AkUtf16 szDeviceName[AK_MONITOR_DEVICENAME_MAXLENGTH]{};
++	AkUInt32 uStringSize = 0;
++};
++
++struct AkDeviceSettings
++{
++	AkUInt32 uMaxConcurrentIO = 1;
++};
++
++struct AkStreamMgrSettings
++{
++};
++
++struct AkMemSettings
++{
++};
++
++struct AkCommSettings
++{
++	char szAppNetworkName[AK_COMM_SETTINGS_MAX_STRING_SIZE]{};
++};
++
++struct AkOutputSettings
++{
++	AkUniqueID audioDeviceShareset = 0;
++};
++
++struct AkPlatformInitSettings
++{
++	AkUInt32 uMaxSystemAudioObjects = 128;
++};
++
++struct AkInitSettings
++{
++	AkUInt32 uCommandQueueSize = 0;
++	AkUInt32 uNumSamplesPerFrame = 1024;
++	void ( *fnProfilerPopTimer )() = nullptr;
++	void ( *fnProfilerPushTimer )( AkPluginID, const char* ) = nullptr;
++	void ( *fnProfilerPostMarker )( AkPluginID, const char* ) = nullptr;
++	AkOutputSettings settingsMainOutput{};
++};
++
++struct AkResourceMonitorDataSummary
++{
++	float totalCPU = 0.0f;
++	float pluginCPU = 0.0f;
++	AkUInt32 physicalVoices = 0;
++	AkUInt32 virtualVoices = 0;
++	AkUInt32 totalVoices = 0;
++	AkUInt32 nbActiveEvents = 0;
++};
++
++// ---------------------------------------------------------------------
++// Event callback types
++// ---------------------------------------------------------------------
++enum AkCallbackType
++{
++	AK_EndOfEventCallback = 0,
++};
++
++struct AkEventCallbackInfo
++{
++	AkGameObjectID gameObjID = AK_INVALID_GAME_OBJECT;
++	AkPlayingID playingID = AK_INVALID_PLAYING_ID;
++};
++
++typedef void ( *AkCallbackFunc )( AkCallbackType, AkEventCallbackInfo*, void*, void* );
++typedef void ( *AkBankCallbackFunc )( AkUInt32, const void*, AKRESULT, void* );
++
++// ---------------------------------------------------------------------
++// Spatial audio geometry types
++// ---------------------------------------------------------------------
++struct AkSpatialAudioInitSettings
++{
++	float fMovementThreshold = 100.0f;
++	AkUInt32 uNumberOfPrimaryRays = 100;
++	AkUInt32 uMaxReflectionOrder = 1;
++	AkUInt32 uMaxDiffractionOrder = 4;
++	AkUInt32 uMaxEmitterRoomAuxSends = 0;
++	AkUInt32 uDiffractionOnReflectionsOrder = 0;
++	float fMaxPathLength = 1000.0f;
++	float fCPULimitPercentage = 0.0f;
++	AkUInt32 uLoadBalancingSpread = 1;
++	bool bEnableGeometricDiffractionAndTransmission = true;
++	bool bCalcEmitterVirtualPosition = true;
++};
++
++struct AkGeometryInstanceParams
++{
++	AkGeomID GeometrySetID = 0;
++	AkTransform PositionAndOrientation{};
++	AkVector Scale{ 1.0f, 1.0f, 1.0f };
++};
++
++struct AkVertex
++{
++	float X = 0.0f, Y = 0.0f, Z = 0.0f;
++	AkVertex() = default;
++	AkVertex( float x, float y, float z ) : X( x ), Y( y ), Z( z ) {}
++};
++
++struct AkTriangle
++{
++	AkVertIdx point0 = 0, point1 = 0, point2 = 0;
++	AkUInt32 surface = 0;
++	AkTriangle() = default;
++	AkTriangle( AkVertIdx p0, AkVertIdx p1, AkVertIdx p2, AkUInt32 s ) : point0( p0 ), point1( p1 ), point2( p2 ), surface( s ) {}
++};
++
++struct AkAcousticSurface
++{
++	const char* strName = nullptr;
++	AkUniqueID textureID = AK_INVALID_UNIQUE_ID;
++	float transmissionLoss = 0.0f;
++};
++
++struct AkGeometryParams
++{
++	AkVertex* Vertices = nullptr;
++	AkVertIdx NumVertices = 0;
++	AkTriangle* Triangles = nullptr;
++	AkTriIdx NumTriangles = 0;
++	AkAcousticSurface* Surfaces = nullptr;
++	AkUInt32 NumSurfaces = 0;
++	bool EnableDiffraction = false;
++	bool EnableDiffractionOnBoundaryEdges = false;
++};
++
++// ---------------------------------------------------------------------
++// Audio input plugin types (video/UI audio input source)
++// ---------------------------------------------------------------------
++struct AkChannelConfig
++{
++	AkUInt32 uNumChannels = 0;
++	AkUInt32 uChannelMask = 0;
++	AkChannelConfig() = default;
++	AkChannelConfig( AkUInt32 numChannels, AkUInt32 channelMask ) : uNumChannels( numChannels ), uChannelMask( channelMask ) {}
++};
++
++struct AkAudioFormat
++{
++	void SetAll( AkUInt32, AkChannelConfig, AkUInt32, AkUInt32, AkUInt32, AkUInt32 ) {}
++};
++
++struct AkAudioBuffer
++{
++	AkUInt16 uValidFrames = 0;
++	AkUInt32 eState = AK_NoMoreData;
++	AkUInt32 NumChannels() const { return 2; }
++	AkUInt32 MaxFrames() const { return 0; }
++	void* GetInterleavedData() { return nullptr; }
++};
++
++typedef void ( *AkAudioInputPluginExecuteCallbackFunc )( AkPlayingID, AkAudioBuffer* );
++typedef void ( *AkAudioInputPluginGetFormatCallbackFunc )( AkPlayingID, AkAudioFormat& );
++
++inline void SetAudioInputCallbacks( AkAudioInputPluginExecuteCallbackFunc, AkAudioInputPluginGetFormatCallbackFunc ) {}
++
++// ---------------------------------------------------------------------
++// AK namespace: engine surface used by CarbonAudio
++// ---------------------------------------------------------------------
++namespace AK
++{
++	// Opaque; CarbonAudio only ever passes this around as a pointer, never
++	// dereferences it.
++	class IAkGlobalPluginContext;
++
++	typedef void ( *AkGlobalCallbackFunc )( IAkGlobalPluginContext*, AkGlobalCallbackLocation, void* );
++	typedef void ( *AkResourceMonitorCallbackFunc )( const AkResourceMonitorDataSummary* );
++	typedef void ( *AkDeviceStatusCallbackFunc )( IAkGlobalPluginContext*, AkUniqueID, AkUInt32, AkAudioDeviceEvent, AKRESULT );
++
++	class IAkStreamMgr
++	{
++	public:
++		virtual ~IAkStreamMgr() = default;
++		virtual void Destroy() = 0;
++
++		static IAkStreamMgr*& InstancePtr()
++		{
++			static IAkStreamMgr* s_instance = nullptr;
++			return s_instance;
++		}
++		static IAkStreamMgr* Get() { return InstancePtr(); }
++	};
++
++	namespace MemoryMgr
++	{
++		inline void GetDefaultSettings( AkMemSettings& ) {}
++		inline AKRESULT Init( AkMemSettings* ) { return AK_Success; }
++		inline void Term() {}
++	}
++
++	namespace StreamMgr
++	{
++		class IAkFileLocationResolver
++		{
++		public:
++			virtual ~IAkFileLocationResolver() = default;
++		};
++
++		class IAkLowLevelIOHook
++		{
++		public:
++			virtual ~IAkLowLevelIOHook() = default;
++			virtual void BatchOpen( AkUInt32 numFiles, AkAsyncFileOpenData** items ) = 0;
++			virtual void BatchRead( AkUInt32 numTransfers, BatchIoTransferItem* transferItems ) = 0;
++			virtual void BatchWrite( AkUInt32 numTransfers, BatchIoTransferItem* transferItems ) = 0;
++			virtual AKRESULT Close( AkFileDesc* fileDesc ) = 0;
++			virtual AkUInt32 GetBlockSize( AkFileDesc& fileDesc ) = 0;
++			virtual void GetDeviceDesc( AkDeviceDesc& deviceDesc ) = 0;
++			virtual AkUInt32 GetDeviceData() = 0;
++		};
++
++		// A dedicated stream-manager singleton so IAkStreamMgr::Get() has
++		// something concrete to hand back after Create().
++		class StubStreamMgr : public AK::IAkStreamMgr
++		{
++		public:
++			void Destroy() override { AK::IAkStreamMgr::InstancePtr() = nullptr; delete this; }
++		};
++
++		inline void GetDefaultSettings( AkStreamMgrSettings& ) {}
++		inline void GetDefaultDeviceSettings( AkDeviceSettings& ) {}
++
++		inline AK::IAkStreamMgr* Create( const AkStreamMgrSettings& )
++		{
++			auto* mgr = new StubStreamMgr();
++			AK::IAkStreamMgr::InstancePtr() = mgr;
++			return mgr;
++		}
++
++		inline AKRESULT SetCurrentLanguage( const AkOSChar* ) { return AK_Success; }
++		inline const AkOSChar* GetCurrentLanguage() { return "en"; }
++
++		inline AKRESULT CreateDevice( const AkDeviceSettings&, IAkLowLevelIOHook*, AkDeviceID& outDeviceID )
++		{
++			outDeviceID = 1;
++			return AK_Success;
++		}
++		inline void DestroyDevice( AkDeviceID ) {}
++
++		inline IAkFileLocationResolver*& FileLocationResolverStorage()
++		{
++			static IAkFileLocationResolver* s_resolver = nullptr;
++			return s_resolver;
++		}
++		inline IAkFileLocationResolver* GetFileLocationResolver() { return FileLocationResolverStorage(); }
++		inline void SetFileLocationResolver( IAkFileLocationResolver* resolver ) { FileLocationResolverStorage() = resolver; }
++	}
++
++	namespace SoundEngine
++	{
++		namespace Query
++		{
++			enum RTPCValue_type
++			{
++				RTPCValue_Default = 0,
++				RTPCValue_Global,
++			};
++
++			inline AKRESULT GetRTPCValue( const char*, AkGameObjectID, AkPlayingID, float& outValue, RTPCValue_type& )
++			{
++				outValue = 0.0f;
++				return AK_Fail;
++			}
++			inline AKRESULT GetRTPCValue( const wchar_t*, AkGameObjectID, AkPlayingID, float& outValue, RTPCValue_type& )
++			{
++				outValue = 0.0f;
++				return AK_Fail;
++			}
++			inline float GetMaxRadius( AkGameObjectID ) { return 0.0f; }
++		}
++
++		inline void GetDefaultInitSettings( AkInitSettings& settings ) { settings = AkInitSettings{}; }
++		inline void GetDefaultPlatformInitSettings( AkPlatformInitSettings& settings ) { settings = AkPlatformInitSettings{}; }
++
++		inline bool& InitializedFlag()
++		{
++			static bool s_initialized = false;
++			return s_initialized;
++		}
++		inline AKRESULT Init( AkInitSettings*, AkPlatformInitSettings* )
++		{
++			InitializedFlag() = true;
++			return AK_Success;
++		}
++		inline AKRESULT Term()
++		{
++			InitializedFlag() = false;
++			return AK_Success;
++		}
++		inline bool IsInitialized() { return InitializedFlag(); }
++		inline AKRESULT RenderAudio( bool = true ) { return AK_Success; }
++
++		inline AKRESULT RegisterGlobalCallback( AkGlobalCallbackFunc, AkGlobalCallbackLocation, void* ) { return AK_Success; }
++		inline AKRESULT RegisterAudioDeviceStatusCallback( AkDeviceStatusCallbackFunc ) { return AK_Success; }
++		inline AKRESULT RegisterResourceMonitorCallback( AkResourceMonitorCallbackFunc ) { return AK_Success; }
++		inline AKRESULT UnregisterResourceMonitorCallback( AkResourceMonitorCallbackFunc ) { return AK_Success; }
++
++		inline AkUniqueID GetIDFromString( const char* name ) { return name ? (AkUniqueID)std::hash<std::string>{}( name ) : 0; }
++		inline AkUniqueID GetIDFromString( const wchar_t* name ) { return name ? (AkUniqueID)std::hash<std::wstring>{}( name ) : 0; }
++
++		inline AKRESULT LoadBank( const wchar_t* name, AkBankCallbackFunc callback, void* cookie, AkBankID& outBankID )
++		{
++			outBankID = GetIDFromString( name );
++			if( callback )
++				callback( outBankID, nullptr, AK_Success, cookie );
++			return AK_Success;
++		}
++		inline AKRESULT UnloadBank( const wchar_t* name, const void*, AkBankCallbackFunc callback, void* cookie )
++		{
++			if( callback )
++				callback( GetIDFromString( name ), nullptr, AK_Success, cookie );
++			return AK_Success;
++		}
++		inline AKRESULT ClearBanks() { return AK_Success; }
++
++		inline AKRESULT SetRTPCValue( const wchar_t*, AkRtpcValue, AkGameObjectID = AK_INVALID_GAME_OBJECT ) { return AK_Success; }
++		inline AKRESULT SetRTPCValue( const char*, AkRtpcValue, AkGameObjectID = AK_INVALID_GAME_OBJECT ) { return AK_Success; }
++		inline AKRESULT SetRTPCValueByPlayingID( const wchar_t*, AkRtpcValue, AkPlayingID ) { return AK_Success; }
++
++		inline AKRESULT SetState( const wchar_t*, const wchar_t* ) { return AK_Success; }
++		inline AKRESULT SetSwitch( const wchar_t*, const wchar_t*, AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT SetPosition( AkGameObjectID, const AkSoundPosition& ) { return AK_Success; }
++
++		inline AkPlayingID& PlayingIDCounter()
++		{
++			static AkPlayingID s_counter = AK_INVALID_PLAYING_ID;
++			return s_counter;
++		}
++		inline AkPlayingID NextPlayingID() { return ++PlayingIDCounter(); }
++
++		inline AkPlayingID PostEvent( const wchar_t*, AkGameObjectID ) { return NextPlayingID(); }
++		inline AkPlayingID PostEvent( AkUniqueID, AkGameObjectID, AkUInt32, AkCallbackFunc, void* ) { return NextPlayingID(); }
++
++		inline AKRESULT StopPlayingID( AkPlayingID ) { return AK_Success; }
++		inline AKRESULT ExecuteActionOnPlayingID( AkActionOnEventType, AkPlayingID, AkTimeMs = 0 ) { return AK_Success; }
++
++		inline AKRESULT SeekOnEvent( const wchar_t*, AkGameObjectID, AkReal32, bool, AkPlayingID ) { return AK_Success; }
++		inline AKRESULT SeekOnEvent( const wchar_t*, AkGameObjectID, AkTimeMs, bool, AkPlayingID ) { return AK_Success; }
++
++		inline AKRESULT CancelEventCallbackGameObject( AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT RegisterGameObj( AkGameObjectID, const char* ) { return AK_Success; }
++		inline AKRESULT UnregisterGameObj( AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT AddDefaultListener( AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT RemoveDefaultListener( AkGameObjectID ) { return AK_Success; }
++
++		inline AKRESULT GetSourcePlayPosition( AkPlayingID, AkTimeMs* outTime )
++		{
++			if( outTime )
++				*outTime = 0;
++			return AK_Fail;
++		}
++		inline AkUInt32 GetSampleRate() { return 48000; }
++		inline AKRESULT GetDeviceSpatialAudioSupport( AkUInt32 ) { return AK_NotCompatible; }
++		inline AKRESULT ReplaceOutput( const AkOutputSettings&, AkOutputDeviceID ) { return AK_Success; }
++		inline AKRESULT StartProfilerCapture( const AkOSChar* ) { return AK_Success; }
++		inline AKRESULT StopProfilerCapture() { return AK_Success; }
++		inline AKRESULT SetScalingFactor( AkGameObjectID, AkReal32 ) { return AK_Success; }
++	}
++
++	namespace SpatialAudio
++	{
++		inline AKRESULT Init( const AkSpatialAudioInitSettings& ) { return AK_Success; }
++		inline AKRESULT RegisterListener( AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT UnregisterListener( AkGameObjectID ) { return AK_Success; }
++		inline AKRESULT SetGeometry( AkGeomID, const AkGeometryParams& ) { return AK_Success; }
++		inline AKRESULT RemoveGeometry( AkGeomID ) { return AK_Success; }
++		inline AKRESULT SetGeometryInstance( AkGeomID, const AkGeometryInstanceParams& ) { return AK_Success; }
++		inline AKRESULT RemoveGeometryInstance( AkGeomID ) { return AK_Success; }
++	}
++
++	namespace Comm
++	{
++		inline void GetDefaultInitSettings( AkCommSettings& settings ) { settings = AkCommSettings{}; }
++		inline AKRESULT Init( const AkCommSettings& ) { return AK_Success; }
++		inline void Term() {}
++	}
++
++	namespace Monitor
++	{
++		enum ErrorCode
++		{
++			ErrorCode_Generic = 0,
++			ErrorCode_SelectedNodeNotAvailable,
++			ErrorCode_SelectedMediaNotAvailable,
++			ErrorCode_UnknownGameObject,
++			ErrorCode_3DObjectLimitExceeded,
++		};
++		enum ErrorLevel
++		{
++			ErrorLevel_Message = 1 << 0,
++			ErrorLevel_Error = 1 << 1,
++			ErrorLevel_All = ErrorLevel_Message | ErrorLevel_Error,
++		};
++
++		typedef void ( *LocalOutputFunc )( ErrorCode, const AkOSChar*, ErrorLevel, AkPlayingID, AkGameObjectID );
++		inline AKRESULT SetLocalOutput( ErrorLevel /*errorLevelMask*/, LocalOutputFunc = nullptr ) { return AK_Success; }
++	}
++
++	namespace ProfilingID
++	{
++		constexpr AkUInt32 AudioFrameBoundary = 0;
++	}
++}
++
++// ---------------------------------------------------------------------
++// AKPLATFORM: platform helpers used by the low-level IO layer
++// ---------------------------------------------------------------------
++namespace AKPLATFORM
++{
++	inline size_t OsStrLen( const AkOSChar* str ) { return str ? ::strlen( str ) : 0; }
++	inline size_t AkUtf16StrLen( const AkUtf16* str )
++	{
++		size_t len = 0;
++		if( str )
++			while( str[len] != 0 )
++				++len;
++		return len;
++	}
++
++	inline void SafeStrCpy( AkOSChar* dest, const AkOSChar* src, size_t maxDestChars )
++	{
++		if( !dest || maxDestChars == 0 )
++			return;
++		if( !src )
++		{
++			dest[0] = 0;
++			return;
++		}
++		::strncpy( dest, src, maxDestChars - 1 );
++		dest[maxDestChars - 1] = 0;
++	}
++
++	inline void SafeStrCat( AkOSChar* dest, const AkOSChar* src, size_t maxDestChars )
++	{
++		if( !dest || !src || maxDestChars == 0 )
++			return;
++		size_t used = OsStrLen( dest );
++		if( used >= maxDestChars - 1 )
++			return;
++		::strncat( dest, src, maxDestChars - 1 - used );
++	}
++}
+diff --git a/wwise-stub/include/AK/Plugin/Ak3DAudioBedMixerFXFactory.h b/wwise-stub/include/AK/Plugin/Ak3DAudioBedMixerFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/Ak3DAudioBedMixerFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkAudioInputPlugin.h b/wwise-stub/include/AK/Plugin/AkAudioInputPlugin.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkAudioInputPlugin.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkCompressorFXFactory.h b/wwise-stub/include/AK/Plugin/AkCompressorFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkCompressorFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkDelayFXFactory.h b/wwise-stub/include/AK/Plugin/AkDelayFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkDelayFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkFlangerFXFactory.h b/wwise-stub/include/AK/Plugin/AkFlangerFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkFlangerFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkGuitarDistortionFXFactory.h b/wwise-stub/include/AK/Plugin/AkGuitarDistortionFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkGuitarDistortionFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkHarmonizerFXFactory.h b/wwise-stub/include/AK/Plugin/AkHarmonizerFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkHarmonizerFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkMatrixReverbFXFactory.h b/wwise-stub/include/AK/Plugin/AkMatrixReverbFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkMatrixReverbFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkMeterFXFactory.h b/wwise-stub/include/AK/Plugin/AkMeterFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkMeterFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkParametricEQFXFactory.h b/wwise-stub/include/AK/Plugin/AkParametricEQFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkParametricEQFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkPeakLimiterFXFactory.h b/wwise-stub/include/AK/Plugin/AkPeakLimiterFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkPeakLimiterFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkPitchShifterFXFactory.h b/wwise-stub/include/AK/Plugin/AkPitchShifterFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkPitchShifterFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkRecorderFXFactory.h b/wwise-stub/include/AK/Plugin/AkRecorderFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkRecorderFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkRoomVerbFXFactory.h b/wwise-stub/include/AK/Plugin/AkRoomVerbFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkRoomVerbFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkSidechainFXFactory.h b/wwise-stub/include/AK/Plugin/AkSidechainFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkSidechainFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkSilenceSourceFactory.h b/wwise-stub/include/AK/Plugin/AkSilenceSourceFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkSilenceSourceFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkStereoDelayFXFactory.h b/wwise-stub/include/AK/Plugin/AkStereoDelayFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkStereoDelayFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkTremoloFXFactory.h b/wwise-stub/include/AK/Plugin/AkTremoloFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkTremoloFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/AkVorbisDecoderFactory.h b/wwise-stub/include/AK/Plugin/AkVorbisDecoderFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/AkVorbisDecoderFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Plugin/MasteringSuiteFXFactory.h b/wwise-stub/include/AK/Plugin/MasteringSuiteFXFactory.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Plugin/MasteringSuiteFXFactory.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkCallback.h b/wwise-stub/include/AK/SoundEngine/Common/AkCallback.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkCallback.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgr.h b/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgr.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgr.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgrModule.h b/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgrModule.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkMemoryMgrModule.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkQueryParameters.h b/wwise-stub/include/AK/SoundEngine/Common/AkQueryParameters.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkQueryParameters.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkSoundEngine.h b/wwise-stub/include/AK/SoundEngine/Common/AkSoundEngine.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkSoundEngine.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkStreamMgrModule.h b/wwise-stub/include/AK/SoundEngine/Common/AkStreamMgrModule.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkStreamMgrModule.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/AkTypes.h b/wwise-stub/include/AK/SoundEngine/Common/AkTypes.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/AkTypes.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/IAkPlugin.h b/wwise-stub/include/AK/SoundEngine/Common/IAkPlugin.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/IAkPlugin.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SoundEngine/Common/IAkStreamMgr.h b/wwise-stub/include/AK/SoundEngine/Common/IAkStreamMgr.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SoundEngine/Common/IAkStreamMgr.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/SpatialAudio/Common/AkSpatialAudio.h b/wwise-stub/include/AK/SpatialAudio/Common/AkSpatialAudio.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/SpatialAudio/Common/AkSpatialAudio.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkAssert.h b/wwise-stub/include/AK/Tools/Common/AkAssert.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkAssert.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkAutoLock.h b/wwise-stub/include/AK/Tools/Common/AkAutoLock.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkAutoLock.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkFNVHash.h b/wwise-stub/include/AK/Tools/Common/AkFNVHash.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkFNVHash.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkListBare.h b/wwise-stub/include/AK/Tools/Common/AkListBare.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkListBare.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkLock.h b/wwise-stub/include/AK/Tools/Common/AkLock.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkLock.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkMonitorError.h b/wwise-stub/include/AK/Tools/Common/AkMonitorError.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkMonitorError.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkObject.h b/wwise-stub/include/AK/Tools/Common/AkObject.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkObject.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkPlatformFuncs.h b/wwise-stub/include/AK/Tools/Common/AkPlatformFuncs.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkPlatformFuncs.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkProfilingID.h b/wwise-stub/include/AK/Tools/Common/AkProfilingID.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkProfilingID.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
+diff --git a/wwise-stub/include/AK/Tools/Common/AkVectors.h b/wwise-stub/include/AK/Tools/Common/AkVectors.h
+new file mode 100644
+index 0000000..054e759
+--- /dev/null
++++ b/wwise-stub/include/AK/Tools/Common/AkVectors.h
+@@ -0,0 +1,4 @@
++// Linux Wwise stub: thin shim that pulls in the consolidated declarations.
++// See AK/Core.h for the actual stub implementation.
++#pragma once
++#include <AK/Core.h>
