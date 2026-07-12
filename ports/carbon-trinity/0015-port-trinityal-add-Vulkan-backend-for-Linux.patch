@@ -10,21 +10,31 @@ and performance might be lacking. Use at your own risk.
 
 Vulkan requires shaders to be exported in SPIR-V format. See
 VulkanBindingModel.h for specification.
-Your GPU needs to support dynamic rendering (either via Vulkan 1.3 or
-via the extension). Dynamic rendering closest matches DX11/DX12/Metal,
-making the port easier. A fallback is possible, but not implemented.
+Your GPU needs to support Vulkan 1.3, as too many little things depend
+on extensions thare are always available in 1.3, and not in 1.2 or lower.
 
 Missing components:
 - Upscaling
 ---
  CMakeLists.txt                                |    2 +
  trinity/CMakeLists.txt                        |   16 +
+ trinity/Tr2ReflectionProbe.cpp                |    8 +-
  trinity/Tr2VirtualAllocator.cpp               |    4 +-
  trinity/TriDeviceVulkan.cpp                   |   88 +
  trinityal/CMakeLists.txt                      |   71 +-
+ trinityal/dx11/Tr2TextureALDx11.cpp           |    9 +
+ trinityal/dx11/Tr2TextureALDx11.h             |    1 +
+ trinityal/dx12/Tr2TextureALDx12.cpp           |    9 +
+ trinityal/dx12/Tr2TextureALDx12.h             |    1 +
+ trinityal/include/Tr2TextureAL.h              |    5 +
  trinityal/include/TrinityALForward.h          |    7 +
  .../include/upscaling/Tr2Fsr1Upscaling.h      |    2 +-
+ trinityal/metal/Tr2TextureALMetal.h           |    1 +
+ trinityal/metal/Tr2TextureALMetal.mm          |    9 +
+ trinityal/src/Tr2TextureAL.cpp                |   10 +
  trinityal/src/upscaling/Tr2Fsr1Upscaling.cpp  |    2 +-
+ trinityal/stub/Tr2TextureALStub.cpp           |    9 +
+ trinityal/stub/Tr2TextureALStub.h             |    1 +
  trinityal/tests/CMakeLists.txt                |   93 +-
  trinityal/tests/RenderWindow_Stub.cpp         |    4 +
  trinityal/tests/RenderWindow_X11.cpp          |   91 +
@@ -32,12 +42,12 @@ Missing components:
  trinityal/tests/StdAfx.h                      |    6 +
  trinityal/tests/VmaImplementation_Vulkan.cpp  |   10 +
  trinityal/tests/WithWindowFixture_X11.cpp     |   60 +
- trinityal/vulkan/Tr2BufferALVulkan.cpp        |  388 +++
+ trinityal/vulkan/Tr2BufferALVulkan.cpp        |  396 +++
  trinityal/vulkan/Tr2BufferALVulkan.h          |   91 +
  trinityal/vulkan/Tr2CapsALVulkan.cpp          |   41 +
  trinityal/vulkan/Tr2CapsALVulkan.h            |   33 +
- .../vulkan/Tr2ConstantBufferALVulkan.cpp      |  214 ++
- trinityal/vulkan/Tr2ConstantBufferALVulkan.h  |   83 +
+ .../vulkan/Tr2ConstantBufferALVulkan.cpp      |  266 ++
+ trinityal/vulkan/Tr2ConstantBufferALVulkan.h  |   99 +
  trinityal/vulkan/Tr2FenceALVulkan.cpp         |  137 ++
  trinityal/vulkan/Tr2FenceALVulkan.h           |   41 +
  trinityal/vulkan/Tr2GpuTimerALVulkan.cpp      |  129 +
@@ -47,8 +57,8 @@ Missing components:
  .../vulkan/Tr2PipelineStatsQueryALVulkan.cpp  |  192 ++
  .../vulkan/Tr2PipelineStatsQueryALVulkan.h    |   61 +
  .../vulkan/Tr2PrimaryRenderContextVulkan.h    |    6 +
- trinityal/vulkan/Tr2RenderContextVulkan.cpp   | 2107 +++++++++++++++++
- trinityal/vulkan/Tr2RenderContextVulkan.h     |  332 +++
+ trinityal/vulkan/Tr2RenderContextVulkan.cpp   | 2153 +++++++++++++++++
+ trinityal/vulkan/Tr2RenderContextVulkan.h     |  333 +++
  trinityal/vulkan/Tr2ResourceSetALVulkan.cpp   |  184 ++
  trinityal/vulkan/Tr2ResourceSetALVulkan.h     |   48 +
  ...ttomLevelAccelerationStructureALVulkan.cpp |  367 +++
@@ -61,14 +71,14 @@ Missing components:
  ...2RtTopLevelAccelerationStructureALVulkan.h |   68 +
  trinityal/vulkan/Tr2SamplerStateALVulkan.cpp  |  143 ++
  trinityal/vulkan/Tr2SamplerStateALVulkan.h    |   44 +
- trinityal/vulkan/Tr2ShaderALVulkan.cpp        |  134 ++
+ trinityal/vulkan/Tr2ShaderALVulkan.cpp        |  134 +
  trinityal/vulkan/Tr2ShaderALVulkan.h          |   60 +
  trinityal/vulkan/Tr2ShaderProgramALVulkan.cpp |  341 +++
  trinityal/vulkan/Tr2ShaderProgramALVulkan.h   |   91 +
- trinityal/vulkan/Tr2SwapChainALVulkan.cpp     |  295 +++
- trinityal/vulkan/Tr2SwapChainALVulkan.h       |   59 +
- trinityal/vulkan/Tr2TextureALVulkan.cpp       |  791 +++++++
- trinityal/vulkan/Tr2TextureALVulkan.h         |   98 +
+ trinityal/vulkan/Tr2SwapChainALVulkan.cpp     |  302 +++
+ trinityal/vulkan/Tr2SwapChainALVulkan.h       |   64 +
+ trinityal/vulkan/Tr2TextureALVulkan.cpp       | 1019 ++++++++
+ trinityal/vulkan/Tr2TextureALVulkan.h         |  100 +
  trinityal/vulkan/Tr2VertexLayoutALVulkan.cpp  |   54 +
  trinityal/vulkan/Tr2VertexLayoutALVulkan.h    |   57 +
  .../vulkan/Tr2VideoAdapterInfoALVulkan.cpp    |  164 ++
@@ -76,12 +86,12 @@ Missing components:
  trinityal/vulkan/VulkanBindingModel.h         |   72 +
  trinityal/vulkan/VulkanCommon.cpp             |  319 +++
  trinityal/vulkan/VulkanCommon.h               |   66 +
- trinityal/vulkan/VulkanContext.cpp            | 1106 +++++++++
- trinityal/vulkan/VulkanContext.h              |  319 +++
+ trinityal/vulkan/VulkanContext.cpp            | 1184 +++++++++
+ trinityal/vulkan/VulkanContext.h              |  390 +++
  .../vulkan/upscaling/Tr2UpscalingALVulkan.cpp |   14 +
  .../vulkan/upscaling/Tr2UpscalingALVulkan.h   |   15 +
  vcpkg.json                                    |   12 +-
- 64 files changed, 10930 insertions(+), 12 deletions(-)
+ 75 files changed, 11505 insertions(+), 14 deletions(-)
  create mode 100644 trinity/TriDeviceVulkan.cpp
  create mode 100644 trinityal/tests/RenderWindow_X11.cpp
  create mode 100644 trinityal/tests/VmaImplementation_Vulkan.cpp
@@ -182,6 +192,34 @@ index eb5dddd9..24b3d543 100644
  elseif(APPLE)
      if(BUILD_METAL)
          enable_language(OBJCXX)
+diff --git a/trinity/Tr2ReflectionProbe.cpp b/trinity/Tr2ReflectionProbe.cpp
+index 3b7224ce..2fccc818 100644
+--- a/trinity/Tr2ReflectionProbe.cpp
++++ b/trinity/Tr2ReflectionProbe.cpp
+@@ -179,10 +179,12 @@ void Tr2ReflectionProbe::EndRenderPass( Tr2RenderContext& renderContext )
+ 	{
+ 		GPU_REGION( renderContext, "Reflection RT Copy" );
+ 
+-		for( int i = GetStartFace(); i < GetEndFace(); i++ )
++		Tr2TextureAL* faces[6];
++		for( int i = 0; i < 6; ++i )
+ 		{
+-			CR( m_renderTargetCube->GetRenderTarget().CopySubresourceRegion( Tr2TextureSubresource( i, 0 ), *m_renderTargets[i], Tr2TextureSubresource( 0, 0 ), renderContext ) );
++			faces[i] = &m_renderTargets[i]->GetRenderTarget();
+ 		}
++		CR( m_renderTargetCube->GetRenderTarget().CopyCubeFaces( faces, GetStartFace(), GetEndFace(), renderContext ) );
+ 	}
+ 
+ 	renderContext.m_esm.SetInvertedCullMode( m_prevCullInversion );
+@@ -234,6 +236,8 @@ bool Tr2ReflectionProbe::OnPrepareResources()
+ 
+ #if TRINITY_PLATFORM == TRINITY_DIRECTX12
+ 	auto rtFormat = renderContext.FormatIsUAVCompatibleDx12( DXGI_FORMAT_R11G11B10_FLOAT ) ? PIXEL_FORMAT_R11G11B10_FLOAT : PIXEL_FORMAT_R16G16B16A16_FLOAT;
++#elif TRINITY_PLATFORM == TRINITY_VULKAN
++	auto rtFormat = renderContext.FormatSupportsBlitDstVulkan( PIXEL_FORMAT_R11G11B10_FLOAT ) ? PIXEL_FORMAT_R11G11B10_FLOAT : PIXEL_FORMAT_R16G16B16A16_FLOAT;
+ #else
+ 	auto rtFormat = PIXEL_FORMAT_R11G11B10_FLOAT;
+ #endif
 diff --git a/trinity/Tr2VirtualAllocator.cpp b/trinity/Tr2VirtualAllocator.cpp
 index 73ba3579..3be85dc6 100644
 --- a/trinity/Tr2VirtualAllocator.cpp
@@ -381,6 +419,86 @@ index 00a368b8..4a6bd837 100644
  
  else()
      message(FATAL_ERROR "Unsupported trinity platform, only stub would be available!")
+diff --git a/trinityal/dx11/Tr2TextureALDx11.cpp b/trinityal/dx11/Tr2TextureALDx11.cpp
+index 4c0cea87..f1e0974f 100644
+--- a/trinityal/dx11/Tr2TextureALDx11.cpp
++++ b/trinityal/dx11/Tr2TextureALDx11.cpp
+@@ -1164,6 +1164,15 @@ ALResult Tr2TextureAL::CopySubresourceRegion( const Tr2TextureSubresource& destS
+ 	return S_OK;
+ }
+ 
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext )
++{
++	for( uint32_t face = startFace; face < endFace; ++face )
++	{
++		CR_RETURN_HR( CopySubresourceRegion( Tr2TextureSubresource( face, 0 ), *sourceFaces[face], Tr2TextureSubresource( 0, 0 ), renderContext ) );
++	}
++	return S_OK;
++}
++
+ ALResult Tr2TextureAL::GenerateMipMaps( Tr2RenderContextAL& renderContext )
+ {
+ 	if( !HasFlag( m_gpuUsage, Tr2GpuUsage::RENDER_TARGET ) || !HasFlag( m_gpuUsage, Tr2GpuUsage::SHADER_RESOURCE ) )
+diff --git a/trinityal/dx11/Tr2TextureALDx11.h b/trinityal/dx11/Tr2TextureALDx11.h
+index b655adfc..975a2261 100644
+--- a/trinityal/dx11/Tr2TextureALDx11.h
++++ b/trinityal/dx11/Tr2TextureALDx11.h
+@@ -50,6 +50,7 @@ public:
+ 
+ 	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
+ 	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext );
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext );
+ 	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext );
+ 	ALResult Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext );
+ 	uintptr_t GetSharedHandle() const;
+diff --git a/trinityal/dx12/Tr2TextureALDx12.cpp b/trinityal/dx12/Tr2TextureALDx12.cpp
+index c51a9217..741dcc1a 100644
+--- a/trinityal/dx12/Tr2TextureALDx12.cpp
++++ b/trinityal/dx12/Tr2TextureALDx12.cpp
+@@ -1317,6 +1317,15 @@ ALResult Tr2TextureAL::CopySubresourceRegion( const Tr2TextureSubresource& destS
+ 	return S_OK;
+ }
+ 
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext )
++{
++	for( uint32_t face = startFace; face < endFace; ++face )
++	{
++		CR_RETURN_HR( CopySubresourceRegion( Tr2TextureSubresource( face, 0 ), *sourceFaces[face], Tr2TextureSubresource( 0, 0 ), renderContext ) );
++	}
++	return S_OK;
++}
++
+ Tr2ALMemoryType Tr2TextureAL::GetMemoryClass() const
+ {
+ 	return AL_MEMORY_MANAGED;
+diff --git a/trinityal/dx12/Tr2TextureALDx12.h b/trinityal/dx12/Tr2TextureALDx12.h
+index 18fcb21b..89869860 100644
+--- a/trinityal/dx12/Tr2TextureALDx12.h
++++ b/trinityal/dx12/Tr2TextureALDx12.h
+@@ -57,6 +57,7 @@ public:
+ 
+ 	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
+ 	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext );
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext );
+ 	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext );
+ 	ALResult Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext );
+ 
+diff --git a/trinityal/include/Tr2TextureAL.h b/trinityal/include/Tr2TextureAL.h
+index 67071be9..1bb935f1 100644
+--- a/trinityal/include/Tr2TextureAL.h
++++ b/trinityal/include/Tr2TextureAL.h
+@@ -61,6 +61,11 @@ public:
+ 
+ 	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
+ 	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, const Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext ) const;
++	// Copies six single-layer 2D textures into this texture's six cubemap
++	// faces. Some backends only copy the requested [startFace, endFace)
++	// range; others may need to resync all six faces regardless of the
++	// requested range, so all six source pointers must always be valid.
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext ) const;
+ 	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext ) const;
+ 	ALResult Resolve( const Tr2TextureAL& destination, Tr2RenderContextAL& renderContext ) const;
+ 	uintptr_t GetSharedHandle() const;
 diff --git a/trinityal/include/TrinityALForward.h b/trinityal/include/TrinityALForward.h
 index 7ab15b45..886013d8 100644
 --- a/trinityal/include/TrinityALForward.h
@@ -419,6 +537,59 @@ index f9bd0eed..87e7122f 100644
  
  #include "Tr2UpscalingAL.h"
  #include "Tr2RenderContextAL.h"
+diff --git a/trinityal/metal/Tr2TextureALMetal.h b/trinityal/metal/Tr2TextureALMetal.h
+index b549be94..88731a12 100644
+--- a/trinityal/metal/Tr2TextureALMetal.h
++++ b/trinityal/metal/Tr2TextureALMetal.h
+@@ -39,6 +39,7 @@ public:
+ 
+ 	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
+ 	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext );
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext );
+ 	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext );
+ 	ALResult Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext );
+ 	uintptr_t GetSharedHandle() const;
+diff --git a/trinityal/metal/Tr2TextureALMetal.mm b/trinityal/metal/Tr2TextureALMetal.mm
+index be093dd6..81ff2aee 100644
+--- a/trinityal/metal/Tr2TextureALMetal.mm
++++ b/trinityal/metal/Tr2TextureALMetal.mm
+@@ -792,6 +792,15 @@ ALResult Tr2TextureAL::CopySubresourceRegion( const Tr2TextureSubresource& destS
+ 	return S_OK;
+ }
+ 
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext )
++{
++	for( uint32_t face = startFace; face < endFace; ++face )
++	{
++		CR_RETURN_HR( CopySubresourceRegion( Tr2TextureSubresource( face, 0 ), *sourceFaces[face], Tr2TextureSubresource( 0, 0 ), renderContext ) );
++	}
++	return S_OK;
++}
++
+ ALResult Tr2TextureAL::GenerateMipMaps( Tr2RenderContextAL& renderContext )
+ {
+ 	if( !HasFlag( m_gpuUsage, Tr2GpuUsage::RENDER_TARGET ) || !HasFlag( m_gpuUsage, Tr2GpuUsage::SHADER_RESOURCE ) )
+diff --git a/trinityal/src/Tr2TextureAL.cpp b/trinityal/src/Tr2TextureAL.cpp
+index 4c71ff62..e665195f 100644
+--- a/trinityal/src/Tr2TextureAL.cpp
++++ b/trinityal/src/Tr2TextureAL.cpp
+@@ -187,6 +187,16 @@ ALResult Tr2TextureAL::CopySubresourceRegion( const Tr2TextureSubresource& destS
+ 	return m_texture->CopySubresourceRegion( destSubresource, *source.m_texture, sourceSubresource, renderContext );
+ }
+ 
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext ) const
++{
++	TrinityALImpl::Tr2TextureAL* faces[6];
++	for( uint32_t i = 0; i < 6; ++i )
++	{
++		faces[i] = sourceFaces[i]->m_texture.get();
++	}
++	return m_texture->CopyCubeFaces( faces, startFace, endFace, renderContext );
++}
++
+ namespace
+ {
+ bool FormatIsBGR( Tr2RenderContextEnum::PixelFormat format )
 diff --git a/trinityal/src/upscaling/Tr2Fsr1Upscaling.cpp b/trinityal/src/upscaling/Tr2Fsr1Upscaling.cpp
 index 8611290a..26734cc1 100644
 --- a/trinityal/src/upscaling/Tr2Fsr1Upscaling.cpp
@@ -431,6 +602,38 @@ index 8611290a..26734cc1 100644
  
  #include "StdAfx.h"
  #include "include/upscaling/Tr2Fsr1Upscaling.h"
+diff --git a/trinityal/stub/Tr2TextureALStub.cpp b/trinityal/stub/Tr2TextureALStub.cpp
+index 1a3350e8..f3f2283f 100644
+--- a/trinityal/stub/Tr2TextureALStub.cpp
++++ b/trinityal/stub/Tr2TextureALStub.cpp
+@@ -291,6 +291,15 @@ ALResult Tr2TextureAL::CopySubresourceRegion( const Tr2TextureSubresource& destS
+ 	return S_OK;
+ }
+ 
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext )
++{
++	for( uint32_t face = startFace; face < endFace; ++face )
++	{
++		CR_RETURN_HR( CopySubresourceRegion( Tr2TextureSubresource( face, 0 ), *sourceFaces[face], Tr2TextureSubresource( 0, 0 ), renderContext ) );
++	}
++	return S_OK;
++}
++
+ ALResult Tr2TextureAL::GenerateMipMaps( Tr2RenderContextAL& )
+ {
+ 	if( !HasFlag( m_gpuUsage, Tr2GpuUsage::RENDER_TARGET ) || !HasFlag( m_gpuUsage, Tr2GpuUsage::SHADER_RESOURCE ) )
+diff --git a/trinityal/stub/Tr2TextureALStub.h b/trinityal/stub/Tr2TextureALStub.h
+index 029c978d..fe3bfb20 100644
+--- a/trinityal/stub/Tr2TextureALStub.h
++++ b/trinityal/stub/Tr2TextureALStub.h
+@@ -36,6 +36,7 @@ public:
+ 
+ 	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
+ 	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext );
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext );
+ 	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext );
+ 	ALResult Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext );
+ 	uintptr_t GetSharedHandle() const;
 diff --git a/trinityal/tests/CMakeLists.txt b/trinityal/tests/CMakeLists.txt
 index 105ff0a6..fdcecb8f 100644
 --- a/trinityal/tests/CMakeLists.txt
@@ -826,10 +1029,10 @@ index 00000000..e2208f42
 +#endif
 diff --git a/trinityal/vulkan/Tr2BufferALVulkan.cpp b/trinityal/vulkan/Tr2BufferALVulkan.cpp
 new file mode 100644
-index 00000000..0d235afd
+index 00000000..5585ade0
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2BufferALVulkan.cpp
-@@ -0,0 +1,388 @@
+@@ -0,0 +1,396 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -1012,13 +1215,12 @@ index 00000000..0d235afd
 +			memcpy( stagingData, initialData, size );
 +			vmaFlushAllocation( context->GetAllocator(), stagingAllocation, 0, size );
 +
-+			ALResult result = context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++			context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +				VkBufferCopy region = {};
 +				region.size = size;
 +				vkCmdCopyBuffer( commandBuffer, staging, m_buffer, 1, &region );
 +			} );
-+			vmaDestroyBuffer( context->GetAllocator(), staging, stagingAllocation );
-+			CR_RETURN_HR( result );
++			context->DestroyBufferLater( staging, stagingAllocation );
 +		}
 +	}
 +
@@ -1157,13 +1359,22 @@ index 00000000..0d235afd
 +	{
 +		return E_INVALIDARG;
 +	}
-+	if( !HasFlag( m_desc.cpuUsage, Tr2CpuUsage::WRITE ) || HasFlag( m_desc.cpuUsage, Tr2CpuUsage::WRITE_OFTEN ) )
-+	{
-+		return E_INVALIDCALL;
-+	}
 +	if( size == 0 )
 +	{
 +		return S_OK;
++	}
++
++	if( HasFlag( m_desc.cpuUsage, Tr2CpuUsage::WRITE_OFTEN ) )
++	{
++		void* ptr;
++		CR_RETURN_HR( MapForWriting( ptr, renderContext ) );
++		memcpy( (uint8_t*)ptr + offset, data, size );
++		UnmapForWriting( renderContext );
++		return S_OK;
++	}
++	if( !HasFlag( m_desc.cpuUsage, Tr2CpuUsage::WRITE ) )
++	{
++		return E_INVALIDCALL;
 +	}
 +
 +	VulkanContext* context = GetVulkanContext();
@@ -1186,14 +1397,14 @@ index 00000000..0d235afd
 +	memcpy( stagingData, data, size );
 +	vmaFlushAllocation( context->GetAllocator(), stagingAllocation, 0, size );
 +
-+	ALResult result = context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		VkBufferCopy region = {};
 +		region.dstOffset = offset;
 +		region.size = size;
 +		vkCmdCopyBuffer( commandBuffer, staging, m_buffer, 1, &region );
 +	} );
-+	vmaDestroyBuffer( context->GetAllocator(), staging, stagingAllocation );
-+	return result;
++	context->DestroyBufferLater( staging, stagingAllocation );
++	return S_OK;
 +}
 +
 +uint32_t Tr2BufferAL::GetSrvIndexInHeap() const
@@ -1403,10 +1614,10 @@ index 00000000..9eeb112f
 +#endif
 diff --git a/trinityal/vulkan/Tr2ConstantBufferALVulkan.cpp b/trinityal/vulkan/Tr2ConstantBufferALVulkan.cpp
 new file mode 100644
-index 00000000..5748f510
+index 00000000..63bdb7a0
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ConstantBufferALVulkan.cpp
-@@ -0,0 +1,214 @@
+@@ -0,0 +1,266 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -1424,6 +1635,8 @@ index 00000000..5748f510
 +	m_usage( Tr2ConstantUsageAL::REUSABLE ),
 +	m_buffer( VK_NULL_HANDLE ),
 +	m_allocation( VK_NULL_HANDLE ),
++	m_ringBuffer( VK_NULL_HANDLE ),
++	m_ringOffset( 0 ),
 +	m_mappedData( nullptr ),
 +	m_size( 0 ),
 +	m_isLocked( false )
@@ -1461,6 +1674,27 @@ index 00000000..5748f510
 +	{
 +		memcpy( m_mappedData, initialData, m_size );
 +		vmaFlushAllocation( context->GetAllocator(), m_allocation, 0, m_size );
++	}
++	return S_OK;
++}
++
++ALResult Tr2ConstantBufferAL::AllocateRing( const void* initialData )
++{
++	VulkanContext* context = GetVulkanContext();
++	if( !context )
++	{
++		return E_INVALIDCALL;
++	}
++
++	const VkDeviceSize alignment = std::max<VkDeviceSize>(
++		context->GetDeviceProperties().limits.minUniformBufferOffsetAlignment, 16 );
++	void* data = nullptr;
++	CR_RETURN_HR( context->AllocateTransientData( m_size, alignment, m_ringBuffer, m_ringOffset, data ) );
++	m_mappedData = data;
++
++	if( initialData )
++	{
++		memcpy( m_mappedData, initialData, m_size );
 +	}
 +	return S_OK;
 +}
@@ -1506,7 +1740,9 @@ index 00000000..5748f510
 +		return S_OK;
 +	}
 +
-+	ALResult result = CreateDeviceBuffer( initialData );
++	ALResult result = usage == Tr2ConstantUsageAL::REUSABLE
++		? AllocateRing( initialData )
++		: CreateDeviceBuffer( initialData );
 +	if( FAILED( result ) )
 +	{
 +		Destroy();
@@ -1516,13 +1752,18 @@ index 00000000..5748f510
 +
 +void Tr2ConstantBufferAL::Destroy()
 +{
-+	VulkanContext* context = GetVulkanContext();
-+	if( context )
++	if( m_allocation != VK_NULL_HANDLE )
 +	{
-+		context->DestroyBufferLater( m_buffer, m_allocation );
++		VulkanContext* context = GetVulkanContext();
++		if( context )
++		{
++			context->DestroyBufferLater( m_buffer, m_allocation );
++		}
 +	}
 +	m_buffer = VK_NULL_HANDLE;
 +	m_allocation = VK_NULL_HANDLE;
++	m_ringBuffer = VK_NULL_HANDLE;
++	m_ringOffset = 0;
 +	m_mappedData = nullptr;
 +	m_mirror.clear();
 +	m_usage = Tr2ConstantUsageAL::REUSABLE;
@@ -1553,18 +1794,25 @@ index 00000000..5748f510
 +		return S_OK;
 +	}
 +
-+	// WRITE_DISCARD semantics: draws already recorded keep the previous
-+	// buffer; the lock writes into a fresh one.
-+	VulkanContext* context = GetVulkanContext();
-+	if( !context )
++	// WRITE_DISCARD semantics: draws already recorded keep reading whatever
++	// buffer/offset they were bound to; the lock hands out a fresh slice.
++	if( m_usage == Tr2ConstantUsageAL::REUSABLE )
 +	{
-+		return E_INVALIDCALL;
++		CR_RETURN_HR( AllocateRing( nullptr ) );
 +	}
-+	context->DestroyBufferLater( m_buffer, m_allocation );
-+	m_buffer = VK_NULL_HANDLE;
-+	m_allocation = VK_NULL_HANDLE;
-+	m_mappedData = nullptr;
-+	CR_RETURN_HR( CreateDeviceBuffer( nullptr ) );
++	else
++	{
++		VulkanContext* context = GetVulkanContext();
++		if( !context )
++		{
++			return E_INVALIDCALL;
++		}
++		context->DestroyBufferLater( m_buffer, m_allocation );
++		m_buffer = VK_NULL_HANDLE;
++		m_allocation = VK_NULL_HANDLE;
++		m_mappedData = nullptr;
++		CR_RETURN_HR( CreateDeviceBuffer( nullptr ) );
++	}
 +
 +	m_isLocked = true;
 +	*data = m_mappedData;
@@ -1583,10 +1831,13 @@ index 00000000..5748f510
 +	}
 +	m_isLocked = false;
 +
-+	if( m_usage != Tr2ConstantUsageAL::ONE_SHOT )
++	// REUSABLE contents live in the transient ring, which is flushed once per
++	// frame as a whole (see VulkanContext::Flush); only a dedicated
++	// (IMMUTABLE) allocation needs its own flush here.
++	if( m_allocation != VK_NULL_HANDLE )
 +	{
 +		VulkanContext* context = GetVulkanContext();
-+		if( context && m_allocation != VK_NULL_HANDLE )
++		if( context )
 +		{
 +			vmaFlushAllocation( context->GetAllocator(), m_allocation, 0, m_size );
 +		}
@@ -1596,7 +1847,19 @@ index 00000000..5748f510
 +
 +bool Tr2ConstantBufferAL::IsValid() const
 +{
-+	return m_size > 0 && ( m_usage == Tr2ConstantUsageAL::ONE_SHOT ? !m_mirror.empty() : m_buffer != VK_NULL_HANDLE );
++	if( m_size == 0 )
++	{
++		return false;
++	}
++	if( m_usage == Tr2ConstantUsageAL::ONE_SHOT )
++	{
++		return !m_mirror.empty();
++	}
++	if( m_usage == Tr2ConstantUsageAL::REUSABLE )
++	{
++		return m_ringBuffer != VK_NULL_HANDLE;
++	}
++	return m_buffer != VK_NULL_HANDLE;
 +}
 +
 +uint32_t Tr2ConstantBufferAL::GetSize() const
@@ -1623,10 +1886,10 @@ index 00000000..5748f510
 +#endif
 diff --git a/trinityal/vulkan/Tr2ConstantBufferALVulkan.h b/trinityal/vulkan/Tr2ConstantBufferALVulkan.h
 new file mode 100644
-index 00000000..5d05e95d
+index 00000000..ad470b38
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2ConstantBufferALVulkan.h
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,99 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -1645,9 +1908,13 @@ index 00000000..5d05e95d
 +    mirror, and the contents are snapshotted into the frame's transient ring
 +    buffer every time a draw binds them, so consecutive Lock/draw pairs each
 +    see their own version of the data.
-+  - REUSABLE (and IMMUTABLE) buffers own a persistently mapped VkBuffer.
-+    Lock has WRITE_DISCARD semantics: it renames to a fresh buffer so draws
-+    recorded before the Lock keep reading the previous contents.
++  - REUSABLE buffers have no dedicated GPU buffer either: Lock has
++    WRITE_DISCARD semantics implemented by handing out a fresh suballocation
++    from the frame's transient ring buffer each time, so draws recorded
++    before the Lock keep reading the previous contents without needing a
++    dedicated VkBuffer per Lock call.
++  - IMMUTABLE buffers own a persistently mapped, dedicated VkBuffer created
++    once and never re-locked.
 + */
 +class Tr2ConstantBufferAL : public Tr2DeviceResourceAL<Tr2ConstantBufferAL>
 +{
@@ -1686,9 +1953,18 @@ index 00000000..5d05e95d
 +		return IsOneShot() ? m_mirror.get() : m_mappedData;
 +	}
 +
++	// REUSABLE: the transient ring buffer. IMMUTABLE: the dedicated buffer.
 +	VkBuffer GetVkBuffer() const
 +	{
-+		return m_buffer;
++		return m_usage == Tr2ConstantUsageAL::REUSABLE ? m_ringBuffer : m_buffer;
++	}
++
++	// Byte offset of the current contents within GetVkBuffer(). Always 0 for
++	// IMMUTABLE (dedicated buffer); the current ring suballocation offset for
++	// REUSABLE.
++	VkDeviceSize GetOffset() const
++	{
++		return m_usage == Tr2ConstantUsageAL::REUSABLE ? m_ringOffset : 0;
 +	}
 +
 +private:
@@ -1696,11 +1972,14 @@ index 00000000..5d05e95d
 +	Tr2ConstantBufferAL& operator=( const Tr2ConstantBufferAL& ) = delete;
 +
 +	ALResult CreateDeviceBuffer( const void* initialData );
++	ALResult AllocateRing( const void* initialData );
 +
 +	Tr2ConstantUsageAL::Type m_usage;
 +	CcpMallocBuffer m_mirror;
-+	VkBuffer m_buffer;
-+	VmaAllocation m_allocation;
++	VkBuffer m_buffer;          // IMMUTABLE only: dedicated buffer.
++	VmaAllocation m_allocation; // IMMUTABLE only: dedicated allocation.
++	VkBuffer m_ringBuffer;      // REUSABLE only: the transient ring's buffer handle.
++	VkDeviceSize m_ringOffset;  // REUSABLE only: current suballocation offset in the ring.
 +	void* m_mappedData;
 +	uint32_t m_size;
 +	bool m_isLocked;
@@ -2574,10 +2853,10 @@ index 00000000..3d3aec31
 +#include "Tr2RenderContextVulkan.h"
 diff --git a/trinityal/vulkan/Tr2RenderContextVulkan.cpp b/trinityal/vulkan/Tr2RenderContextVulkan.cpp
 new file mode 100644
-index 00000000..ee544950
+index 00000000..a6db9907
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2RenderContextVulkan.cpp
-@@ -0,0 +1,2107 @@
+@@ -0,0 +1,2153 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -2959,6 +3238,18 @@ index 00000000..ee544950
 +const Tr2CapsAL& Tr2RenderContextAL::GetCaps() const
 +{
 +	return m_caps;
++}
++
++bool Tr2RenderContextAL::FormatSupportsBlitDstVulkan( Tr2RenderContextEnum::PixelFormat format ) const
++{
++	VkFormat vkFormat = TrinityALImpl::ToVkFormat( format );
++	if( vkFormat == VK_FORMAT_UNDEFINED )
++	{
++		return false;
++	}
++	VkFormatProperties formatProperties = {};
++	vkGetPhysicalDeviceFormatProperties( m_vulkanContext->GetPhysicalDevice(), vkFormat, &formatProperties );
++	return ( formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT ) != 0;
 +}
 +
 +ALResult Tr2RenderContextAL::BeginScene()
@@ -3570,6 +3861,7 @@ index 00000000..ee544950
 +				else if( impl && impl->IsValid() )
 +				{
 +					info.buffer = impl->GetVkBuffer();
++					info.offset = impl->GetOffset();
 +					info.range = impl->GetSize();
 +				}
 +				else
@@ -4445,6 +4737,39 @@ index 00000000..ee544950
 +		if( range.aspectMask != 0 )
 +		{
 +			vkCmdClearDepthStencilImage( m_vulkanContext->GetCommandBuffer(), impl->GetVkImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &range );
++
++			// vkCmdClearDepthStencilImage is a transfer-style write. Without an
++			// explicit barrier, the depth-test reads issued by a later
++			// vkCmdBeginRendering (which LOAD_OP_LOADs this same image) are not
++			// guaranteed to see it -- unlike color clears, depth attachments
++			// commonly have separate compression/metadata tracking on real GPUs
++			// that makes this omission visible in practice (every fragment
++			// reads stale/undefined depth and fails the depth test).
++			VkImageMemoryBarrier barrier = {};
++			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
++			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
++			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
++			barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
++			barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
++			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			barrier.image = impl->GetVkImage();
++			barrier.subresourceRange = range;
++			// Without separateDepthStencilLayouts, a barrier on a combined
++			// depth/stencil image must cover both aspects together, even if
++			// this Clear() call only actually touched one of them.
++			if( TrinityALImpl::HasStencil( impl->GetVkFormat() ) )
++			{
++				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
++			}
++			vkCmdPipelineBarrier(
++				m_vulkanContext->GetCommandBuffer(),
++				VK_PIPELINE_STAGE_TRANSFER_BIT,
++				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
++				0,
++				0, nullptr,
++				0, nullptr,
++				1, &barrier );
 +		}
 +	}
 +
@@ -4687,10 +5012,10 @@ index 00000000..ee544950
 +#endif
 diff --git a/trinityal/vulkan/Tr2RenderContextVulkan.h b/trinityal/vulkan/Tr2RenderContextVulkan.h
 new file mode 100644
-index 00000000..4692a483
+index 00000000..3a9072cf
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2RenderContextVulkan.h
-@@ -0,0 +1,332 @@
+@@ -0,0 +1,333 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -4783,6 +5108,7 @@ index 00000000..4692a483
 +	ALResult SetPresentParameters( unsigned adapter, const Tr2PresentParametersAL& presentationParameters );
 +
 +	const Tr2CapsAL& GetCaps() const;
++	bool FormatSupportsBlitDstVulkan( Tr2RenderContextEnum::PixelFormat format ) const;
 +
 +	ALResult BeginScene();
 +	ALResult EndScene();
@@ -8018,10 +8344,10 @@ index 00000000..5c747c5e
 +#endif
 diff --git a/trinityal/vulkan/Tr2SwapChainALVulkan.cpp b/trinityal/vulkan/Tr2SwapChainALVulkan.cpp
 new file mode 100644
-index 00000000..64ce9832
+index 00000000..99196b91
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2SwapChainALVulkan.cpp
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,302 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -8046,9 +8372,6 @@ index 00000000..64ce9832
 +	m_windowHandle( Tr2WindowHandle() ),
 +	m_surface( VK_NULL_HANDLE ),
 +	m_swapchain( VK_NULL_HANDLE ),
-+	m_acquireSemaphore( VK_NULL_HANDLE ),
-+	m_presentSemaphore( VK_NULL_HANDLE ),
-+	m_acquireFence( VK_NULL_HANDLE ),
 +	m_display( nullptr )
 +{
 +}
@@ -8119,12 +8442,18 @@ index 00000000..64ce9832
 +
 +	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
 +	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-+	VK_CR_RETURN_HR( vkCreateSemaphore( context->GetDevice(), &semaphoreCreateInfo, nullptr, &m_acquireSemaphore ) );
-+	VK_CR_RETURN_HR( vkCreateSemaphore( context->GetDevice(), &semaphoreCreateInfo, nullptr, &m_presentSemaphore ) );
 +
-+	VkFenceCreateInfo fenceCreateInfo = {};
-+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-+	VK_CR_RETURN_HR( vkCreateFence( context->GetDevice(), &fenceCreateInfo, nullptr, &m_acquireFence ) );
++	m_acquireSemaphores.resize( kFramesInFlight );
++	for( VkSemaphore& semaphore : m_acquireSemaphores )
++	{
++		VK_CR_RETURN_HR( vkCreateSemaphore( context->GetDevice(), &semaphoreCreateInfo, nullptr, &semaphore ) );
++	}
++
++	m_presentSemaphores.resize( imageCount );
++	for( VkSemaphore& semaphore : m_presentSemaphores )
++	{
++		VK_CR_RETURN_HR( vkCreateSemaphore( context->GetDevice(), &semaphoreCreateInfo, nullptr, &semaphore ) );
++	}
 +
 +	return S_OK;
 +#else
@@ -8179,17 +8508,13 @@ index 00000000..64ce9832
 +		{
 +			vkDestroySwapchainKHR( context->GetDevice(), m_swapchain, nullptr );
 +		}
-+		if( m_acquireSemaphore != VK_NULL_HANDLE )
++		for( VkSemaphore semaphore : m_acquireSemaphores )
 +		{
-+			vkDestroySemaphore( context->GetDevice(), m_acquireSemaphore, nullptr );
++			vkDestroySemaphore( context->GetDevice(), semaphore, nullptr );
 +		}
-+		if( m_presentSemaphore != VK_NULL_HANDLE )
++		for( VkSemaphore semaphore : m_presentSemaphores )
 +		{
-+			vkDestroySemaphore( context->GetDevice(), m_presentSemaphore, nullptr );
-+		}
-+		if( m_acquireFence != VK_NULL_HANDLE )
-+		{
-+			vkDestroyFence( context->GetDevice(), m_acquireFence, nullptr );
++			vkDestroySemaphore( context->GetDevice(), semaphore, nullptr );
 +		}
 +	}
 +	if( m_surface != VK_NULL_HANDLE )
@@ -8203,9 +8528,8 @@ index 00000000..64ce9832
 +	}
 +#endif
 +	m_swapchain = VK_NULL_HANDLE;
-+	m_acquireSemaphore = VK_NULL_HANDLE;
-+	m_presentSemaphore = VK_NULL_HANDLE;
-+	m_acquireFence = VK_NULL_HANDLE;
++	m_acquireSemaphores.clear();
++	m_presentSemaphores.clear();
 +	m_surface = VK_NULL_HANDLE;
 +	m_display = nullptr;
 +	m_swapchainImages.clear();
@@ -8238,10 +8562,14 @@ index 00000000..64ce9832
 +		return context->Flush();
 +	}
 +
++	// Reused once this slot's previous submission has retired (EndFrame
++	// waits on that before letting the CPU record into the slot again), so
++	// it's never re-signaled before the GPU has consumed its prior signal.
++	VkSemaphore acquireSemaphore = m_acquireSemaphores[context->GetFrameSlot()];
++
 +	uint32_t imageIndex = 0;
-+	VK_CR_RETURN_HR( vkAcquireNextImageKHR( context->GetDevice(), m_swapchain, UINT64_MAX, VK_NULL_HANDLE, m_acquireFence, &imageIndex ) );
-+	VK_CR_RETURN_HR( vkWaitForFences( context->GetDevice(), 1, &m_acquireFence, VK_TRUE, UINT64_MAX ) );
-+	VK_CR_RETURN_HR( vkResetFences( context->GetDevice(), 1, &m_acquireFence ) );
++	VK_CR_RETURN_HR( vkAcquireNextImageKHR( context->GetDevice(), m_swapchain, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &imageIndex ) );
++	VkSemaphore presentSemaphore = m_presentSemaphores[imageIndex];
 +
 +	// Blit the backbuffer texture into the acquired swapchain image.
 +	Tr2TextureAL* backBuffer = m_backBuffer.TrinityALImpl_GetObject();
@@ -8277,10 +8605,15 @@ index 00000000..64ce9832
 +	toPresent.dstAccessMask = 0;
 +	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &toPresent );
 +
-+	CR_RETURN_HR( context->Flush() );
++	// Wait for the acquire (GPU-side, not a CPU stall) before the blit writes
++	// the swapchain image, and signal presentSemaphore so vkQueuePresentKHR
++	// doesn't present before the blit has actually finished.
++	CR_RETURN_HR( context->Flush( VK_NULL_HANDLE, acquireSemaphore, VK_PIPELINE_STAGE_TRANSFER_BIT, presentSemaphore ) );
 +
 +	VkPresentInfoKHR presentInfo = {};
 +	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
++	presentInfo.waitSemaphoreCount = 1;
++	presentInfo.pWaitSemaphores = &presentSemaphore;
 +	presentInfo.swapchainCount = 1;
 +	presentInfo.pSwapchains = &m_swapchain;
 +	presentInfo.pImageIndices = &imageIndex;
@@ -8319,10 +8652,10 @@ index 00000000..64ce9832
 +#endif
 diff --git a/trinityal/vulkan/Tr2SwapChainALVulkan.h b/trinityal/vulkan/Tr2SwapChainALVulkan.h
 new file mode 100644
-index 00000000..f4d1af15
+index 00000000..fc96cdda
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2SwapChainALVulkan.h
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,64 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -8369,14 +8702,19 @@ index 00000000..f4d1af15
 +
 +	Tr2WindowHandle m_windowHandle;
 +
-+	// Presentation objects; all VK_NULL_HANDLE when running headless (no
-+	// window system available), in which case Present() only flushes.
++	// Presentation objects; all empty/VK_NULL_HANDLE when running headless
++	// (no window system available), in which case Present() only flushes.
 +	VkSurfaceKHR m_surface;
 +	VkSwapchainKHR m_swapchain;
 +	std::vector<VkImage> m_swapchainImages;
-+	VkSemaphore m_acquireSemaphore;
-+	VkSemaphore m_presentSemaphore;
-+	VkFence m_acquireFence;
++	// One acquire semaphore per frame-in-flight slot (indexed by
++	// VulkanContext::GetFrameSlot()): safe to reuse once that slot's ring
++	// fence has been waited on, which EndFrame() guarantees before the slot
++	// is reused. One present semaphore per swap chain image (indexed by the
++	// acquired image index), since presents can retire out of
++	// frame-in-flight order - the standard Vulkan pattern.
++	std::vector<VkSemaphore> m_acquireSemaphores;
++	std::vector<VkSemaphore> m_presentSemaphores;
 +	void* m_display;
 +};
 +}
@@ -8384,10 +8722,10 @@ index 00000000..f4d1af15
 +#endif
 diff --git a/trinityal/vulkan/Tr2TextureALVulkan.cpp b/trinityal/vulkan/Tr2TextureALVulkan.cpp
 new file mode 100644
-index 00000000..f765ae58
+index 00000000..518e0a8f
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2TextureALVulkan.cpp
-@@ -0,0 +1,791 @@
+@@ -0,0 +1,1019 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -8408,6 +8746,18 @@ index 00000000..f765ae58
 +
 +namespace
 +{
++
++// BitmapDimensions::GetMipWidth/GetMipHeight round block-compressed mips up to
++// a multiple of 4 (minimum 4) - useful for sizing/packing the staging buffer,
++// but not the actual per-level texel extent Vulkan reports for the image
++// subresource, which shrinks like any other format (down to 1x1) regardless
++// of the format's block size. Copies/blits that target the real image must
++// use this, not GetMipWidth/GetMipHeight, or they overrun the subresource
++// once a mip gets smaller than one block.
++uint32_t GetActualMipExtent( uint32_t baseExtent, uint32_t level )
++{
++	return std::max( baseExtent >> level, 1u );
++}
 +
 +VkImageUsageFlags GetImageUsageFlags( Tr2GpuUsage::Type gpuUsage, VkFormat format )
 +{
@@ -8630,7 +8980,7 @@ index 00000000..f765ae58
 +	// Bring-up simplification: images live in VK_IMAGE_LAYOUT_GENERAL so no
 +	// per-use layout tracking is needed yet. Moving to tracked, optimal
 +	// layouts belongs to the draw-path work.
-+	result = context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		VkImageMemoryBarrier barrier = {};
 +		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 +		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -8642,20 +8992,32 @@ index 00000000..f765ae58
 +		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 +		vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 +	} );
-+	if( FAILED( result ) )
-+	{
-+		Destroy();
-+		return result;
-+	}
 +
 +	if( initialData )
 +	{
-+		uint32_t subresourceIndex = 0;
-+		for( uint32_t face = 0; face < desc.GetArraySize(); ++face )
++		const uint32_t arraySize = desc.GetArraySize();
++		const uint32_t mipCount = desc.GetTrueMipCount();
++
++		// Batch all faces of a mip into one upload when they're all present,
++		// since queues with a (0,0,0) image transfer granularity reject
++		// per-face copies into a multi-layer image (see UploadSubresourceArray).
++		for( uint32_t mip = 0; mip < mipCount; ++mip )
 +		{
-+			for( uint32_t mip = 0; mip < desc.GetTrueMipCount(); ++mip, ++subresourceIndex )
++			bool allFacesPresent = arraySize > 1;
++			for( uint32_t face = 0; allFacesPresent && face < arraySize; ++face )
 +			{
-+				const Tr2SubresourceData& subresource = initialData[subresourceIndex];
++				allFacesPresent = initialData[face * mipCount + mip].m_sysMem != nullptr;
++			}
++
++			if( allFacesPresent )
++			{
++				CR_RETURN_HR( UploadSubresourceArray( mip, arraySize, initialData, mipCount ) );
++				continue;
++			}
++
++			for( uint32_t face = 0; face < arraySize; ++face )
++			{
++				const Tr2SubresourceData& subresource = initialData[face * mipCount + mip];
 +				if( !subresource.m_sysMem )
 +				{
 +					continue;
@@ -8667,6 +9029,138 @@ index 00000000..f765ae58
 +	}
 +
 +	return S_OK;
++}
++
++// Uploads every array layer/cubemap face of a single mip level in one go.
++ALResult Tr2TextureAL::UploadSubresourceArray( uint32_t mip, uint32_t arraySize, const Tr2SubresourceData* initialData, uint32_t mipCount )
++{
++	VulkanContext* context = GetVulkanContext();
++	if( !context )
++	{
++		return E_FAIL;
++	}
++
++	const uint32_t mipWidth = m_desc.GetMipWidth( mip );
++	const uint32_t mipHeight = m_desc.GetMipHeight( mip );
++	const uint32_t realMipWidth = GetActualMipExtent( m_desc.GetWidth(), mip );
++	const uint32_t realMipHeight = GetActualMipExtent( m_desc.GetHeight(), mip );
++	const uint32_t mipPitch = m_desc.GetMipPitch( mip );
++	const uint32_t rows = std::max( m_desc.GetMipNumRows( mip ), 1u );
++	const VkDeviceSize sliceSize = (VkDeviceSize)mipPitch * rows;
++	const VkDeviceSize size = sliceSize * arraySize;
++
++	VkBuffer staging = VK_NULL_HANDLE;
++	VmaAllocation stagingAllocation = VK_NULL_HANDLE;
++	void* stagingData = nullptr;
++	CR_RETURN_HR( context->CreateStagingBuffer( size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, staging, stagingAllocation, stagingData ) );
++
++	uint8_t* destinationBytes = (uint8_t*)stagingData;
++	for( uint32_t face = 0; face < arraySize; ++face )
++	{
++		const Tr2SubresourceData& subresource = initialData[face * mipCount + mip];
++		const uint8_t* sourceBytes = (const uint8_t*)subresource.m_sysMem;
++		for( uint32_t row = 0; row < rows; ++row )
++		{
++			memcpy( destinationBytes, sourceBytes + (size_t)row * subresource.m_sysMemPitch, std::min( subresource.m_sysMemPitch, mipPitch ) );
++			destinationBytes += mipPitch;
++		}
++	}
++	vmaFlushAllocation( context->GetAllocator(), stagingAllocation, 0, size );
++
++	// This image can't be a vkCmdCopyBufferToImage target directly: queues
++	// with a (0,0,0) image transfer granularity require such copies to cover
++	// the whole resource, which is impossible once arrayLayers > 1. Instead,
++	// upload all faces into a temporary single-layer image - stacked
++	// vertically in the same face-then-row order as the staging buffer above,
++	// so one copy covers it in full - then blit them out into the real
++	// layers, which isn't subject to that restriction (see GenerateMipMaps).
++	const VkImageAspectFlags aspectMask = GetFormatAspectFlags( m_format ) & ~VK_IMAGE_ASPECT_STENCIL_BIT;
++
++	VkImageCreateInfo tempImageCreateInfo = {};
++	tempImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
++	tempImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
++	tempImageCreateInfo.format = m_format;
++	tempImageCreateInfo.extent = { mipWidth, mipHeight * arraySize, 1 };
++	tempImageCreateInfo.mipLevels = 1;
++	tempImageCreateInfo.arrayLayers = 1;
++	tempImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
++	tempImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
++	tempImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
++	tempImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
++	tempImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
++
++	VmaAllocationCreateInfo tempAllocationCreateInfo = {};
++	tempAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
++
++	VkImage tempImage = VK_NULL_HANDLE;
++	VmaAllocation tempAllocation = VK_NULL_HANDLE;
++	ALResult result = VkResultToALResult( vmaCreateImage( context->GetAllocator(), &tempImageCreateInfo, &tempAllocationCreateInfo, &tempImage, &tempAllocation, nullptr ) );
++
++	if( SUCCEEDED( result ) )
++	{
++		context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
++			VkImageMemoryBarrier barrier = {};
++			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
++			barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
++			barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
++			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			barrier.image = tempImage;
++			barrier.subresourceRange.aspectMask = aspectMask;
++			barrier.subresourceRange.levelCount = 1;
++			barrier.subresourceRange.layerCount = 1;
++			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
++			vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
++
++			VkBufferImageCopy bufferCopy = {};
++			bufferCopy.imageSubresource.aspectMask = aspectMask;
++			bufferCopy.imageSubresource.layerCount = 1;
++			bufferCopy.imageExtent = { mipWidth, mipHeight * arraySize, 1 };
++			vkCmdCopyBufferToImage( commandBuffer, staging, tempImage, VK_IMAGE_LAYOUT_GENERAL, 1, &bufferCopy );
++
++			// The blits below read the same temp image the copy above just
++			// wrote, so a barrier is needed to order them.
++			VkImageMemoryBarrier writeBarrier = {};
++			writeBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
++			writeBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
++			writeBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
++			writeBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			writeBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
++			writeBarrier.image = tempImage;
++			writeBarrier.subresourceRange.aspectMask = aspectMask;
++			writeBarrier.subresourceRange.levelCount = 1;
++			writeBarrier.subresourceRange.layerCount = 1;
++			writeBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
++			writeBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
++			vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &writeBarrier );
++
++			std::vector<VkImageBlit> blits( arraySize );
++			for( uint32_t face = 0; face < arraySize; ++face )
++			{
++				VkImageBlit& blit = blits[face];
++				blit.srcSubresource.aspectMask = aspectMask;
++				blit.srcSubresource.layerCount = 1;
++				blit.srcOffsets[0] = { 0, (int32_t)( face * mipHeight ), 0 };
++				blit.srcOffsets[1] = { (int32_t)realMipWidth, (int32_t)( face * mipHeight + realMipHeight ), 1 };
++				blit.dstSubresource.aspectMask = aspectMask;
++				blit.dstSubresource.mipLevel = mip;
++				blit.dstSubresource.baseArrayLayer = face;
++				blit.dstSubresource.layerCount = 1;
++				blit.dstOffsets[1] = { (int32_t)realMipWidth, (int32_t)realMipHeight, 1 };
++			}
++			vkCmdBlitImage( commandBuffer, tempImage, VK_IMAGE_LAYOUT_GENERAL, m_image, VK_IMAGE_LAYOUT_GENERAL, (uint32_t)blits.size(), blits.data(), VK_FILTER_NEAREST );
++		} );
++	}
++
++	// The recorded commands above still reference these until the frame that
++	// contains them actually submits, so destruction has to be deferred
++	// rather than immediate.
++	if( tempImage != VK_NULL_HANDLE )
++	{
++		context->DestroyImageLater( tempImage, tempAllocation );
++	}
++	context->DestroyBufferLater( staging, stagingAllocation );
++	return result;
 +}
 +
 +ALResult Tr2TextureAL::UploadSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch )
@@ -8703,20 +9197,20 @@ index 00000000..f765ae58
 +	}
 +	vmaFlushAllocation( context->GetAllocator(), stagingAllocation, 0, size );
 +
-+	ALResult result = context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		VkBufferImageCopy copy = {};
 +		copy.imageSubresource.aspectMask = GetFormatAspectFlags( m_format ) & ~VK_IMAGE_ASPECT_STENCIL_BIT;
 +		copy.imageSubresource.mipLevel = mip;
 +		copy.imageSubresource.baseArrayLayer = face;
 +		copy.imageSubresource.layerCount = 1;
-+		copy.imageExtent.width = m_desc.GetMipWidth( mip );
-+		copy.imageExtent.height = m_desc.GetMipHeight( mip );
++		copy.imageExtent.width = GetActualMipExtent( m_desc.GetWidth(), mip );
++		copy.imageExtent.height = GetActualMipExtent( m_desc.GetHeight(), mip );
 +		copy.imageExtent.depth = depth;
 +		vkCmdCopyBufferToImage( commandBuffer, staging, m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &copy );
 +	} );
 +
-+	vmaDestroyBuffer( context->GetAllocator(), staging, stagingAllocation );
-+	return result;
++	context->DestroyBufferLater( staging, stagingAllocation );
++	return S_OK;
 +}
 +
 +VkImageView Tr2TextureAL::GetVkStorageView( uint32_t mip )
@@ -8880,8 +9374,8 @@ index 00000000..f765ae58
 +		copy.imageSubresource.mipLevel = mip;
 +		copy.imageSubresource.baseArrayLayer = region.m_startFace;
 +		copy.imageSubresource.layerCount = 1;
-+		copy.imageExtent.width = m_desc.GetMipWidth( mip );
-+		copy.imageExtent.height = m_desc.GetMipHeight( mip );
++		copy.imageExtent.width = GetActualMipExtent( m_desc.GetWidth(), mip );
++		copy.imageExtent.height = GetActualMipExtent( m_desc.GetHeight(), mip );
 +		copy.imageExtent.depth = 1;
 +		vkCmdCopyImageToBuffer( commandBuffer, m_image, VK_IMAGE_LAYOUT_GENERAL, staging, 1, &copy );
 +	} );
@@ -9009,12 +9503,15 @@ index 00000000..f765ae58
 +	Tr2TextureSubresource src = sourceSubresource;
 +	Tr2TextureSubresource dst = destSubresource;
 +
-+	if( !destSubresource.IsSubresourceFull( m_desc ) || !sourceSubresource.IsSubresourceFull( source.m_desc ) )
++	// Always crop: a default-constructed Tr2TextureSubresource (as Resolve()
++	// passes for a whole-resource copy) reports IsSubresourceFull() == true
++	// while its end-mip/end-face fields are still the unresolved 0xffffffff
++	// sentinel - only Crop()/ClampToTexture() turns those into real counts.
++	// Skipping Crop() for "full" subresources left GetMipCount()/
++	// GetFaceCount() at UINT32_MAX below.
++	if( !Crop( src, source.m_desc, dst, m_desc ) )
 +	{
-+		if( !Crop( src, source.m_desc, dst, m_desc ) )
-+		{
-+			return E_FAIL;
-+		}
++		return E_FAIL;
 +	}
 +
 +	VulkanContext* context = GetVulkanContext();
@@ -9023,7 +9520,7 @@ index 00000000..f765ae58
 +		return E_FAIL;
 +	}
 +
-+	return context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		std::vector<VkImageCopy> regions;
 +		const uint32_t mipCount = std::min( src.GetMipCount(), dst.GetMipCount() );
 +		const uint32_t faceCount = std::min( src.GetFaceCount(), dst.GetFaceCount() );
@@ -9048,14 +9545,81 @@ index 00000000..f765ae58
 +			}
 +			else
 +			{
-+				copy.extent.width = std::min( source.m_desc.GetMipWidth( srcMip ), m_desc.GetMipWidth( dstMip ) );
-+				copy.extent.height = std::min( source.m_desc.GetMipHeight( srcMip ), m_desc.GetMipHeight( dstMip ) );
++				copy.extent.width = std::min( GetActualMipExtent( source.m_desc.GetWidth(), srcMip ), GetActualMipExtent( m_desc.GetWidth(), dstMip ) );
++				copy.extent.height = std::min( GetActualMipExtent( source.m_desc.GetHeight(), srcMip ), GetActualMipExtent( m_desc.GetHeight(), dstMip ) );
 +				copy.extent.depth = std::max( std::min( source.m_desc.GetMipDepth( srcMip ), m_desc.GetMipDepth( dstMip ) ), 1u );
 +			}
 +			regions.push_back( copy );
 +		}
 +		vkCmdCopyImage( commandBuffer, source.m_image, VK_IMAGE_LAYOUT_GENERAL, m_image, VK_IMAGE_LAYOUT_GENERAL, (uint32_t)regions.size(), regions.data() );
 +	} );
++	return S_OK;
++}
++
++ALResult Tr2TextureAL::CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext )
++{
++	(void)startFace;
++	(void)endFace;
++
++	if( !IsValid() || !renderContext.IsValid() )
++	{
++		return E_INVALIDCALL;
++	}
++	if( !HasFlag( m_cpuUsage, Tr2CpuUsage::WRITE ) && !IsWritable( m_gpuUsage ) )
++	{
++		return E_INVALIDCALL;
++	}
++
++	const uint32_t arraySize = m_desc.GetArraySize();
++	for( uint32_t face = 0; face < arraySize; ++face )
++	{
++		if( !sourceFaces[face] || !sourceFaces[face]->IsValid() )
++		{
++			return E_INVALIDARG;
++		}
++	}
++
++	VulkanContext* context = GetVulkanContext();
++	if( !context )
++	{
++		return E_FAIL;
++	}
++
++	// Each face comes from an independently rendered, single-layer 2D
++	// texture, so one blit per source image is unavoidable - but since each
++	// targets a different array layer of this image, there's no hazard
++	// between them, and all faces can go straight into m_image regardless of
++	// the requested [startFace, endFace) range. vkCmdBlitImage is used rather
++	// than vkCmdCopyImage because queues with a (0,0,0) image transfer
++	// granularity reject copies into a single layer of a multi-layer image;
++	// blits aren't subject to that restriction (see also GenerateMipMaps).
++	const uint32_t mipCount = m_desc.GetTrueMipCount();
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
++		for( uint32_t face = 0; face < arraySize; ++face )
++		{
++			Tr2TextureAL& sourceFace = *sourceFaces[face];
++			for( uint32_t mip = 0; mip < mipCount; ++mip )
++			{
++				const int32_t width = (int32_t)m_desc.GetMipWidth( mip );
++				const int32_t height = (int32_t)m_desc.GetMipHeight( mip );
++
++				VkImageBlit blit = {};
++				blit.srcSubresource.aspectMask = GetFormatAspectFlags( sourceFace.m_format );
++				blit.srcSubresource.mipLevel = mip;
++				blit.srcSubresource.baseArrayLayer = 0;
++				blit.srcSubresource.layerCount = 1;
++				blit.srcOffsets[1] = { width, height, 1 };
++				blit.dstSubresource.aspectMask = GetFormatAspectFlags( m_format ) & ~VK_IMAGE_ASPECT_STENCIL_BIT;
++				blit.dstSubresource.mipLevel = mip;
++				blit.dstSubresource.baseArrayLayer = face;
++				blit.dstSubresource.layerCount = 1;
++				blit.dstOffsets[1] = { width, height, 1 };
++				vkCmdBlitImage( commandBuffer, sourceFace.m_image, VK_IMAGE_LAYOUT_GENERAL, m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &blit, VK_FILTER_NEAREST );
++			}
++		}
++	} );
++
++	return S_OK;
 +}
 +
 +ALResult Tr2TextureAL::GenerateMipMaps( Tr2RenderContextAL& )
@@ -9071,7 +9635,7 @@ index 00000000..f765ae58
 +		return E_FAIL;
 +	}
 +
-+	return context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		for( uint32_t mip = 1; mip < m_desc.GetTrueMipCount(); ++mip )
 +		{
 +			VkImageBlit blit = {};
@@ -9092,6 +9656,7 @@ index 00000000..f765ae58
 +			vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr );
 +		}
 +	} );
++	return S_OK;
 +}
 +
 +ALResult Tr2TextureAL::Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext )
@@ -9132,7 +9697,7 @@ index 00000000..f765ae58
 +		return E_FAIL;
 +	}
 +
-+	return context->ImmediateSubmit( [&]( VkCommandBuffer commandBuffer ) {
++	context->RecordCommands( [&]( VkCommandBuffer commandBuffer ) {
 +		VkImageResolve resolve = {};
 +		resolve.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 +		resolve.srcSubresource.layerCount = 1;
@@ -9141,6 +9706,7 @@ index 00000000..f765ae58
 +		resolve.extent = { m_desc.GetWidth(), m_desc.GetHeight(), 1 };
 +		vkCmdResolveImage( commandBuffer, m_image, VK_IMAGE_LAYOUT_GENERAL, destination.m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &resolve );
 +	} );
++	return S_OK;
 +}
 +
 +uintptr_t Tr2TextureAL::GetSharedHandle() const
@@ -9181,10 +9747,10 @@ index 00000000..f765ae58
 +#endif
 diff --git a/trinityal/vulkan/Tr2TextureALVulkan.h b/trinityal/vulkan/Tr2TextureALVulkan.h
 new file mode 100644
-index 00000000..7b089f70
+index 00000000..51c641f5
 --- /dev/null
 +++ b/trinityal/vulkan/Tr2TextureALVulkan.h
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,100 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -9227,6 +9793,7 @@ index 00000000..7b089f70
 +
 +	ALResult UpdateSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch, Tr2RenderContextAL& renderContext );
 +	ALResult CopySubresourceRegion( const Tr2TextureSubresource& destSubresource, Tr2TextureAL& source, const Tr2TextureSubresource& sourceSubresource, Tr2RenderContextAL& renderContext );
++	ALResult CopyCubeFaces( Tr2TextureAL* const* sourceFaces, uint32_t startFace, uint32_t endFace, Tr2RenderContextAL& renderContext );
 +	ALResult GenerateMipMaps( Tr2RenderContextAL& renderContext );
 +	ALResult Resolve( Tr2TextureAL& destination, Tr2RenderContextAL& renderContext );
 +	uintptr_t GetSharedHandle() const;
@@ -9258,6 +9825,7 @@ index 00000000..7b089f70
 +
 +private:
 +	ALResult UploadSubresource( const Tr2TextureSubresource& region, const void* source, uint32_t pitch, uint32_t slicePitch );
++	ALResult UploadSubresourceArray( uint32_t mip, uint32_t arraySize, const Tr2SubresourceData* initialData, uint32_t mipCount );
 +	ALResult CreateViews();
 +	VkImageSubresourceRange GetFullSubresourceRange() const;
 +
@@ -10107,10 +10675,10 @@ index 00000000..47da5b19
 +#endif
 diff --git a/trinityal/vulkan/VulkanContext.cpp b/trinityal/vulkan/VulkanContext.cpp
 new file mode 100644
-index 00000000..db645076
+index 00000000..98e61f9e
 --- /dev/null
 +++ b/trinityal/vulkan/VulkanContext.cpp
-@@ -0,0 +1,1106 @@
+@@ -0,0 +1,1184 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#include "StdAfx.h"
@@ -10288,8 +10856,7 @@ index 00000000..db645076
 +	m_queue( VK_NULL_HANDLE ),
 +	m_queueFamilyIndex( 0 ),
 +	m_allocator( VK_NULL_HANDLE ),
-+	m_commandPool( VK_NULL_HANDLE ),
-+	m_commandBuffer( VK_NULL_HANDLE ),
++	m_frameSlot( 0 ),
 +	m_isRecording( false ),
 +	m_supportsDynamicRendering( false ),
 +	m_vkCmdBeginRendering( nullptr ),
@@ -10300,11 +10867,6 @@ index 00000000..db645076
 +	m_accelerationStructureProperties(),
 +	m_renderingActive( false ),
 +	m_renderingHash( 0 ),
-+	m_descriptorPool( VK_NULL_HANDLE ),
-+	m_transientBuffer( VK_NULL_HANDLE ),
-+	m_transientAllocation( VK_NULL_HANDLE ),
-+	m_transientData( nullptr ),
-+	m_transientOffset( 0 ),
 +	m_dummyBuffer( VK_NULL_HANDLE ),
 +	m_dummyBufferAllocation( VK_NULL_HANDLE ),
 +	m_dummyUniformTexelView( VK_NULL_HANDLE ),
@@ -10364,6 +10926,15 @@ index 00000000..db645076
 +	vkGetPhysicalDeviceProperties( m_physicalDevice, &m_deviceProperties );
 +	vkGetPhysicalDeviceFeatures( m_physicalDevice, &m_deviceFeatures );
 +
++	if( m_deviceProperties.apiVersion < VK_API_VERSION_1_3 )
++	{
++		CCP_AL_LOGERR( "Vulkan device %s only supports Vulkan %u.%u; Trinity requires Vulkan 1.3+",
++			m_deviceProperties.deviceName,
++			VK_API_VERSION_MAJOR( m_deviceProperties.apiVersion ),
++			VK_API_VERSION_MINOR( m_deviceProperties.apiVersion ) );
++		return E_FAIL;
++	}
++
 +	CR_RETURN_HR( SelectQueueFamily() );
 +
 +	float queuePriority = 1.0f;
@@ -10399,15 +10970,6 @@ index 00000000..db645076
 +		hasExtension( VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME ) &&
 +		hasExtension( VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME );
 +
-+	// Below Vulkan 1.3, dynamic rendering is only available as the
-+	// VK_KHR_dynamic_rendering extension rather than a core 1.3 feature.
-+	const bool hasDynamicRenderingExtension = m_deviceProperties.apiVersion < VK_API_VERSION_1_3 &&
-+		hasExtension( VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME );
-+	if( hasDynamicRenderingExtension )
-+	{
-+		extensions.push_back( VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME );
-+	}
-+
 +	VkPhysicalDeviceFeatures enabledFeatures = {};
 +	enabledFeatures.occlusionQueryPrecise = m_deviceFeatures.occlusionQueryPrecise;
 +	enabledFeatures.pipelineStatisticsQuery = m_deviceFeatures.pipelineStatisticsQuery;
@@ -10415,52 +10977,39 @@ index 00000000..db645076
 +	enabledFeatures.fillModeNonSolid = m_deviceFeatures.fillModeNonSolid;
 +	enabledFeatures.independentBlend = m_deviceFeatures.independentBlend;
 +	enabledFeatures.imageCubeArray = m_deviceFeatures.imageCubeArray;
++	enabledFeatures.shaderStorageImageWriteWithoutFormat = m_deviceFeatures.shaderStorageImageWriteWithoutFormat;
++	enabledFeatures.shaderClipDistance = m_deviceFeatures.shaderClipDistance;
++	enabledFeatures.shaderCullDistance = m_deviceFeatures.shaderCullDistance;
++	enabledFeatures.depthClamp = m_deviceFeatures.depthClamp;
 +
-+	// The draw path is built on dynamic rendering (Vulkan 1.3 core); ray
-+	// tracing additionally needs buffer device address (Vulkan 1.2 core) and
-+	// the acceleration structure / ray tracing pipeline extension features.
 +	VkPhysicalDeviceRayTracingPipelineFeaturesKHR supportedRayTracingPipeline = {};
 +	supportedRayTracingPipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 +	VkPhysicalDeviceAccelerationStructureFeaturesKHR supportedAccelerationStructure = {};
 +	supportedAccelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
++	VkPhysicalDeviceVulkan11Features supported11 = {};
++	supported11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
 +	VkPhysicalDeviceVulkan12Features supported12 = {};
 +	supported12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 +	VkPhysicalDeviceVulkan13Features supported13 = {};
 +	supported13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-+	VkPhysicalDeviceDynamicRenderingFeaturesKHR supportedDynamicRenderingExt = {};
-+	supportedDynamicRenderingExt.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
 +	VkPhysicalDeviceFeatures2 supported2 = {};
 +	supported2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 +
-+	// Chain only the structs the device can know about.
 +	auto chainSupported = [&supported2]( auto& features ) {
 +		features.pNext = supported2.pNext;
 +		supported2.pNext = &features;
 +	};
-+	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_3 )
-+	{
-+		chainSupported( supported13 );
-+	}
-+	else if( hasDynamicRenderingExtension )
-+	{
-+		chainSupported( supportedDynamicRenderingExt );
-+	}
-+	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_2 )
-+	{
-+		chainSupported( supported12 );
-+	}
++	chainSupported( supported13 );
++	chainSupported( supported12 );
++	chainSupported( supported11 );
 +	if( hasRayTracingExtensions )
 +	{
 +		chainSupported( supportedAccelerationStructure );
 +		chainSupported( supportedRayTracingPipeline );
 +	}
-+	if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_1 )
-+	{
-+		vkGetPhysicalDeviceFeatures2( m_physicalDevice, &supported2 );
-+	}
++	vkGetPhysicalDeviceFeatures2( m_physicalDevice, &supported2 );
 +
-+	m_supportsDynamicRendering = supported13.dynamicRendering == VK_TRUE ||
-+		supportedDynamicRenderingExt.dynamicRendering == VK_TRUE;
++	m_supportsDynamicRendering = supported13.dynamicRendering == VK_TRUE;
 +	if( !m_supportsDynamicRendering )
 +	{
 +		CCP_AL_LOGWARN( "Vulkan device does not support dynamic rendering; draws will fail" );
@@ -10470,13 +11019,39 @@ index 00000000..db645076
 +		supportedAccelerationStructure.accelerationStructure == VK_TRUE &&
 +		supportedRayTracingPipeline.rayTracingPipeline == VK_TRUE;
 +
++	m_supportsVulkanMemoryModel = supported12.vulkanMemoryModel == VK_TRUE;
++	if( !m_supportsVulkanMemoryModel )
++	{
++		CCP_AL_LOGWARN( "Vulkan device does not support the Vulkan memory model; transcoded SPIR-V shaders will fail to load" );
++	}
++
++	m_supportsMaintenance4 = supported13.maintenance4 == VK_TRUE;
++	if( !m_supportsMaintenance4 )
++	{
++		CCP_AL_LOGWARN( "Vulkan device does not support maintenance4; transcoded shader pipelines with mismatched stage interfaces will fail to create" );
++	}
++
++	m_supportsShaderDemoteToHelperInvocation = supported13.shaderDemoteToHelperInvocation == VK_TRUE;
++	if( !m_supportsShaderDemoteToHelperInvocation )
++	{
++		CCP_AL_LOGWARN( "Vulkan device does not support shaderDemoteToHelperInvocation; transcoded shader pipelines using demote will fail to create" );
++	}
++
++	m_supportsShaderDrawParameters = supported11.shaderDrawParameters == VK_TRUE;
++	if( !m_supportsShaderDrawParameters )
++	{
++		CCP_AL_LOGWARN( "Vulkan device does not support shaderDrawParameters; transcoded shader pipelines using SV_VertexID/SV_InstanceID will fail to create" );
++	}
++
 +	VkPhysicalDeviceVulkan13Features enabled13 = {};
 +	enabled13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 +	enabled13.dynamicRendering = VK_TRUE;
++	enabled13.maintenance4 = supported13.maintenance4;
++	enabled13.shaderDemoteToHelperInvocation = supported13.shaderDemoteToHelperInvocation;
 +
-+	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabledDynamicRenderingExt = {};
-+	enabledDynamicRenderingExt.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
-+	enabledDynamicRenderingExt.dynamicRendering = VK_TRUE;
++	VkPhysicalDeviceVulkan11Features enabled11 = {};
++	enabled11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
++	enabled11.shaderDrawParameters = supported11.shaderDrawParameters;
 +
 +	VkPhysicalDeviceVulkan12Features enabled12 = {};
 +	enabled12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -10494,25 +11069,21 @@ index 00000000..db645076
 +	};
 +	if( m_supportsDynamicRendering )
 +	{
-+		if( m_deviceProperties.apiVersion >= VK_API_VERSION_1_3 )
-+		{
-+			chainEnabled( enabled13 );
-+		}
-+		else
-+		{
-+			chainEnabled( enabledDynamicRenderingExt );
-+		}
++		chainEnabled( enabled13 );
 +	}
++
++	enabled12.vulkanMemoryModel = m_supportsVulkanMemoryModel ? VK_TRUE : VK_FALSE;
++	enabled12.bufferDeviceAddress = supported12.bufferDeviceAddress;
++	chainEnabled( enabled12 );
++	chainEnabled( enabled11 );
 +	if( m_supportsRayTracing )
 +	{
 +		extensions.push_back( VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME );
 +		extensions.push_back( VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME );
 +		extensions.push_back( VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME );
 +
-+		enabled12.bufferDeviceAddress = VK_TRUE;
 +		enabledAccelerationStructure.accelerationStructure = VK_TRUE;
 +		enabledRayTracingPipeline.rayTracingPipeline = VK_TRUE;
-+		chainEnabled( enabled12 );
 +		chainEnabled( enabledAccelerationStructure );
 +		chainEnabled( enabledRayTracingPipeline );
 +	}
@@ -10529,19 +11100,8 @@ index 00000000..db645076
 +
 +	if( m_supportsDynamicRendering )
 +	{
-+		// The KHR-suffixed entry points are guaranteed to resolve whether the
-+		// driver advertises the core 1.3 feature or only the extension; the
-+		// unsuffixed core names are not guaranteed to be exported otherwise.
-+		m_vkCmdBeginRendering = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdBeginRenderingKHR" );
-+		m_vkCmdEndRendering = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdEndRenderingKHR" );
-+		if( !m_vkCmdBeginRendering )
-+		{
-+			m_vkCmdBeginRendering = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdBeginRendering" );
-+		}
-+		if( !m_vkCmdEndRendering )
-+		{
-+			m_vkCmdEndRendering = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdEndRendering" );
-+		}
++		m_vkCmdBeginRendering = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdBeginRendering" );
++		m_vkCmdEndRendering = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr( m_device, "vkCmdEndRendering" );
 +	}
 +
 +	if( m_supportsRayTracing )
@@ -10592,27 +11152,39 @@ index 00000000..db645076
 +	}
 +	VK_CR_RETURN_HR( vmaCreateAllocator( &allocatorCreateInfo, &m_allocator ) );
 +
-+	VkCommandPoolCreateInfo poolCreateInfo = {};
-+	poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-+	poolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-+	poolCreateInfo.queueFamilyIndex = m_queueFamilyIndex;
-+	VK_CR_RETURN_HR( vkCreateCommandPool( m_device, &poolCreateInfo, nullptr, &m_commandPool ) );
++	for( uint32_t slot = 0; slot < kFramesInFlight; ++slot )
++	{
++		FrameData& frame = m_frames[slot];
 +
-+	VkCommandBufferAllocateInfo allocateInfo = {};
-+	allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-+	allocateInfo.commandPool = m_commandPool;
-+	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-+	allocateInfo.commandBufferCount = 1;
-+	VK_CR_RETURN_HR( vkAllocateCommandBuffers( m_device, &allocateInfo, &m_commandBuffer ) );
++		VkCommandPoolCreateInfo poolCreateInfo = {};
++		poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
++		poolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
++		poolCreateInfo.queueFamilyIndex = m_queueFamilyIndex;
++		VK_CR_RETURN_HR( vkCreateCommandPool( m_device, &poolCreateInfo, nullptr, &frame.commandPool ) );
 +
-+	CR_RETURN_HR( CreateDescriptorPool() );
-+	CR_RETURN_HR( CreateTransientBuffer() );
++		VkCommandBufferAllocateInfo allocateInfo = {};
++		allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
++		allocateInfo.commandPool = frame.commandPool;
++		allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
++		allocateInfo.commandBufferCount = 1;
++		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
++		VK_CR_RETURN_HR( vkAllocateCommandBuffers( m_device, &allocateInfo, &commandBuffer ) );
++		frame.commandBuffers.push_back( commandBuffer );
++		frame.activeCommandBufferIndex = 0;
++
++		VkFenceCreateInfo fenceCreateInfo = {};
++		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
++		VK_CR_RETURN_HR( vkCreateFence( m_device, &fenceCreateInfo, nullptr, &frame.fence ) );
++
++		CR_RETURN_HR( CreateDescriptorPool( frame.descriptorPool ) );
++		CR_RETURN_HR( CreateTransientBuffer( frame.transientBuffer, frame.transientAllocation, frame.transientData ) );
++	}
 +
 +	CCP_AL_LOGNOTICE( "Created Vulkan device on adapter %u: %s", adapterIndex, m_deviceProperties.deviceName );
 +	return S_OK;
 +}
 +
-+ALResult VulkanContext::CreateDescriptorPool()
++ALResult VulkanContext::CreateDescriptorPool( VkDescriptorPool& descriptorPool )
 +{
 +	std::vector<VkDescriptorPoolSize> poolSizes = {
 +		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16384 },
@@ -10633,11 +11205,11 @@ index 00000000..db645076
 +	poolCreateInfo.maxSets = 8192;
 +	poolCreateInfo.poolSizeCount = (uint32_t)poolSizes.size();
 +	poolCreateInfo.pPoolSizes = poolSizes.data();
-+	VK_CR_RETURN_HR( vkCreateDescriptorPool( m_device, &poolCreateInfo, nullptr, &m_descriptorPool ) );
++	VK_CR_RETURN_HR( vkCreateDescriptorPool( m_device, &poolCreateInfo, nullptr, &descriptorPool ) );
 +	return S_OK;
 +}
 +
-+ALResult VulkanContext::CreateTransientBuffer()
++ALResult VulkanContext::CreateTransientBuffer( VkBuffer& buffer, VmaAllocation& allocation, void*& data )
 +{
 +	const VkDeviceSize TRANSIENT_BUFFER_SIZE = 16 * 1024 * 1024;
 +
@@ -10652,9 +11224,8 @@ index 00000000..db645076
 +	allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 +
 +	VmaAllocationInfo allocationInfo = {};
-+	VK_CR_RETURN_HR( vmaCreateBuffer( m_allocator, &bufferCreateInfo, &allocationCreateInfo, &m_transientBuffer, &m_transientAllocation, &allocationInfo ) );
-+	m_transientData = allocationInfo.pMappedData;
-+	m_transientOffset = 0;
++	VK_CR_RETURN_HR( vmaCreateBuffer( m_allocator, &bufferCreateInfo, &allocationCreateInfo, &buffer, &allocation, &allocationInfo ) );
++	data = allocationInfo.pMappedData;
 +	return S_OK;
 +}
 +
@@ -10675,25 +11246,39 @@ index 00000000..db645076
 +	}
 +	m_pipelineCache.clear();
 +
-+	if( m_transientBuffer != VK_NULL_HANDLE )
++	// The wait above guarantees every slot's submissions have retired, so
++	// there's no need to wait on individual fences here.
++	for( FrameData& frame : m_frames )
 +	{
-+		vmaDestroyBuffer( m_allocator, m_transientBuffer, m_transientAllocation );
-+		m_transientBuffer = VK_NULL_HANDLE;
-+		m_transientAllocation = VK_NULL_HANDLE;
-+		m_transientData = nullptr;
-+		m_transientOffset = 0;
++		if( frame.transientBuffer != VK_NULL_HANDLE )
++		{
++			vmaDestroyBuffer( m_allocator, frame.transientBuffer, frame.transientAllocation );
++			frame.transientBuffer = VK_NULL_HANDLE;
++			frame.transientAllocation = VK_NULL_HANDLE;
++			frame.transientData = nullptr;
++			frame.transientOffset = 0;
++		}
++		if( frame.descriptorPool != VK_NULL_HANDLE )
++		{
++			vkDestroyDescriptorPool( m_device, frame.descriptorPool, nullptr );
++			frame.descriptorPool = VK_NULL_HANDLE;
++		}
++		if( frame.fence != VK_NULL_HANDLE )
++		{
++			vkDestroyFence( m_device, frame.fence, nullptr );
++			frame.fence = VK_NULL_HANDLE;
++		}
++		if( frame.commandPool != VK_NULL_HANDLE )
++		{
++			vkDestroyCommandPool( m_device, frame.commandPool, nullptr );
++			frame.commandPool = VK_NULL_HANDLE;
++			frame.commandBuffers.clear();
++			frame.activeCommandBufferIndex = 0;
++		}
++		frame.hasSubmittedWork = false;
++		frame.frameNumber = 0;
 +	}
-+	if( m_descriptorPool != VK_NULL_HANDLE )
-+	{
-+		vkDestroyDescriptorPool( m_device, m_descriptorPool, nullptr );
-+		m_descriptorPool = VK_NULL_HANDLE;
-+	}
-+	if( m_commandPool != VK_NULL_HANDLE )
-+	{
-+		vkDestroyCommandPool( m_device, m_commandPool, nullptr );
-+		m_commandPool = VK_NULL_HANDLE;
-+		m_commandBuffer = VK_NULL_HANDLE;
-+	}
++	m_frameSlot = 0;
 +	if( m_allocator != VK_NULL_HANDLE )
 +	{
 +		vmaDestroyAllocator( m_allocator );
@@ -10710,23 +11295,24 @@ index 00000000..db645076
 +
 +VkCommandBuffer VulkanContext::GetCommandBuffer()
 +{
++	FrameData& frame = CurrentFrame();
 +	if( !m_isRecording )
 +	{
 +		VkCommandBufferBeginInfo beginInfo = {};
 +		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 +		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-+		vkBeginCommandBuffer( m_commandBuffer, &beginInfo );
++		vkBeginCommandBuffer( frame.ActiveCommandBuffer(), &beginInfo );
 +		m_isRecording = true;
 +	}
 +	EndRenderingScope();
-+	return m_commandBuffer;
++	return frame.ActiveCommandBuffer();
 +}
 +
 +VkCommandBuffer VulkanContext::BeginRenderingScope( const VkRenderingInfo& renderingInfo, uint64_t hash )
 +{
 +	if( m_renderingActive && m_renderingHash == hash )
 +	{
-+		return m_commandBuffer;
++		return CurrentFrame().ActiveCommandBuffer();
 +	}
 +
 +	// GetCommandBuffer ends any previous scope and emits the barrier that
@@ -10751,7 +11337,8 @@ index 00000000..db645076
 +	{
 +		return;
 +	}
-+	m_vkCmdEndRendering( m_commandBuffer );
++	VkCommandBuffer commandBuffer = CurrentFrame().ActiveCommandBuffer();
++	m_vkCmdEndRendering( commandBuffer );
 +	m_renderingActive = false;
 +	m_renderingHash = 0;
 +
@@ -10761,14 +11348,14 @@ index 00000000..db645076
 +	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 +	barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
 +	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-+	vkCmdPipelineBarrier( m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr );
++	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr );
 +}
 +
 +VkDescriptorSet VulkanContext::AllocateDescriptorSet( VkDescriptorSetLayout layout )
 +{
 +	VkDescriptorSetAllocateInfo allocateInfo = {};
 +	allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-+	allocateInfo.descriptorPool = m_descriptorPool;
++	allocateInfo.descriptorPool = CurrentFrame().descriptorPool;
 +	allocateInfo.descriptorSetCount = 1;
 +	allocateInfo.pSetLayouts = &layout;
 +
@@ -10776,12 +11363,13 @@ index 00000000..db645076
 +	VkResult result = vkAllocateDescriptorSets( m_device, &allocateInfo, &descriptorSet );
 +	if( result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL )
 +	{
-+		// Safe to recycle: submissions currently wait for completion.
++		// Safe to recycle: FlushAndWait blocks until every in-flight
++		// submission (across all frame slots) has completed.
 +		if( FAILED( FlushAndWait() ) )
 +		{
 +			return VK_NULL_HANDLE;
 +		}
-+		vkResetDescriptorPool( m_device, m_descriptorPool, 0 );
++		vkResetDescriptorPool( m_device, CurrentFrame().descriptorPool, 0 );
 +		result = vkAllocateDescriptorSets( m_device, &allocateInfo, &descriptorSet );
 +	}
 +	return result == VK_SUCCESS ? descriptorSet : VK_NULL_HANDLE;
@@ -10789,10 +11377,11 @@ index 00000000..db645076
 +
 +ALResult VulkanContext::AllocateTransientData( VkDeviceSize size, VkDeviceSize alignment, VkBuffer& buffer, VkDeviceSize& offset, void*& data )
 +{
-+	VkDeviceSize alignedOffset = ( m_transientOffset + alignment - 1 ) & ~( alignment - 1 );
++	FrameData& frame = CurrentFrame();
++	VkDeviceSize alignedOffset = ( frame.transientOffset + alignment - 1 ) & ~( alignment - 1 );
 +
 +	VmaAllocationInfo allocationInfo = {};
-+	vmaGetAllocationInfo( m_allocator, m_transientAllocation, &allocationInfo );
++	vmaGetAllocationInfo( m_allocator, frame.transientAllocation, &allocationInfo );
 +	if( alignedOffset + size > allocationInfo.size )
 +	{
 +		if( size > allocationInfo.size )
@@ -10801,14 +11390,14 @@ index 00000000..db645076
 +		}
 +		// Wrap around; the flush guarantees the GPU is done with earlier data.
 +		CR_RETURN_HR( FlushAndWait() );
-+		m_transientOffset = 0;
++		frame.transientOffset = 0;
 +		alignedOffset = 0;
 +	}
 +
-+	buffer = m_transientBuffer;
++	buffer = frame.transientBuffer;
 +	offset = alignedOffset;
-+	data = (uint8_t*)m_transientData + alignedOffset;
-+	m_transientOffset = alignedOffset + size;
++	data = (uint8_t*)frame.transientData + alignedOffset;
++	frame.transientOffset = alignedOffset + size;
 +	return S_OK;
 +}
 +
@@ -11033,37 +11622,69 @@ index 00000000..db645076
 +	}
 +}
 +
-+ALResult VulkanContext::Flush( VkFence signalFence )
++ALResult VulkanContext::Flush( VkFence signalFence, VkSemaphore waitSemaphore, VkPipelineStageFlags waitStageMask, VkSemaphore signalSemaphore )
 +{
 +	EndRenderingScope();
 +
++	FrameData& frame = CurrentFrame();
++
 +	// Make CPU writes to the transient ring (UP draws, ONE_SHOT constant
 +	// snapshots) visible to the GPU; a no-op on coherent memory.
-+	if( m_transientAllocation != VK_NULL_HANDLE && m_transientOffset > 0 )
++	if( frame.transientAllocation != VK_NULL_HANDLE && frame.transientOffset > 0 )
 +	{
-+		vmaFlushAllocation( m_allocator, m_transientAllocation, 0, m_transientOffset );
++		vmaFlushAllocation( m_allocator, frame.transientAllocation, 0, frame.transientOffset );
 +	}
 +
 +	std::lock_guard<std::mutex> lock( m_submitMutex );
 +
 +	VkSubmitInfo submitInfo = {};
 +	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
++	if( waitSemaphore != VK_NULL_HANDLE )
++	{
++		submitInfo.waitSemaphoreCount = 1;
++		submitInfo.pWaitSemaphores = &waitSemaphore;
++		submitInfo.pWaitDstStageMask = &waitStageMask;
++	}
++	if( signalSemaphore != VK_NULL_HANDLE )
++	{
++		submitInfo.signalSemaphoreCount = 1;
++		submitInfo.pSignalSemaphores = &signalSemaphore;
++	}
 +
 +	if( m_isRecording )
 +	{
-+		VK_CR_RETURN_HR( vkEndCommandBuffer( m_commandBuffer ) );
++		VkCommandBuffer submittedBuffer = frame.ActiveCommandBuffer();
++		VK_CR_RETURN_HR( vkEndCommandBuffer( submittedBuffer ) );
 +		m_isRecording = false;
 +		submitInfo.commandBufferCount = 1;
-+		submitInfo.pCommandBuffers = &m_commandBuffer;
++		submitInfo.pCommandBuffers = &submittedBuffer;
 +		VK_CR_RETURN_HR( vkQueueSubmit( m_queue, 1, &submitInfo, signalFence ) );
-+		// Bring-up simplification: wait for the work before reusing the single
-+		// command buffer. Replace with a per-frame command buffer ring once the
-+		// draw path lands.
-+		VK_CR_RETURN_HR( vkQueueWaitIdle( m_queue ) );
++
++		// submittedBuffer is now pending on the GPU; vkBeginCommandBuffer on a
++		// pending buffer is invalid, so any further recording into this frame
++		// slot (this can be a mid-frame Flush(), e.g. PutFence/occlusion
++		// query readback/swap chain present) must use a different buffer.
++		// Advance to the next one, allocating it the first time this frame
++		// slot needs more than one; all of them get reset together by
++		// vkResetCommandPool once this slot's final fence has been waited on.
++		++frame.activeCommandBufferIndex;
++		if( frame.activeCommandBufferIndex == frame.commandBuffers.size() )
++		{
++			VkCommandBufferAllocateInfo allocateInfo = {};
++			allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
++			allocateInfo.commandPool = frame.commandPool;
++			allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
++			allocateInfo.commandBufferCount = 1;
++			VkCommandBuffer newBuffer = VK_NULL_HANDLE;
++			VK_CR_RETURN_HR( vkAllocateCommandBuffers( m_device, &allocateInfo, &newBuffer ) );
++			frame.commandBuffers.push_back( newBuffer );
++		}
 +	}
-+	else if( signalFence != VK_NULL_HANDLE )
++	else if( signalFence != VK_NULL_HANDLE || waitSemaphore != VK_NULL_HANDLE || signalSemaphore != VK_NULL_HANDLE )
 +	{
-+		VK_CR_RETURN_HR( vkQueueSubmit( m_queue, 0, nullptr, signalFence ) );
++		// Nothing recorded, but a fence/semaphore was given - submit an empty
++		// batch so it still gets signaled/consumed.
++		VK_CR_RETURN_HR( vkQueueSubmit( m_queue, 1, &submitInfo, signalFence ) );
 +	}
 +
 +	return S_OK;
@@ -11076,10 +11697,16 @@ index 00000000..db645076
 +	return S_OK;
 +}
 +
++void VulkanContext::RecordCommands( const std::function<void( VkCommandBuffer )>& record )
++{
++	record( GetCommandBuffer() );
++}
++
 +ALResult VulkanContext::ImmediateSubmit( const std::function<void( VkCommandBuffer )>& record )
 +{
-+	// Uploads and readbacks share the frame command buffer so they are ordered
-+	// with any commands already recorded, then everything is flushed.
++	// Readbacks share the frame command buffer so they are ordered with any
++	// commands already recorded, then everything is flushed and waited on so
++	// the result is visible to the CPU when this call returns.
 +	record( GetCommandBuffer() );
 +	return FlushAndWait();
 +}
@@ -11188,19 +11815,38 @@ index 00000000..db645076
 +
 +ALResult VulkanContext::EndFrame()
 +{
-+	CR_RETURN_HR( Flush() );
-+	// Flush() currently waits for the queue, so everything submitted for this
-+	// frame has rendered by the time the counters advance.
-+	m_renderedFrameNumber = m_recordingFrameNumber;
-+	++m_recordingFrameNumber;
-+	FlushPendingDestroys( false );
++	FrameData& outgoing = CurrentFrame();
++	CR_RETURN_HR( Flush( outgoing.fence ) );
++	outgoing.frameNumber = m_recordingFrameNumber;
++	outgoing.hasSubmittedWork = true;
 +
-+	// The frame's descriptor sets and transient data are no longer in use.
-+	if( m_descriptorPool != VK_NULL_HANDLE )
++	++m_recordingFrameNumber;
++	m_frameSlot = ( m_frameSlot + 1 ) % kFramesInFlight;
++
++	// Reusing the next slot's command pool/descriptor pool/transient buffer
++	// requires its previous submission (kFramesInFlight frames ago) to have
++	// actually retired - this is the only point where EndFrame can block,
++	// and only once the CPU has run more than (kFramesInFlight - 1) frames
++	// ahead of the GPU. A single queue retires submissions in submission
++	// order, so waiting on this slot's last fence also covers any earlier,
++	// unfenced submits made into it this frame (e.g. the swap chain's
++	// present blit).
++	FrameData& incoming = CurrentFrame();
++	if( incoming.hasSubmittedWork )
 +	{
-+		vkResetDescriptorPool( m_device, m_descriptorPool, 0 );
++		VK_CR_RETURN_HR( vkWaitForFences( m_device, 1, &incoming.fence, VK_TRUE, UINT64_MAX ) );
++		VK_CR_RETURN_HR( vkResetFences( m_device, 1, &incoming.fence ) );
++		m_renderedFrameNumber = incoming.frameNumber;
++		FlushPendingDestroys( false );
 +	}
-+	m_transientOffset = 0;
++
++	VK_CR_RETURN_HR( vkResetCommandPool( m_device, incoming.commandPool, 0 ) );
++	incoming.activeCommandBufferIndex = 0;
++	if( incoming.descriptorPool != VK_NULL_HANDLE )
++	{
++		vkResetDescriptorPool( m_device, incoming.descriptorPool, 0 );
++	}
++	incoming.transientOffset = 0;
 +	return S_OK;
 +}
 +
@@ -11219,10 +11865,10 @@ index 00000000..db645076
 +#endif
 diff --git a/trinityal/vulkan/VulkanContext.h b/trinityal/vulkan/VulkanContext.h
 new file mode 100644
-index 00000000..45970648
+index 00000000..15898a50
 --- /dev/null
 +++ b/trinityal/vulkan/VulkanContext.h
-@@ -0,0 +1,319 @@
+@@ -0,0 +1,390 @@
 +// Copyright © 2026 CCP ehf.
 +
 +#pragma once
@@ -11290,6 +11936,12 @@ index 00000000..45970648
 +  vkGetDeviceProcAddr when the device is created. Only valid when the owning
 +  context's SupportsRayTracing() returns true.
 + */
++// Number of frames the CPU is allowed to record/submit ahead of the GPU.
++// EndFrame() only blocks when the CPU tries to reuse a slot whose previous
++// submission hasn't retired yet, i.e. when it's more than
++// (kFramesInFlight - 1) frames ahead.
++constexpr uint32_t kFramesInFlight = 2;
++
 +struct VulkanRayTracingFunctions
 +{
 +	PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
@@ -11417,16 +12069,32 @@ index 00000000..45970648
 +	VkPipeline GetCachedPipeline( uint64_t hash );
 +	VkPipeline AddPipelineToCache( uint64_t hash, VkPipeline pipeline );
 +
-+	// Submits the command buffer currently being recorded (if any).
-+	// The optional fence is signaled by the submission; if there is nothing
-+	// to submit, an empty submission is made so the fence still signals.
-+	ALResult Flush( VkFence signalFence = VK_NULL_HANDLE );
++	// Submits the command buffer currently being recorded (if any) and
++	// returns without waiting for it to complete. The optional fence is
++	// signaled by the submission; the optional semaphore pair lets a caller
++	// (the swap chain) order this submission against a swapchain image
++	// acquire/present without a CPU-side wait in between. If there is
++	// nothing to submit but a fence or semaphore was given, an empty
++	// submission is made so they still get signaled/consumed.
++	ALResult Flush( VkFence signalFence = VK_NULL_HANDLE,
++		VkSemaphore waitSemaphore = VK_NULL_HANDLE, VkPipelineStageFlags waitStageMask = 0,
++		VkSemaphore signalSemaphore = VK_NULL_HANDLE );
 +
 +	// Submits pending work and blocks until the GPU has finished all of it.
 +	ALResult FlushAndWait();
 +
-+	// Records commands into a one-shot command buffer and waits for completion.
-+	// Used for resource uploads and readbacks outside the frame stream.
++	// Records commands into the current frame's command buffer without
++	// submitting or waiting; they're ordered with the rest of the frame and
++	// become visible once the frame is normally submitted (EndFrame). Use
++	// this for GPU-only work (uploads, copies, blits) - callers must defer
++	// destruction of any resource the recording still references (e.g. via
++	// DestroyBufferLater) rather than destroying it immediately after.
++	void RecordCommands( const std::function<void( VkCommandBuffer )>& record );
++
++	// Records commands into a one-shot command buffer and blocks until they
++	// complete. Reserved for CPU-observed readbacks (mapping GPU results back
++	// to host memory) - anything that doesn't need the result immediately
++	// should use RecordCommands instead to avoid stalling the GPU pipeline.
 +	ALResult ImmediateSubmit( const std::function<void( VkCommandBuffer )>& record );
 +
 +	// Creates a host-visible staging buffer. The caller owns the result and
@@ -11452,9 +12120,19 @@ index 00000000..45970648
 +		return m_renderedFrameNumber;
 +	}
 +
-+	// Ends the current frame: submits outstanding work and advances the frame
-+	// counters. Called from Tr2RenderContextAL::Present().
++	// Ends the current frame: submits outstanding work (without waiting for
++	// it) and advances the frame-in-flight ring. Called from
++	// Tr2RenderContextAL::Present().
 +	ALResult EndFrame();
++
++	// Index of the frame-in-flight slot currently being recorded into
++	// [0, kFramesInFlight). Exposed so the swap chain can size/index
++	// per-slot resources (e.g. acquire semaphores) that must not be reused
++	// until this slot's previous submission has retired.
++	uint32_t GetFrameSlot() const
++	{
++		return m_frameSlot;
++	}
 +
 +	double GetTimestampPeriod() const
 +	{
@@ -11466,9 +12144,48 @@ index 00000000..45970648
 +
 +private:
 +	ALResult SelectQueueFamily();
-+	ALResult CreateDescriptorPool();
-+	ALResult CreateTransientBuffer();
++	ALResult CreateDescriptorPool( VkDescriptorPool& descriptorPool );
++	ALResult CreateTransientBuffer( VkBuffer& buffer, VmaAllocation& allocation, void*& data );
 +	void DestroyDummyResources();
++
++	// Per-frame-in-flight resources: the command pool/buffer being recorded
++	// into, the fence that reports when the GPU has finished that slot's
++	// last submission, and the descriptor pool / transient buffer that live
++	// only as long as that submission is in flight.
++	struct FrameData
++	{
++		VkCommandPool commandPool = VK_NULL_HANDLE;
++		// All command buffers ever allocated from commandPool for this slot.
++		// A mid-frame Flush() submits whichever one is active and then moves
++		// on to the next (allocating one if none is spare yet) rather than
++		// reusing the just-submitted buffer, since it becomes pending on the
++		// GPU and vkBeginCommandBuffer on a pending buffer is invalid. They
++		// are all implicitly reset together by vkResetCommandPool once this
++		// slot's final fence has been waited on.
++		std::vector<VkCommandBuffer> commandBuffers;
++		size_t activeCommandBufferIndex = 0;
++		VkCommandBuffer ActiveCommandBuffer() const
++		{
++			return commandBuffers[activeCommandBufferIndex];
++		}
++		VkFence fence = VK_NULL_HANDLE;
++		// False until this slot has been submitted to once; guards the
++		// first kFramesInFlight EndFrame() calls from waiting on a fence
++		// that was never submitted with.
++		bool hasSubmittedWork = false;
++		uint64_t frameNumber = 0;
++
++		VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
++
++		VkBuffer transientBuffer = VK_NULL_HANDLE;
++		VmaAllocation transientAllocation = VK_NULL_HANDLE;
++		void* transientData = nullptr;
++		VkDeviceSize transientOffset = 0;
++	};
++	FrameData& CurrentFrame()
++	{
++		return m_frames[m_frameSlot];
++	}
 +
 +	VkPhysicalDevice m_physicalDevice;
 +	VkPhysicalDeviceProperties m_deviceProperties;
@@ -11478,8 +12195,11 @@ index 00000000..45970648
 +	uint32_t m_queueFamilyIndex;
 +	VmaAllocator m_allocator;
 +
-+	VkCommandPool m_commandPool;
-+	VkCommandBuffer m_commandBuffer;
++	FrameData m_frames[kFramesInFlight];
++	uint32_t m_frameSlot;
++	// Recording state of the current slot's command buffer; well-defined
++	// because a slot is always fully ended (Flush()) before m_frameSlot
++	// advances to the next one.
 +	bool m_isRecording;
 +	bool m_supportsDynamicRendering;
 +	// Resolved explicitly via vkGetDeviceProcAddr: on devices below Vulkan 1.3
@@ -11488,19 +12208,16 @@ index 00000000..45970648
 +	PFN_vkCmdBeginRenderingKHR m_vkCmdBeginRendering;
 +	PFN_vkCmdEndRenderingKHR m_vkCmdEndRendering;
 +	bool m_supportsRayTracing;
++	bool m_supportsVulkanMemoryModel;
++	bool m_supportsMaintenance4;
++	bool m_supportsShaderDemoteToHelperInvocation;
++	bool m_supportsShaderDrawParameters;
 +	VulkanRayTracingFunctions m_rayTracingFunctions;
 +	VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rayTracingProperties;
 +	VkPhysicalDeviceAccelerationStructurePropertiesKHR m_accelerationStructureProperties;
 +
 +	bool m_renderingActive;
 +	uint64_t m_renderingHash;
-+
-+	VkDescriptorPool m_descriptorPool;
-+
-+	VkBuffer m_transientBuffer;
-+	VmaAllocation m_transientAllocation;
-+	void* m_transientData;
-+	VkDeviceSize m_transientOffset;
 +
 +	VkBuffer m_dummyBuffer;
 +	VmaAllocation m_dummyBufferAllocation;
